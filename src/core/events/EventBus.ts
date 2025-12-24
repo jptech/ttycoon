@@ -33,8 +33,9 @@ class EventBusClass {
   on<K extends keyof Events>(
     event: K,
     handler: (payload: Events[K]) => void
-  ): void {
+  ): () => void {
     this.emitter.on(event, handler)
+    return () => this.emitter.off(event, handler)
   }
 
   /**

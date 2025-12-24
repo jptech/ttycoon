@@ -6,11 +6,36 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+bun-debug.log*
 
+# Dependencies
 node_modules
+.pnp
+.pnp.js
+
+# Build outputs
 dist
 dist-ssr
+build
 *.local
+
+# Testing
+coverage
+.nyc_output
+playwright-report
+test-results
+.vitest
+
+# Caching
+.vite
+.bun
+.next
+.nuxt
+
+# Environment
+.env
+.env.local
+.env.*.local
 
 # Editor directories and files
 .vscode/*
@@ -22,3 +47,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# OS
+Thumbs.db
+.AppleDouble
+.LSOverride

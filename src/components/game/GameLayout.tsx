@@ -4,6 +4,7 @@ import { HUD } from './HUD'
 import type { ActiveSessionInfo } from './HUD'
 import { SettingsModal } from './SettingsModal'
 import { HelpModal } from './HelpModal'
+import { CheatModal } from './CheatModal'
 import { ToastContainer, Toast } from '@/components/ui'
 
 export interface GameLayoutProps {
@@ -48,6 +49,10 @@ export function GameLayout({ children, sidePanel, onSpeedChange, onSkip, onNewGa
     closeModal()
   }, [closeModal])
 
+  const skipEnabled = useMemo(() => {
+    return !sessions.some((s) => s.status === 'in_progress')
+  }, [sessions])
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* HUD */}
@@ -63,6 +68,7 @@ export function GameLayout({ children, sidePanel, onSpeedChange, onSkip, onNewGa
         activeSession={activeSession}
         onSpeedChange={onSpeedChange}
         onSkip={onSkip}
+        skipEnabled={skipEnabled}
         onSettingsClick={() => openModal('settings')}
         onHelpClick={() => openModal('help')}
       />
@@ -96,6 +102,12 @@ export function GameLayout({ children, sidePanel, onSpeedChange, onSkip, onNewGa
         open={activeModal?.type === 'settings'}
         onClose={handleCloseModal}
         onNewGame={onNewGame ?? (() => {})}
+      />
+
+      {/* Cheat Modal */}
+      <CheatModal
+        open={activeModal?.type === 'cheats'}
+        onClose={handleCloseModal}
       />
 
       {/* Help Modal */}

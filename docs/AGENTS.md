@@ -33,8 +33,12 @@ tt2/
 │   │   ├── panels/              # 11+ modal panels
 │   │   └── shared/              # Reusable components
 │   │
-│   ├── game/                    # PixiJS rendering layer
+│   ├── game/                    # PixiJS rendering layer (OfficeCanvas)
 │   ├── hooks/                   # Custom React hooks
+│   │   ├── useGameLoop.ts       # Main game loop
+│   │   ├── useClientSpawning.ts # Client arrival processing
+│   │   ├── useTrainingProcessor.ts # Training daily progression
+│   │   └── useTherapistEnergyProcessor.ts # Energy recovery
 │   ├── data/                    # Static game data (events, training)
 │   └── utils/                   # Shared utilities
 │
@@ -73,10 +77,10 @@ tt2/
 
 | Entity | Purpose | TypeScript File | Details |
 |--------|---------|-----------------|---------|
-| **Therapist** | Staff member conducting sessions | `src/core/types/entities.ts` | See [THERAPISTS.md](./THERAPISTS.md) |
-| **Client** | Patient seeking therapy | `src/core/types/entities.ts` | See [CLIENTS.md](./CLIENTS.md) |
-| **Session** | Single therapy appointment | `src/core/types/entities.ts` | See [SESSIONS.md](./SESSIONS.md) |
-| **Building** | Practice office with rooms | `src/core/types/entities.ts` | See [OFFICE.md](./OFFICE.md) |
+| **Therapist** | Staff member conducting sessions | `src/core/types/entities.ts` | See [THERAPISTS.md](./docs/THERAPISTS.md) |
+| **Client** | Patient seeking therapy | `src/core/types/entities.ts` | See [CLIENTS.md](./docs/CLIENTS.md) |
+| **Session** | Single therapy appointment | `src/core/types/entities.ts` | See [SESSIONS.md](./docs/SESSIONS.md) |
+| **Building** | Practice office with rooms | `src/core/types/entities.ts` | See [OFFICE.md](./docs/OFFICE.md) |
 
 ### Event-Driven Communication
 
@@ -95,13 +99,18 @@ EventBus.on('session_completed', (sessionId, quality) => {
 ```
 
 **Key Events**:
-- Time: `day_started`, `hour_changed`, `minute_changed`
+- Time: `day_started`, `day_ended`, `hour_changed`, `minute_changed`
 - Sessions: `session_completed`, `session_started`, `session_cancelled`
 - Clients: `client_arrived`, `client_cured`, `client_dropped`
 - Economy: `money_changed`, `insurance_claim_scheduled`
 - Reputation: `reputation_changed`, `practice_level_changed`
+- Training: `training_started`, `training_completed`
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md#eventbus-foundation) for complete event list.
+**Day Boundary Processing**:
+- `DAY_STARTED`: Training progression (8h/day), client spawning, energy reset
+- `DAY_ENDED`: Day summary modal, overnight rest for therapists
+
+See [ARCHITECTURE.md](./docs/ARCHITECTURE.md#eventbus-foundation) for complete event list.
 
 ## State Management (Zustand)
 
@@ -188,7 +197,7 @@ Docs: UI.md → "Modal Panels"
 5. **Create UI** → Add panel in `src/components/panels/`
 6. **Document** → Update relevant `.md` file in `docs/`
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md#system-interaction-patterns) for patterns.
+See [ARCHITECTURE.md](./docs/ARCHITECTURE.md#system-interaction-patterns) for patterns.
 
 ### 4. Debug State Issues
 
@@ -222,7 +231,7 @@ SessionSystem.completeSession(sessionId)
       └─ UI: Show notification with results
 ```
 
-See [SESSIONS.md](./SESSIONS.md#session-completion) for details.
+See [SESSIONS.md](./docs/SESSIONS.md#session-completion) for details.
 
 ### Daily Processing
 
@@ -236,7 +245,7 @@ TimeController: Day boundary detected
       └─ SchedulingSystem: Generate client arrivals
 ```
 
-See [TIME_CALENDAR.md](./TIME_CALENDAR.md#daily-cycle) for details.
+See [TIME_CALENDAR.md](./docs/TIME_CALENDAR.md#daily-cycle) for details.
 
 ## Testing Strategy
 
@@ -312,12 +321,12 @@ test('new game flow', async ({ page }) => {
 
 | What | Where | Docs |
 |------|-------|------|
-| New system logic | `src/core/systems/NewSystem.ts` | [ARCHITECTURE.md](./ARCHITECTURE.md#core-systems) |
-| New entity type | `src/core/types/entities.ts` | [DATA_MODEL.md](./DATA_MODEL.md) |
-| New React panel | `src/components/panels/NewPanel.tsx` | [UI.md](./UI.md#modal-panels) |
-| New hook | `src/hooks/useNewHook.ts` | [ARCHITECTURE.md](./ARCHITECTURE.md#project-structure) |
+| New system logic | `src/core/systems/NewSystem.ts` | [ARCHITECTURE.md](./docs/ARCHITECTURE.md#core-systems) |
+| New entity type | `src/core/types/entities.ts` | [DATA_MODEL.md](./docs/DATA_MODEL.md) |
+| New React panel | `src/components/panels/NewPanel.tsx` | [UI.md](./docs/UI.md#modal-panels) |
+| New hook | `src/hooks/useNewHook.ts` | [ARCHITECTURE.md](./docs/ARCHITECTURE.md#project-structure) |
 | Static data (events, training) | `src/data/` | Individual system docs |
-| Tests | `tests/unit/`, `tests/integration/`, `tests/components/` | [ARCHITECTURE.md](./ARCHITECTURE.md#testing-strategy) |
+| Tests | `tests/unit/`, `tests/integration/`, `tests/components/` | [ARCHITECTURE.md](./docs/ARCHITECTURE.md#testing-strategy) |
 | Styles | Inline Tailwind in components | N/A |
 
 ## Quick Reference: System Responsibilities
@@ -328,7 +337,7 @@ test('new game flow', async ({ page }) => {
 - Processes insurance claims
 - Handles daily expenses
 - **File**: `src/core/systems/EconomySystem.ts`
-- **Docs**: [ECONOMY.md](./ECONOMY.md)
+- **Docs**: [ECONOMY.md](./docs/ECONOMY.md)
 
 ### SessionSystem
 - Creates and manages sessions
@@ -336,7 +345,7 @@ test('new game flow', async ({ page }) => {
 - Handles decision events
 - Processes session completion
 - **File**: `src/core/systems/SessionSystem.ts`
-- **Docs**: [SESSIONS.md](./SESSIONS.md)
+- **Docs**: [SESSIONS.md](./docs/SESSIONS.md)
 
 ### SchedulingSystem
 - Books sessions to calendar
@@ -344,43 +353,74 @@ test('new game flow', async ({ page }) => {
 - Manages recurring sessions
 - Schedules therapist breaks
 - **File**: `src/core/systems/SchedulingSystem.ts`
-- **Docs**: [SCHEDULING.md](./SCHEDULING.md)
+- **Docs**: [SCHEDULING.md](./docs/SCHEDULING.md)
 
 ### ReputationSystem
 - Tracks reputation (0-500)
 - Manages practice levels (1-5)
 - Unlocks features at thresholds
 - **File**: `src/core/systems/ReputationSystem.ts`
-- **Docs**: [REPUTATION.md](./REPUTATION.md)
+- **Docs**: [REPUTATION.md](./docs/REPUTATION.md)
 
 ### TrainingSystem
 - Enrolls therapists in programs
-- Tracks training progress
+- Tracks training progress (8h/day via `TrainingProcessor`)
 - Grants certifications
 - Applies skill bonuses
+- **Hook**: `useTrainingProcessor` (subscribes to `DAY_STARTED`)
 - **File**: `src/core/systems/TrainingSystem.ts`
-- **Docs**: [TRAINING.md](./TRAINING.md)
+- **Docs**: [TRAINING.md](./docs/TRAINING.md)
 
 ### EventsSystem
 - Generates random daily events
 - Decision events during sessions
 - Applies game modifiers
 - **File**: `src/core/systems/EventsSystem.ts`
-- **Docs**: [EVENTS.md](./EVENTS.md)
+- **Docs**: [EVENTS.md](./docs/EVENTS.md)
 
 ### OfficeSystem
 - Manages building upgrades
 - Tracks room capacity
 - Unlocks telehealth
+- **Visual**: OfficeCanvas (PixiJS floor plan in `src/game/`)
 - **File**: `src/core/systems/OfficeSystem.ts`
-- **Docs**: [OFFICE.md](./OFFICE.md)
+- **Docs**: [OFFICE.md](./docs/OFFICE.md)
 
 ### InsuranceSystem
 - Manages insurance panels
 - Processes claims
 - Tracks pending payments
 - **File**: `src/core/systems/InsuranceSystem.ts`
-- **Docs**: [INSURANCE.md](./INSURANCE.md)
+- **Docs**: [INSURANCE.md](./docs/INSURANCE.md)
+
+## New Features (Recent)
+
+### Day Summary Modal
+- Auto-opens at 5 PM (day end) showing daily statistics
+- Sections: Financials, Sessions, Clients, Team, Claims
+- Rating: Excellent/Good/Average/Poor based on metrics
+- **Manager**: `src/core/summary/DaySummaryManager.ts`
+- **Component**: `src/components/game/DaySummaryModal.tsx`
+- **Trigger**: Subscribes to `DAY_ENDED` event in App.tsx
+
+### Tutorial Overlay
+- Interactive 9-step onboarding for new players
+- Spotlight effect highlights target UI elements
+- Auto-navigates between tabs as tutorial progresses
+- Keyboard support (Arrow keys, Enter, Escape)
+- **Manager**: `src/core/tutorial/TutorialManager.ts`
+- **Steps**: `src/core/tutorial/tutorialSteps.ts`
+- **Component**: `src/components/game/TutorialOverlay.tsx`
+- **State**: `tutorialState` in `uiStore`
+
+### Office Canvas (PixiJS)
+- Visual floor plan of office building
+- Shows rooms (therapy, waiting, office, break)
+- Therapist sprites with initials
+- Session progress rings during active sessions
+- Lazy-loaded in OfficePanel
+- **Directory**: `src/game/`
+- **Layouts**: `src/game/config/roomLayouts.ts` (5 building types)
 
 ## Commands
 
@@ -460,18 +500,18 @@ EventBus.emit('client_arrived', client.id);
 ## Documentation Quick Links
 
 **Start Here**:
-- [README.md](./README.md) - Documentation index
-- [ARCHITECTURE.md](./ARCHITECTURE.md) - System design overview
+- [README.md](./docs/README.md) - Documentation index
+- [ARCHITECTURE.md](./docs/ARCHITECTURE.md) - System design overview
 
 **Deep Dives**:
-- Systems: [SESSIONS.md](./SESSIONS.md), [SCHEDULING.md](./SCHEDULING.md), [ECONOMY.md](./ECONOMY.md), etc.
-- Entities: [DATA_MODEL.md](./DATA_MODEL.md)
-- UI: [UI.md](./UI.md)
+- Systems: [SESSIONS.md](./docs/SESSIONS.md), [SCHEDULING.md](./docs/SCHEDULING.md), [ECONOMY.md](./docs/ECONOMY.md), etc.
+- Entities: [DATA_MODEL.md](./docs/DATA_MODEL.md)
+- UI: [UI.md](./docs/UI.md)
 
 **Implementation Details**:
-- Time simulation: [TIME_CALENDAR.md](./TIME_CALENDAR.md)
-- Client management: [CLIENTS.md](./CLIENTS.md)
-- Therapist management: [THERAPISTS.md](./THERAPISTS.md)
+- Time simulation: [TIME_CALENDAR.md](./docs/TIME_CALENDAR.md)
+- Client management: [CLIENTS.md](./docs/CLIENTS.md)
+- Therapist management: [THERAPISTS.md](./docs/THERAPISTS.md)
 
 ## Key Design Principles
 
@@ -506,7 +546,7 @@ EventBus.emit('client_arrived', client.id);
 
 ## Architecture Decision Records
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md#design-decisions) for rationale behind:
+See [ARCHITECTURE.md](./docs/ARCHITECTURE.md#design-decisions) for rationale behind:
 - Why Zustand over Redux/Jotai
 - Why PixiJS over Phaser
 - Why hybrid rendering (DOM + Canvas)
@@ -516,14 +556,21 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md#design-decisions) for rationale behind:
 
 | Question | Reference |
 |----------|-----------|
-| "How does the entire system work?" | [ARCHITECTURE.md](./ARCHITECTURE.md) |
-| "What properties does Therapist have?" | [DATA_MODEL.md](./DATA_MODEL.md) |
-| "How do sessions calculate quality?" | [SESSIONS.md](./SESSIONS.md) |
-| "How does scheduling work?" | [SCHEDULING.md](./SCHEDULING.md) |
-| "What are all the insurance rules?" | [INSURANCE.md](./INSURANCE.md) |
-| "When do clients arrive?" | [CLIENTS.md](./CLIENTS.md) |
-| "How does time progress?" | [TIME_CALENDAR.md](./TIME_CALENDAR.md) |
-| "What UI components exist?" | [UI.md](./UI.md) |
+| "How does the entire system work?" | [ARCHITECTURE.md](./docs/ARCHITECTURE.md) |
+| "What properties does Therapist have?" | [DATA_MODEL.md](./docs/DATA_MODEL.md) |
+| "How do sessions calculate quality?" | [SESSIONS.md](./docs/SESSIONS.md) |
+| "How does scheduling work?" | [SCHEDULING.md](./docs/SCHEDULING.md) |
+| "What are all the insurance rules?" | [INSURANCE.md](./docs/INSURANCE.md) |
+| "When do clients arrive?" | [CLIENTS.md](./docs/CLIENTS.md) |
+| "How does time progress?" | [TIME_CALENDAR.md](./docs/TIME_CALENDAR.md) |
+| "What UI components exist?" | [UI.md](./docs/UI.md) |
+
+---
+
+## Instructions
+Always update any relevant documentation (docs/*.md) when updating or adding new features. 
+
+Always ensure tests for any few code or bugfixes. Keep tests up to date and always ensure tests pass.
 
 ---
 

@@ -264,18 +264,28 @@ export function BookingDashboard({
     const clientName = selectedClient.displayName
     const therapistName = selectedTherapist.displayName
 
-    // Call the booking function and check result
-    const result = onBook({
-      clientId: selectedClient.id,
-      therapistId: selectedTherapist.id,
-      day: pendingBooking.slot.day,
-      hour: pendingBooking.slot.hour,
-      duration: pendingBooking.duration,
-      isVirtual: pendingBooking.isVirtual,
-    })
+    let bookingSucceeded = false
+    let errorMessage: string | undefined
 
-    // Handle result (could be void for backwards compatibility)
-    const bookingSucceeded = result === undefined || result.success
+    try {
+      // Call the booking function and check result
+      const result = onBook({
+        clientId: selectedClient.id,
+        therapistId: selectedTherapist.id,
+        day: pendingBooking.slot.day,
+        hour: pendingBooking.slot.hour,
+        duration: pendingBooking.duration,
+        isVirtual: pendingBooking.isVirtual,
+      })
+
+      // Handle result (could be void for backwards compatibility)
+      bookingSucceeded = result === undefined || result.success
+      errorMessage = result === undefined ? undefined : result.error
+    } catch (error) {
+      console.error('[BookingDashboard] Booking threw an error', error)
+      bookingSucceeded = false
+      errorMessage = error instanceof Error ? error.message : 'Booking failed due to an unexpected error.'
+    }
 
     if (bookingSucceeded) {
       // Show success feedback
@@ -294,7 +304,7 @@ export function BookingDashboard({
       // Show error feedback
       setBookingFeedback({
         type: 'error',
-        message: result?.error || 'Booking failed. Please try again.',
+        message: errorMessage || 'Booking failed. Please try again.',
         clientName,
         therapistName,
       })

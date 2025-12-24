@@ -16,6 +16,7 @@ import type {
 import { getPracticeLevelFromReputation } from '@/core/types'
 import { EventBus, GameEvents } from '@/core/events'
 import { ClientManager } from '@/core/clients'
+import { ScheduleManager } from '@/core/schedule'
 import { getSessionRate } from '@/data/clientGeneration'
 
 /**
@@ -31,10 +32,12 @@ interface GameActions {
   // Economy
   addMoney: (amount: number, reason: string) => void
   removeMoney: (amount: number, reason: string) => boolean
+  setBalance: (balance: number, reason: string) => void
 
   // Reputation
   addReputation: (amount: number, reason: string) => void
   removeReputation: (amount: number, reason: string) => void
+  setReputation: (reputation: number, reason: string) => void
 
   // Sessions
   addSession: (session: Session) => void
@@ -71,8 +74,8 @@ interface GameActions {
 
   // Training
   addActiveTraining: (training: ActiveTraining) => void
-  updateActiveTraining: (programId: string, updates: Partial<ActiveTraining>) => void
-  removeActiveTraining: (programId: string) => void
+  updateActiveTraining: (therapistId: string, programId: string, updates: Partial<ActiveTraining>) => void
+  removeActiveTraining: (therapistId: string, programId: string) => void
 
   // Game management
   newGame: (practiceName: string, playerTherapist: Therapist) => void
@@ -248,6 +251,33 @@ export const useGameStore = create<GameStore>()(
         return true
       },
 
+      setBalance: (balance, reason) => {
+        set((state) => {
+          const oldBalance = state.balance
+          const nextBalance = Math.max(0, Math.floor(balance))
+          const delta = nextBalance - oldBalance
+
+          state.balance = nextBalance
+
+          if (delta !== 0) {
+            state.transactionHistory.push({
+              id: crypto.randomUUID(),
+              day: state.currentDay,
+              type: delta > 0 ? 'income' : 'expense',
+              category: reason,
+              amount: Math.abs(delta),
+              description: reason,
+            })
+          }
+
+          EventBus.emit(GameEvents.MONEY_CHANGED, {
+            oldBalance,
+            newBalance: state.balance,
+            reason,
+          })
+        })
+      },
+
       // ==================== Reputation Actions ====================
       addReputation: (amount, reason) => {
         set((state) => {
@@ -273,6 +303,26 @@ export const useGameStore = create<GameStore>()(
         set((state) => {
           const oldValue = state.reputation
           state.reputation = Math.max(0, state.reputation - amount)
+
+          const newLevel = getPracticeLevelFromReputation(state.reputation)
+          if (newLevel !== state.practiceLevel) {
+            const oldLevel = state.practiceLevel
+            state.practiceLevel = newLevel
+            EventBus.emit(GameEvents.PRACTICE_LEVEL_CHANGED, { oldLevel, newLevel })
+          }
+
+          EventBus.emit(GameEvents.REPUTATION_CHANGED, {
+            oldValue,
+            newValue: state.reputation,
+            reason,
+          })
+        })
+      },
+
+      setReputation: (reputation, reason) => {
+        set((state) => {
+          const oldValue = state.reputation
+          state.reputation = Math.max(0, Math.min(500, Math.floor(reputation)))
 
           const newLevel = getPracticeLevelFromReputation(state.reputation)
           if (newLevel !== state.practiceLevel) {
@@ -475,18 +525,22 @@ export const useGameStore = create<GameStore>()(
         })
       },
 
-      updateActiveTraining: (programId, updates) => {
+      updateActiveTraining: (therapistId, programId, updates) => {
         set((state) => {
-          const index = state.activeTrainings.findIndex((t) => t.programId === programId)
+          const index = state.activeTrainings.findIndex(
+            (t) => t.programId === programId && t.therapistId === therapistId
+          )
           if (index !== -1) {
             state.activeTrainings[index] = { ...state.activeTrainings[index], ...updates }
           }
         })
       },
 
-      removeActiveTraining: (programId) => {
+      removeActiveTraining: (therapistId, programId) => {
         set((state) => {
-          state.activeTrainings = state.activeTrainings.filter((t) => t.programId !== programId)
+          state.activeTrainings = state.activeTrainings.filter(
+            (t) => !(t.programId === programId && t.therapistId === therapistId)
+          )
         })
       },
 
@@ -520,7 +574,12 @@ export const useGameStore = create<GameStore>()(
       },
 
       loadState: (loadedState) => {
-        set(loadedState)
+        // Defensive: ensure schedule contains all scheduled sessions.
+        // (Keeps UI + engine behavior consistent even if saves are missing schedule entries.)
+        set({
+          ...loadedState,
+          schedule: ScheduleManager.buildScheduleFromSessions(loadedState.sessions),
+        })
         EventBus.emit(GameEvents.GAME_LOADED, { timestamp: Date.now() })
       },
 

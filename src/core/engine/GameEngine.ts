@@ -1,6 +1,6 @@
 import { useGameStore } from '@/store/gameStore'
 import { EventBus, GameEvents } from '@/core/events'
-import { TimeController, type TimeAdvanceResult } from './TimeController'
+import { TimeController, TIME_CONFIG, type TimeAdvanceResult } from './TimeController'
 import type { GameTime } from '@/core/types'
 
 /**
@@ -197,16 +197,53 @@ export class GameEngine {
    */
   skipTo(targetTime: GameTime): TimeAdvanceResult | null {
     const store = useGameStore.getState()
+    const { sessions } = store
+
+    // Can't skip while any session is active.
+    if (sessions.some((s) => s.status === 'in_progress')) {
+      return null
+    }
+
     const currentTime: GameTime = {
       day: store.currentDay,
       hour: store.currentHour,
       minute: store.currentMinute,
     }
 
+    // If there are no more sessions remaining today, never skip beyond the start of next day.
+    const currentTotal = TimeController.toTotalMinutes(currentTime)
+    const hasRemainingSessionsToday = sessions
+      .filter((s) => s.status === 'scheduled' && s.scheduledDay === currentTime.day)
+      .some((s) => {
+        const sessionTime = TimeController.create(s.scheduledDay, s.scheduledHour, 0)
+        return TimeController.toTotalMinutes(sessionTime) >= currentTotal
+      })
+
+    if (!hasRemainingSessionsToday) {
+      const nextDayStart = TimeController.create(
+        currentTime.day + 1,
+        TIME_CONFIG.BUSINESS_START,
+        0
+      )
+
+      if (TimeController.isAfter(targetTime, nextDayStart)) {
+        targetTime = nextDayStart
+      }
+    }
+
+    // Prevent skipping over the next scheduled session start.
+    const nextSessionTime = this.getNextSessionTime()
+    if (nextSessionTime && TimeController.isAfter(targetTime, nextSessionTime)) {
+      return null
+    }
+
     const result = TimeController.skipTo(currentTime, targetTime)
 
     if (result.minuteChanged) {
       this.applyTimeAdvance(result)
+
+      // If we landed exactly at the top of an hour, start any sessions scheduled for that time.
+      this.checkSessionStarts(result.newTime)
       return result
     }
 
@@ -248,6 +285,44 @@ export class GameEngine {
    * Skip to the next scheduled session
    */
   skipToNextSession(): boolean {
+    const { sessions, currentDay, currentHour, currentMinute } = useGameStore.getState()
+
+    // Can't skip while any session is active.
+    if (sessions.some((s) => s.status === 'in_progress')) {
+      return false
+    }
+
+    // If a session is scheduled to start right now, do not skip time (but do start it).
+    if (currentMinute === 0) {
+      const hasSessionNow = sessions.some(
+        (s) =>
+          s.status === 'scheduled' &&
+          s.scheduledDay === currentDay &&
+          s.scheduledHour === currentHour
+      )
+
+      if (hasSessionNow) {
+        this.checkSessionStarts({ day: currentDay, hour: currentHour, minute: currentMinute })
+        return true
+      }
+    }
+
+    // If there are no sessions remaining today, skip only to the start of the next day.
+    const currentTime: GameTime = { day: currentDay, hour: currentHour, minute: currentMinute }
+    const currentTotal = TimeController.toTotalMinutes(currentTime)
+    const hasRemainingSessionsToday = sessions
+      .filter((s) => s.status === 'scheduled' && s.scheduledDay === currentDay)
+      .some((s) => {
+        const sessionTime = TimeController.create(s.scheduledDay, s.scheduledHour, 0)
+        return TimeController.toTotalMinutes(sessionTime) >= currentTotal
+      })
+
+    if (!hasRemainingSessionsToday) {
+      const nextDayStart = TimeController.create(currentDay + 1, TIME_CONFIG.BUSINESS_START, 0)
+      const result = this.skipTo(nextDayStart)
+      return result !== null
+    }
+
     const nextTime = this.getNextSessionTime()
     if (!nextTime) {
       return false

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { Button, Modal } from '@/components/ui'
+import { useUIStore } from '@/store'
 import type { Therapist } from '@/core/types'
 import { generateId } from '@/lib/utils'
 import styles from './NewGameModal.module.css'
@@ -13,6 +14,10 @@ export function NewGameModal({ isOpen, onStartGame }: NewGameModalProps) {
   const [practiceName, setPracticeName] = useState('My Therapy Practice')
   const [therapistName, setTherapistName] = useState('Dr. Smith')
   const [step, setStep] = useState<'practice' | 'therapist'>('practice')
+  const [showTutorial, setShowTutorial] = useState(true)
+
+  const startTutorial = useUIStore((state) => state.startTutorial)
+  const tutorialHasBeenSeen = useUIStore((state) => state.tutorialState.hasSeenTutorial)
 
   // Trait selections (1-10 scale, default 5)
   const [warmth, setWarmth] = useState(5)
@@ -47,8 +52,16 @@ export function NewGameModal({ isOpen, onStartGame }: NewGameModalProps) {
       }
 
       onStartGame(practiceName, playerTherapist)
+
+      // Start tutorial if user chose to show it
+      if (showTutorial) {
+        // Small delay to let the game initialize
+        setTimeout(() => {
+          startTutorial()
+        }, 500)
+      }
     }
-  }, [step, practiceName, therapistName, warmth, analytical, creativity, onStartGame])
+  }, [step, practiceName, therapistName, warmth, analytical, creativity, onStartGame, showTutorial, startTutorial])
 
   const handleBack = useCallback(() => {
     setStep('practice')
@@ -171,6 +184,20 @@ export function NewGameModal({ isOpen, onStartGame }: NewGameModalProps) {
                 </div>
               </div>
             </div>
+
+            {!tutorialHasBeenSeen && (
+              <div className={styles.tutorialOption}>
+                <label className={styles.checkboxLabel}>
+                  <input
+                    type="checkbox"
+                    checked={showTutorial}
+                    onChange={(e) => setShowTutorial(e.target.checked)}
+                    className={styles.checkbox}
+                  />
+                  <span>Show tutorial (recommended for new players)</span>
+                </label>
+              </div>
+            )}
           </div>
         )}
 

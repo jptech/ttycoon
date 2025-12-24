@@ -37,6 +37,8 @@ export interface HUDProps {
   onSpeedChange: (speed: 0 | 1 | 2 | 3) => void
   /** Skip callback */
   onSkip?: () => void
+  /** Whether skip should be enabled */
+  skipEnabled?: boolean
   /** Settings click callback */
   onSettingsClick?: () => void
   /** Help click callback */
@@ -55,6 +57,7 @@ export function HUD({
   activeSession,
   onSpeedChange,
   onSkip,
+  skipEnabled,
   onSettingsClick,
   onHelpClick,
 }: HUDProps) {
@@ -116,6 +119,7 @@ export function HUD({
           isPaused={isPaused}
           onSpeedChange={onSpeedChange}
           onSkip={onSkip}
+          skipEnabled={skipEnabled}
         />
 
         {/* Right: Resources & Menu */}

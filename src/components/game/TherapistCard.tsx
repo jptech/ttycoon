@@ -1,9 +1,12 @@
-import type { Therapist } from '@/core/types'
+import type { Therapist, ActiveTraining, TrainingProgram } from '@/core/types'
 import { TherapistManager } from '@/core/therapists'
+import { TrainingProcessor } from '@/core/training'
 import styles from './TherapistCard.module.css'
 
 export interface TherapistCardProps {
   therapist: Therapist
+  activeTraining?: ActiveTraining
+  trainingProgram?: TrainingProgram
   onStartTraining?: (therapistId: string) => void
   onTakeBreak?: (therapistId: string) => void
   onViewDetails?: (therapistId: string) => void
@@ -12,6 +15,8 @@ export interface TherapistCardProps {
 
 export function TherapistCard({
   therapist,
+  activeTraining,
+  trainingProgram,
   onStartTraining,
   onTakeBreak,
   onViewDetails,
@@ -141,6 +146,27 @@ export function TherapistCard({
               className={styles.recoveryFill}
               style={{ width: `${therapist.burnoutRecoveryProgress}%` }}
             />
+          </div>
+        </div>
+      )}
+
+      {therapist.status === 'in_training' && activeTraining && (
+        <div className={styles.trainingProgress}>
+          <div className={styles.trainingHeader}>
+            <span className={styles.trainingLabel}>Training Progress</span>
+            {trainingProgram && (
+              <span className={styles.trainingName}>{trainingProgram.name}</span>
+            )}
+          </div>
+          <div className={styles.trainingBar}>
+            <div
+              className={styles.trainingFill}
+              style={{ width: `${TrainingProcessor.getTrainingProgress(activeTraining)}%` }}
+            />
+          </div>
+          <div className={styles.trainingStats}>
+            <span>{TrainingProcessor.getTrainingProgress(activeTraining)}% complete</span>
+            <span>{TrainingProcessor.getDaysRemaining(activeTraining)} day{TrainingProcessor.getDaysRemaining(activeTraining) !== 1 ? 's' : ''} remaining</span>
           </div>
         </div>
       )}

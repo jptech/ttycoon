@@ -342,6 +342,9 @@ function triggerMilestone(milestoneId: string) {
 
 Triggered during sessions with a small chance per minute:
 
+**Energy effects note (current implementation):** `effects.energy` is an *energy delta* applied directly to the therapist.
+Negative values cost energy; positive values restore energy.
+
 ```typescript
 interface DecisionEventTemplate {
   id: string;

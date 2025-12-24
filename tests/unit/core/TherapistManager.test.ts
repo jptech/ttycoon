@@ -14,7 +14,7 @@ function createTestTherapist(overrides: Partial<Therapist> = {}): Therapist {
     baseSkill: 50,
     level: 5,
     xp: 0,
-    hourlySalary: 60,
+    hourlySalary: 35,
     hireDay: 1,
     certifications: [],
     specializations: ['stress_management'],
@@ -60,6 +60,8 @@ describe('TherapistManager', () => {
       expect(result.therapist.isPlayer).toBe(false)
       expect(result.therapist.energy).toBe(THERAPIST_CONFIG.BASE_MAX_ENERGY)
       expect(result.therapist.status).toBe('available')
+      expect(result.therapist.hourlySalary).toBeGreaterThanOrEqual(THERAPIST_CONFIG.MIN_HOURLY_SALARY)
+      expect(result.therapist.hourlySalary).toBeLessThanOrEqual(THERAPIST_CONFIG.MAX_HOURLY_SALARY)
       expect(result.hiringCost).toBeGreaterThan(0)
       expect(result.monthlySalary).toBeGreaterThan(0)
     })
@@ -70,6 +72,7 @@ describe('TherapistManager', () => {
 
       expect(result1.therapist.displayName).toBe(result2.therapist.displayName)
       expect(result1.therapist.baseSkill).toBe(result2.therapist.baseSkill)
+      expect(result1.therapist.hourlySalary).toBe(result2.therapist.hourlySalary)
       expect(result1.hiringCost).toBe(result2.hiringCost)
     })
 
@@ -79,6 +82,8 @@ describe('TherapistManager', () => {
 
       // Higher practice level should have higher minimum skill
       expect(highLevel.therapist.baseSkill).toBeGreaterThanOrEqual(lowLevel.therapist.baseSkill)
+      // Pay should roughly correlate with skill/experience (with some noise)
+      expect(highLevel.therapist.hourlySalary).toBeGreaterThanOrEqual(lowLevel.therapist.hourlySalary)
     })
 
     it('calculates appropriate hiring cost', () => {

@@ -165,10 +165,10 @@ if (balance < 0) {
 }
 ```
 
-**Salary Range**: $0-500/hour
-- Entry level: $50-100/hour
-- Experienced: $150-250/hour
-- Senior: $300-500/hour
+**Salary Range**: $25-50/hour (typical ~$30/hour)
+- Entry level: $25-32/hour
+- Experienced: $30-40/hour
+- Senior: $38-50/hour
 
 ### Building Rent
 

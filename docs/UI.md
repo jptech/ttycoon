@@ -24,7 +24,7 @@ Always-visible status bar showing critical game information:
 - ▶ Play at 1x speed
 - ▶▶ Play at 2x speed
 - ▶▶▶ Play at 3x speed
-- ⏭ Skip to next session
+- ⏭ Skip to next session (disabled while any session is in progress; will not skip past the next scheduled session start)
 
 **Center Section: Active Session** (when player therapist in session)
 - Shows therapist name and progress percentage
@@ -48,7 +48,7 @@ interface HUD {
   // Playback
   is_paused: boolean;
   game_speed: 1 | 2 | 3;
-  can_skip_to_next_session: boolean;
+  can_skip_to_next_session: boolean; // false if no upcoming sessions or a session is currently in progress
 
   // Resources
   money: number;
@@ -589,6 +589,150 @@ Popup during sessions:
 │     (neutral)                      │
 └────────────────────────────────────┘
 ```
+
+## Day Summary Modal
+
+Auto-opens at end of each business day (5 PM) to show daily statistics:
+
+```
+┌────────────────────────────────────────┐
+│ 📊 Day 42 Summary            ⭐ Good   │
+├────────────────────────────────────────┤
+│                                        │
+│ FINANCIALS                             │
+│ ├─ Sessions: $1,200                    │
+│ ├─ Insurance: $450                     │
+│ ├─ Expenses: -$200                     │
+│ └─ Net: +$1,450                        │
+│                                        │
+│ SESSIONS                               │
+│ ├─ Completed: 8                        │
+│ ├─ Cancelled: 0                        │
+│ └─ Avg Quality: 85%                    │
+│                                        │
+│ CLIENTS                                │
+│ ├─ New Arrivals: 2                     │
+│ └─ Waiting List: 5                     │
+│                                        │
+│ TEAM                                   │
+│ ├─ Avg Energy: 72%                     │
+│ └─ In Training: 1                      │
+│                                        │
+│                      [Continue →]      │
+└────────────────────────────────────────┘
+```
+
+### Day Summary Interface
+
+```typescript
+interface DaySummary {
+  day: number;
+  rating: 'excellent' | 'good' | 'average' | 'poor';
+  financials: {
+    totalIncome: number;
+    totalExpenses: number;
+    netIncome: number;
+    sessionsRevenue: number;
+    insuranceRevenue: number;
+  };
+  sessions: {
+    completed: number;
+    cancelled: number;
+    averageQuality: number;
+  };
+  clients: {
+    newArrivals: number;
+    treatmentCompleted: number;
+    droppedClients: number;
+    waitingListCount: number;
+  };
+  therapists: {
+    averageEnergy: number;
+    totalXpGained: number;
+    trainingsInProgress: number;
+    burnedOutCount: number;
+  };
+  claims: {
+    submitted: number;
+    paid: number;
+    denied: number;
+    pendingAmount: number;
+  };
+}
+```
+
+Located in `src/core/summary/DaySummaryManager.ts`. Triggered by `DAY_ENDED` event in App.tsx.
+
+## Tutorial Overlay
+
+Interactive onboarding system with spotlight effect for new players:
+
+```
+┌────────────────────────────────────────────────────┐
+│                                                    │
+│   ┌─────────────────────────────────────────┐     │
+│   │                                         │     │
+│   │   👋 Welcome to Therapy Tycoon!         │     │
+│   │                                         │     │
+│   │   Build your practice from a solo       │     │
+│   │   practitioner to a thriving clinic.    │     │
+│   │                                         │     │
+│   │   [◀ Back] [Skip Tutorial] [Next ▶]    │     │
+│   │                                         │     │
+│   │   ○ ● ○ ○ ○ ○ ○ ○ ○  (2 of 9)          │     │
+│   └─────────────────────────────────────────┘     │
+│                                                    │
+└────────────────────────────────────────────────────┘
+```
+
+### Tutorial Steps (9 total)
+
+1. **Welcome** - Game introduction (center)
+2. **Waiting List** - Navigate to Booking tab
+3. **Booking** - Book a client
+4. **Schedule** - View weekly schedule
+5. **Session Quality** - Explain decision events
+6. **Therapist Energy** - Monitor energy levels
+7. **Training** - Improve therapist skills
+8. **Finances** - Check income/expenses
+9. **Complete** - Tutorial finished
+
+### Tutorial Interface
+
+```typescript
+interface TutorialStep {
+  id: string;
+  title: string;
+  content: string;
+  targetSelector?: string;  // CSS selector for spotlight
+  position: 'top' | 'bottom' | 'left' | 'right' | 'center';
+  tab?: TutorialTabId;  // Tab to navigate to
+  canSkip: boolean;
+}
+
+interface TutorialState {
+  isActive: boolean;
+  currentStepIndex: number;
+  hasSeenTutorial: boolean;
+}
+
+// uiStore actions
+startTutorial(): void;
+nextTutorialStep(): void;
+prevTutorialStep(): void;
+skipTutorial(): void;
+completeTutorial(): void;
+```
+
+### Features
+
+- **Spotlight Effect**: Dark overlay with transparent cutout around target element
+- **Step Navigation**: Back/Next buttons, progress dots
+- **Tab Navigation**: Auto-switches tabs when step requires it
+- **Keyboard Support**: Arrow keys, Enter to advance, Escape to skip
+- **Persistence**: `hasSeenTutorial` saved in uiStore
+
+Located in `src/components/game/TutorialOverlay.tsx` and `src/core/tutorial/`.
 
 ## Layout Structure
 

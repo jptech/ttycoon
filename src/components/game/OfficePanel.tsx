@@ -1,6 +1,12 @@
+import { lazy, Suspense } from 'react'
 import type { Building, Session } from '@/core/types'
 import { OfficeManager, OFFICE_CONFIG } from '@/core/office'
 import styles from './OfficePanel.module.css'
+
+// Lazy load OfficeCanvas for better initial load time
+const OfficeCanvas = lazy(() =>
+  import('@/game').then((m) => ({ default: m.OfficeCanvas }))
+)
 
 export interface OfficePanelProps {
   currentBuilding: Building
@@ -40,6 +46,16 @@ export function OfficePanel({
     <div className={styles.panel}>
       <div className={styles.header}>
         <h2 className={styles.title}>Office & Facilities</h2>
+      </div>
+
+      {/* Floor Plan Visualization */}
+      <div className={styles.section}>
+        <h3 className={styles.sectionTitle}>Floor Plan</h3>
+        <div className={styles.canvasWrapper}>
+          <Suspense fallback={<div className={styles.canvasLoading}>Loading floor plan...</div>}>
+            <OfficeCanvas buildingId={currentBuilding.id} />
+          </Suspense>
+        </div>
       </div>
 
       {/* Current Building */}

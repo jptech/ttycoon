@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import { Modal, Button } from '@/components/ui'
 import { useGameStore } from '@/store'
+import { useUIStore } from '@/store'
 import { SaveManager } from '@/core/engine'
 import styles from './SettingsModal.module.css'
 
@@ -13,6 +14,7 @@ export interface SettingsModalProps {
 export function SettingsModal({ open, onClose, onNewGame }: SettingsModalProps) {
   const { gameSpeed } = useGameStore()
   const setGameSpeed = useGameStore((state) => state.setGameSpeed)
+  const openModal = useUIStore((s) => s.openModal)
   const [confirmNewGame, setConfirmNewGame] = useState(false)
 
   const handleSave = useCallback(() => {
@@ -42,6 +44,10 @@ export function SettingsModal({ open, onClose, onNewGame }: SettingsModalProps) 
     setConfirmNewGame(false)
     onClose()
   }, [onClose])
+
+  const handleOpenCheats = useCallback(() => {
+    openModal('cheats')
+  }, [openModal])
 
   return (
     <Modal open={open} onClose={handleClose} title="Settings" size="md">
@@ -78,6 +84,14 @@ export function SettingsModal({ open, onClose, onNewGame }: SettingsModalProps) 
             onClick={handleNewGame}
           >
             {confirmNewGame ? 'Click again to confirm' : 'New Game'}
+          </Button>
+        </div>
+
+        <div className={styles.section}>
+          <h3 className={styles.sectionTitle}>Debug</h3>
+          <p className={styles.hint}>Tools to speed up testing and balancing.</p>
+          <Button variant="secondary" onClick={handleOpenCheats}>
+            Cheats
           </Button>
         </div>
 

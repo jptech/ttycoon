@@ -1,4 +1,5 @@
 import { Modal, Button } from '@/components/ui'
+import { useUIStore } from '@/store'
 import styles from './HelpModal.module.css'
 
 export interface HelpModalProps {
@@ -7,6 +8,13 @@ export interface HelpModalProps {
 }
 
 export function HelpModal({ open, onClose }: HelpModalProps) {
+  const startTutorial = useUIStore((state) => state.startTutorial)
+
+  const handleStartTutorial = () => {
+    onClose()
+    startTutorial()
+  }
+
   return (
     <Modal open={open} onClose={onClose} title="Help" size="lg">
       <div className={styles.content}>
@@ -95,6 +103,9 @@ export function HelpModal({ open, onClose }: HelpModalProps) {
       </div>
 
       <div className={styles.footer}>
+        <Button variant="secondary" onClick={handleStartTutorial}>
+          Start Tutorial
+        </Button>
         <Button variant="primary" onClick={onClose}>
           Got it!
         </Button>

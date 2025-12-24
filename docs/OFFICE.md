@@ -223,46 +223,117 @@ interface OfficePanel {
 }
 ```
 
-## Room Visualization
+## Office Canvas (PixiJS Visualization)
 
-Optional visual representation of office:
+The office is visualized using PixiJS via `@pixi/react`. Located in `src/game/`.
+
+### Directory Structure
+
+```
+src/game/
+├── OfficeCanvas.tsx          # Main canvas component
+├── types.ts                  # Type definitions
+├── index.ts                  # Module exports
+└── config/
+    └── roomLayouts.ts        # Room configurations per building
+```
+
+### Room Layouts
+
+Each building has a predefined floor plan:
 
 ```typescript
-// Could be rendered with PixiJS
-interface RoomVisualization {
-  building_id: string;
-  rooms: RoomSprite[];
-  therapists: TherapistSprite[];
-  animations: SessionAnimation[];
-}
+export type RoomType = 'therapy' | 'waiting' | 'office' | 'break';
 
-interface RoomSprite {
-  room_id: string;
+export interface RoomConfig {
+  id: string;
+  type: RoomType;
+  label: string;
   x: number;
   y: number;
   width: number;
   height: number;
-  is_occupied: boolean;
-  current_session?: Session;
 }
 
-// Visual feedback during sessions
-function animateSessionInProgress(session: Session) {
-  const room = getRoomForSession(session);
-  if (room) {
-    room.is_occupied = true;
-    // Visual effects: light in room, sounds, etc.
-    EventBus.emit('room_animated', session.id);
-  }
+export const ROOM_LAYOUTS: Record<string, RoomLayout> = {
+  starter_suite: {
+    buildingId: 'starter_suite',
+    canvasWidth: 400,
+    canvasHeight: 300,
+    rooms: [
+      { id: 'therapy_1', type: 'therapy', label: 'Therapy', x: 20, y: 20, width: 160, height: 120 },
+      { id: 'waiting', type: 'waiting', label: 'Waiting', x: 220, y: 20, width: 160, height: 120 },
+    ],
+  },
+  small_office: { /* 2 therapy rooms + waiting */ },
+  professional_suite: { /* 3 therapy rooms + waiting + break room */ },
+  medical_building: { /* 4 therapy rooms + waiting + office */ },
+  premium_clinic: { /* 6 therapy rooms + waiting + office + break room */ },
+};
+
+// Room colors by type
+export const ROOM_COLORS: Record<RoomType, number> = {
+  therapy: 0x4f46e5,   // Indigo
+  waiting: 0x3b82f6,   // Blue
+  office: 0x22c55e,    // Green
+  break: 0xf59e0b,     // Amber
+};
+```
+
+### OfficeCanvas Component
+
+React component that renders the floor plan:
+
+```typescript
+export interface OfficeCanvasProps {
+  buildingId: string;
 }
 
-function animateSessionEnd(session: Session) {
-  const room = getRoomForSession(session);
-  if (room) {
-    room.is_occupied = false;
-    // Fade out animation
-  }
+export function OfficeCanvas({ buildingId }: OfficeCanvasProps) {
+  const layout = getRoomLayout(buildingId);
+  const therapists = useGameStore((s) => s.therapists);
+  const sessions = useGameStore((s) => s.sessions);
+
+  // Renders rooms as colored rectangles
+  // Therapists shown as colored circles with initials
+  // Active sessions show progress rings around therapist sprites
 }
+```
+
+### Therapist Sprites
+
+Therapists are visualized as colored circles:
+
+```typescript
+interface TherapistCanvasState {
+  therapistId: string;
+  displayName: string;
+  color: number;
+  position: Position;  // { x, y }
+  isInSession: boolean;
+  sessionProgress: number;  // 0-1
+}
+```
+
+Visual behavior:
+- Therapists start in waiting/office area
+- Move to therapy room when session starts
+- Progress arc fills around sprite during session
+- Return to waiting area when session ends
+
+### Integration with OfficePanel
+
+The canvas is lazy-loaded in `OfficePanel.tsx`:
+
+```typescript
+const OfficeCanvas = lazy(() =>
+  import('@/game').then((m) => ({ default: m.OfficeCanvas }))
+);
+
+// In render:
+<Suspense fallback={<div>Loading floor plan...</div>}>
+  <OfficeCanvas buildingId={currentBuilding.id} />
+</Suspense>
 ```
 
 ## Room Efficiency

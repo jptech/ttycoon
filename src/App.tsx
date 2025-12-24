@@ -2,13 +2,23 @@ import { useEffect, useCallback, useState, useRef } from 'react'
 import { useGameStore, useUIStore } from '@/store'
 import { SaveManager } from '@/core/engine'
 import { EventManager, EventBus, GameEvents } from '@/core/events'
-import { useGameLoop, useClientSpawning } from '@/hooks'
+import { DaySummaryManager, type DaySummary } from '@/core/summary'
+import { useGameLoop, useClientSpawning, useTrainingProcessor, useTherapistEnergyProcessor } from '@/hooks'
 import { formatTime } from '@/lib/utils'
-import { GameLayout, GameView, NewGameModal } from '@/components'
+import { GameLayout, GameView, NewGameModal, DaySummaryModal, TutorialOverlay } from '@/components'
 import { getAllRandomEvents, getEligibleDecisionEvents } from '@/data'
 import type { RandomEvent, DecisionEvent, Session, Therapist } from '@/core/types'
 
 function App() {
+  // Expose stores in dev for debugging/e2e.
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    ;(window as any).gameStore = useGameStore
+    ;(window as any).uiStore = useUIStore
+    ;(window as any).EventBus = EventBus
+    ;(window as any).GameEvents = GameEvents
+  }, [])
+
   // Game state
   const {
     currentDay,
@@ -28,6 +38,7 @@ function App() {
   const [activeRandomEvent, setActiveRandomEvent] = useState<RandomEvent | null>(null)
   const [activeDecisionEvent, setActiveDecisionEvent] = useState<DecisionEvent | null>(null)
   const [decisionEventSession, setDecisionEventSession] = useState<Session | null>(null)
+  const [activeDaySummary, setActiveDaySummary] = useState<DaySummary | null>(null)
   const [showNewGame, setShowNewGame] = useState(true)
   const [hasStartedGame, setHasStartedGame] = useState(false)
 
@@ -133,6 +144,10 @@ function App() {
     [addNotification, updateSession, updateTherapist]
   )
 
+  const { onTimeAdvance: handleTimeAdvance, recordSessionMinutes } = useTherapistEnergyProcessor({
+    enabled: hasStartedGame,
+  })
+
   const handleSessionTick = useCallback(
     (sessionId: string, deltaMinutes: number) => {
       // Get fresh state to avoid stale closure issues
@@ -147,6 +162,14 @@ function App() {
       if (session.status !== 'in_progress') {
         // Session not active, skip tick
         return
+      }
+
+      // Track how many minutes this therapist spent in-session this tick
+      // so energy recovery can apply only to idle minutes.
+      const remainingMinutes = Math.max(0, (1 - session.progress) * session.durationMinutes)
+      const sessionMinutesThisTick = Math.min(deltaMinutes, remainingMinutes)
+      if (sessionMinutesThisTick > 0) {
+        recordSessionMinutes(session.therapistId, sessionMinutesThisTick)
       }
 
       // Update progress
@@ -191,13 +214,14 @@ function App() {
         handleSessionComplete(latestSession)
       }
     },
-    [activeDecisionEvent, pause, updateSession, handleSessionComplete]
+    [activeDecisionEvent, pause, updateSession, handleSessionComplete, recordSessionMinutes]
   )
 
   // Initialize game loop
   const { skipToNextSession, getNextSessionTime } = useGameLoop({
     onSessionStart: handleSessionStart,
     onSessionTick: handleSessionTick,
+    onTimeAdvance: handleTimeAdvance,
   })
 
   // Initialize client spawning (runs on day transitions)
@@ -210,6 +234,50 @@ function App() {
       console.log(`Client ${clientId} dropped: ${reason}`)
     },
   })
+
+  // Initialize training processor (runs on day transitions)
+  // startTraining is used by components through their own hook instances
+  useTrainingProcessor({
+    enabled: hasStartedGame,
+    onTrainingCompleted: (completed) => {
+      console.log(`Training completed: ${completed.programName} by ${completed.therapistName}`)
+    },
+  })
+
+  // Subscribe to DAY_ENDED event for day summary
+  useEffect(() => {
+    if (!hasStartedGame) return
+
+    const unsubscribe = EventBus.on(GameEvents.DAY_ENDED, (data: { dayNumber: number }) => {
+      // Get current state for summary calculation
+      const state = useGameStore.getState()
+
+      const summary = DaySummaryManager.calculateDaySummary(
+        data.dayNumber,
+        state.transactionHistory,
+        state.sessions,
+        state.clients,
+        state.therapists,
+        state.pendingClaims,
+        state.waitingList.length,
+        state.activeTrainings.length
+      )
+
+      // Use setTimeout to avoid state update during event callback
+      setTimeout(() => {
+        setActiveDaySummary(summary)
+        pause('day_summary')
+      }, 0)
+    })
+
+    return unsubscribe
+  }, [hasStartedGame, pause])
+
+  // Handle day summary continue
+  const handleDaySummaryContinue = useCallback(() => {
+    setActiveDaySummary(null)
+    resume('day_summary')
+  }, [resume])
 
   // Check for random events at day start
   useEffect(() => {
@@ -344,7 +412,11 @@ function App() {
         const therapist = therapists.find((t) => t.id === decisionEventSession.therapistId)
         if (therapist) {
           updateTherapist(therapist.id, {
-            energy: Math.max(0, therapist.energy - result.energyChange),
+            // energyChange is a delta (often negative). Apply it directly.
+            energy: Math.max(
+              0,
+              Math.min(therapist.maxEnergy, therapist.energy + result.energyChange)
+            ),
           })
         }
       }
@@ -434,21 +506,41 @@ function App() {
     lastEventCheckDay.current = 0
   }, [])
 
+  // Handle tutorial tab navigation
+  const handleTutorialNavigateTab = useCallback((tabId: string) => {
+    // Find and click the tab button with matching data-tab attribute
+    const tabButton = document.querySelector(`[data-tab="${tabId}"]`) as HTMLButtonElement
+    if (tabButton) {
+      tabButton.click()
+    }
+  }, [])
+
   // Render new game modal if not started
   if (showNewGame) {
     return <NewGameModal isOpen={true} onStartGame={handleStartGame} />
   }
 
   return (
-    <GameLayout onSpeedChange={handleSpeedChange} onSkip={handleSkipToNext} onNewGame={handleNewGame}>
-      <GameView
-        activeRandomEvent={activeRandomEvent}
-        onRandomEventChoice={handleRandomEventChoice}
-        activeDecisionEvent={activeDecisionEvent}
-        decisionEventSession={decisionEventSession}
-        onDecisionChoice={handleDecisionChoice}
-      />
-    </GameLayout>
+    <>
+      <GameLayout onSpeedChange={handleSpeedChange} onSkip={handleSkipToNext} onNewGame={handleNewGame}>
+        <GameView
+          activeRandomEvent={activeRandomEvent}
+          onRandomEventChoice={handleRandomEventChoice}
+          activeDecisionEvent={activeDecisionEvent}
+          decisionEventSession={decisionEventSession}
+          onDecisionChoice={handleDecisionChoice}
+        />
+      </GameLayout>
+
+      {activeDaySummary && (
+        <DaySummaryModal
+          summary={activeDaySummary}
+          onContinue={handleDaySummaryContinue}
+        />
+      )}
+
+      <TutorialOverlay onNavigateTab={handleTutorialNavigateTab} />
+    </>
   )
 }
 

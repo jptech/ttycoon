@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { EventBus, GameEvents } from '@/core/events'
+import { TUTORIAL_STEPS } from '@/core/tutorial'
 
 /**
  * Modal types available in the game
@@ -16,6 +17,7 @@ export type ModalType =
   | 'office'
   | 'insurance'
   | 'settings'
+  | 'cheats'
   | 'help'
   | 'decisionEvent'
   | 'randomEvent'
@@ -64,6 +66,19 @@ interface UIStore {
   addNotification: (notification: Omit<Notification, 'id'>) => void
   removeNotification: (id: string) => void
   clearNotifications: () => void
+
+  // Tutorial state
+  tutorialState: {
+    isActive: boolean
+    currentStepIndex: number
+    hasSeenTutorial: boolean
+  }
+  startTutorial: () => void
+  nextTutorialStep: () => void
+  prevTutorialStep: () => void
+  skipTutorial: () => void
+  completeTutorial: () => void
+  setHasSeenTutorial: (seen: boolean) => void
 }
 
 export interface Notification {
@@ -87,6 +102,11 @@ export const useUIStore = create<UIStore>((set, get) => ({
     therapistId: null,
   },
   notifications: [],
+  tutorialState: {
+    isActive: false,
+    currentStepIndex: 0,
+    hasSeenTutorial: false,
+  },
 
   // Modal actions
   openModal: (type, props) => {
@@ -197,9 +217,82 @@ export const useUIStore = create<UIStore>((set, get) => ({
   clearNotifications: () => {
     set({ notifications: [] })
   },
+
+  // Tutorial actions
+  startTutorial: () => {
+    set({
+      tutorialState: {
+        isActive: true,
+        currentStepIndex: 0,
+        hasSeenTutorial: false,
+      },
+    })
+    EventBus.emit(GameEvents.GAME_PAUSED, { reason: 'tutorial' })
+  },
+
+  nextTutorialStep: () => {
+    const { tutorialState } = get()
+    const nextIndex = tutorialState.currentStepIndex + 1
+
+    if (nextIndex >= TUTORIAL_STEPS.length) {
+      // Complete tutorial
+      get().completeTutorial()
+    } else {
+      set({
+        tutorialState: {
+          ...tutorialState,
+          currentStepIndex: nextIndex,
+        },
+      })
+    }
+  },
+
+  prevTutorialStep: () => {
+    const { tutorialState } = get()
+    const prevIndex = Math.max(0, tutorialState.currentStepIndex - 1)
+
+    set({
+      tutorialState: {
+        ...tutorialState,
+        currentStepIndex: prevIndex,
+      },
+    })
+  },
+
+  skipTutorial: () => {
+    set({
+      tutorialState: {
+        isActive: false,
+        currentStepIndex: 0,
+        hasSeenTutorial: true,
+      },
+    })
+    EventBus.emit(GameEvents.GAME_RESUMED, { reason: 'tutorial' })
+  },
+
+  completeTutorial: () => {
+    set({
+      tutorialState: {
+        isActive: false,
+        currentStepIndex: 0,
+        hasSeenTutorial: true,
+      },
+    })
+    EventBus.emit(GameEvents.GAME_RESUMED, { reason: 'tutorial' })
+  },
+
+  setHasSeenTutorial: (seen) => {
+    set((state) => ({
+      tutorialState: {
+        ...state.tutorialState,
+        hasSeenTutorial: seen,
+      },
+    }))
+  },
 }))
 
 // Selectors
 export const selectActiveModal = (state: UIStore) => state.activeModal
 export const selectNotifications = (state: UIStore) => state.notifications
 export const selectSchedulingMode = (state: UIStore) => state.schedulingMode
+export const selectTutorialState = (state: UIStore) => state.tutorialState

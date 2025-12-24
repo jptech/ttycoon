@@ -27,7 +27,7 @@ interface Therapist {
   current_training: Training | null;
 
   // Employment
-  hourly_salary: number;        // $0-500/hour (0 for player)
+  hourly_salary: number;        // $25-50/hour (typical ~$30, 0 for player)
   hired_day: number;
 
   // Personality
@@ -112,7 +112,8 @@ function generateHiringPool(count: number = 3): HiringCandidate[] {
         analytical: random(3, 10),
         creativity: random(3, 10)
       },
-      salary_request: Math.floor(random(50, 150) * skillFactor),
+      // Roughly correlates to skill/experience with some noise
+      salary_request: Math.floor(clamp(30 + (base_skill - 50) * 0.3 + random(-3, 3), 25, 50)),
       reason_for_practice: generateFlavorText()
     };
 
@@ -180,76 +181,21 @@ function hireTherapist(candidate: HiringCandidate): boolean {
 
 ## Energy System
 
-Therapists have limited energy that affects session quality:
+Therapist energy is treated as an integer clamped to $[0,\text{maxEnergy}]$.
 
-```typescript
-interface TherapistEnergy {
-  current: number;      // 0-max_energy
-  max: number;          // 50-150 (varies by therapist)
-  drain_per_session: number;  // 5-25 depending on client severity
-  recovery_passive: number;   // 3/hour during business hours (idle)
-  recovery_break: number;     // 8/hour during scheduled break
-  recovery_overnight: number; // Full restoration
-}
+### Runtime Rules (Current Implementation)
 
-function updateTherapistEnergy(therapist: Therapist, deltaTime: number) {
-  if (!therapist.is_available) return;
+- **Session drain**: energy is reduced when a session completes by subtracting the session's `energyCost`.
+- **Decision events**: decision `effects.energy` is an *energy delta* (negative = costs energy, positive = restores energy) applied immediately during the session.
+- **Idle recovery**: when a therapist is *not* `in_session`, they recover energy over time at `THERAPIST_CONFIG.ENERGY_RECOVERY_PER_HOUR`.
+- **Day recharge**: a large recharge is applied at **DAY_ENDED** (overnight rest) and **DAY_STARTED** (start the day well-rested).
 
-  const deltaHours = deltaTime / 3600;
+Relevant code:
 
-  // Check if in session
-  if (isTherapistInSession(therapist)) {
-    // Energy drains during session (handled by SessionSystem)
-    return;
-  }
-
-  // Check if on break
-  if (therapist.breaks.some(b => isInBreakTime(b))) {
-    therapist.energy = Math.min(
-      therapist.max_energy,
-      therapist.energy + 8 * deltaHours
-    );
-    return;
-  }
-
-  // Passive recovery during business hours
-  if (isBusinessHours()) {
-    therapist.energy = Math.min(
-      therapist.max_energy,
-      therapist.energy + 3 * deltaHours
-    );
-    return;
-  }
-
-  // After business hours, small passive recovery
-  if (isOvernight()) {
-    therapist.energy = Math.min(
-      therapist.max_energy,
-      therapist.energy + 1 * deltaHours
-    );
-  }
-}
-
-// At end of day, full restoration
-function restoreTherapistEnergy(therapist: Therapist) {
-  therapist.energy = therapist.max_energy;
-  therapist.is_burned_out = false;
-}
-
-// Session drains energy
-function drainTherapistEnergy(therapist: Therapist, client: Client) {
-  const baseDrain = 5;
-  const severityDrain = client.severity * 2;
-  const totalDrain = baseDrain + severityDrain;  // 5-25
-
-  therapist.energy = Math.max(0, therapist.energy - totalDrain);
-
-  if (therapist.energy === 0) {
-    therapist.is_burned_out = true;
-    EventBus.emit('therapist_burned_out', therapist.id);
-  }
-}
-```
+- `src/App.tsx` (session completion drain + decision-event energy delta application)
+- `src/hooks/useTherapistEnergyProcessor.ts` (idle-minute recovery + day boundary recharge)
+- `src/core/therapists/TherapistManager.ts` (config + overnight rest/burnout recovery rules)
+- `src/core/therapists/energyRecovery.ts` (deterministic idle recovery math)
 
 **Energy Penalties**:
 - Low energy (<30) reduces session quality by up to 30%

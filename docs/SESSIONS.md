@@ -15,11 +15,12 @@ IN_PROGRESS
   └─ Game time reaches session start
   └─ Progress bar advances each frame
   └─ Decision events may trigger
-  └─ Therapist energy drains
+  └─ Decision events may adjust therapist energy (delta)
 
 COMPLETED
   └─ Progress reaches 100%
   └─ Quality calculated
+  └─ Therapist energyCost is applied (subtract total)
   └─ Effects applied (reputation, money, client progress)
   └─ Session results displayed
 

@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import type { Therapist } from '@/core/types'
+import type { Therapist, ActiveTraining } from '@/core/types'
 import { TherapistManager } from '@/core/therapists'
+import { TRAINING_PROGRAMS } from '@/data/trainingPrograms'
 import { TherapistCard } from './TherapistCard'
 import styles from './TherapistPanel.module.css'
 
 export interface TherapistPanelProps {
   therapists: Therapist[]
+  activeTrainings: ActiveTraining[]
   currentBalance: number
   onHire?: (therapist: Therapist, cost: number) => void
   onStartTraining?: (therapistId: string) => void
@@ -18,6 +20,7 @@ type ViewMode = 'roster' | 'hiring'
 
 export function TherapistPanel({
   therapists,
+  activeTrainings,
   currentBalance,
   onHire,
   onStartTraining,
@@ -112,16 +115,22 @@ export function TherapistPanel({
           {therapists.length === 0 ? (
             <div className={styles.emptyState}>No therapists on roster</div>
           ) : (
-            therapists.map((therapist) => (
-              <TherapistCard
-                key={therapist.id}
-                therapist={therapist}
-                onStartTraining={onStartTraining}
-                onTakeBreak={onTakeBreak}
-                onViewDetails={onViewDetails}
-                compact={showCompact}
-              />
-            ))
+            therapists.map((therapist) => {
+              const activeTraining = activeTrainings.find(t => t.therapistId === therapist.id)
+              const trainingProgram = activeTraining ? TRAINING_PROGRAMS[activeTraining.programId] : undefined
+              return (
+                <TherapistCard
+                  key={therapist.id}
+                  therapist={therapist}
+                  activeTraining={activeTraining}
+                  trainingProgram={trainingProgram}
+                  onStartTraining={onStartTraining}
+                  onTakeBreak={onTakeBreak}
+                  onViewDetails={onViewDetails}
+                  compact={showCompact}
+                />
+              )
+            })
           )}
         </div>
       )}

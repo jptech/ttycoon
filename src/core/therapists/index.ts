@@ -1,4 +1,5 @@
 export { TherapistManager, THERAPIST_CONFIG } from './TherapistManager'
+export { applyIdleEnergyRecovery } from './energyRecovery'
 export type {
   SessionWorkResult,
   RestResult,

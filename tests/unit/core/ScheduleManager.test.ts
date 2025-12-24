@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { ScheduleManager } from '@/core/schedule'
 import type { Schedule, Session, Therapist, Client } from '@/core/types'
+import type { GameTime } from '@/core/types'
 
 // Test fixtures
 const createMockTherapist = (overrides: Partial<Therapist> = {}): Therapist => ({
@@ -80,7 +81,98 @@ const createMockSession = (overrides: Partial<Session> = {}): Session => ({
   ...overrides,
 })
 
+// Test helper: recursively freeze objects/arrays to simulate Immer-frozen Zustand state
+function deepFreeze<T>(value: T): T {
+  if (!value || typeof value !== 'object') return value
+  if (Object.isFrozen(value)) return value
+
+  Object.freeze(value)
+
+  for (const key of Object.keys(value as Record<string, unknown>)) {
+    const child = (value as Record<string, unknown>)[key]
+    deepFreeze(child)
+  }
+
+  return value
+}
+
 describe('ScheduleManager', () => {
+  describe('validateNotInPast', () => {
+    it('rejects scheduling on a previous day', () => {
+      const now: GameTime = { day: 3, hour: 10, minute: 0 }
+      expect(ScheduleManager.validateNotInPast(now, 2, 10).valid).toBe(false)
+    })
+
+    it('rejects scheduling for a past hour on the same day', () => {
+      const now: GameTime = { day: 3, hour: 10, minute: 0 }
+      expect(ScheduleManager.validateNotInPast(now, 3, 9).valid).toBe(false)
+    })
+
+    it('rejects scheduling for the current hour when minute > 0', () => {
+      const now: GameTime = { day: 3, hour: 10, minute: 15 }
+      expect(ScheduleManager.validateNotInPast(now, 3, 10).valid).toBe(false)
+    })
+
+    it('allows scheduling for the current hour when minute === 0', () => {
+      const now: GameTime = { day: 3, hour: 10, minute: 0 }
+      expect(ScheduleManager.validateNotInPast(now, 3, 10).valid).toBe(true)
+    })
+
+    it('allows scheduling for a future day', () => {
+      const now: GameTime = { day: 3, hour: 16, minute: 50 }
+      expect(ScheduleManager.validateNotInPast(now, 4, 8).valid).toBe(true)
+    })
+  })
+
+  describe('buildScheduleFromSessions', () => {
+    it('includes scheduled, in-progress, and completed sessions', () => {
+      const scheduled = createMockSession({
+        id: 'scheduled-1',
+        therapistId: 'therapist-1',
+        scheduledDay: 2,
+        scheduledHour: 10,
+        status: 'scheduled',
+      })
+
+      const inProgress = createMockSession({
+        id: 'inprogress-1',
+        therapistId: 'therapist-2',
+        scheduledDay: 2,
+        scheduledHour: 11,
+        status: 'in_progress',
+      })
+
+      const completed = createMockSession({
+        id: 'completed-1',
+        therapistId: 'therapist-3',
+        scheduledDay: 2,
+        scheduledHour: 12,
+        status: 'completed',
+      })
+
+      const schedule = ScheduleManager.buildScheduleFromSessions([scheduled, inProgress, completed])
+
+      expect(schedule[2][10]['therapist-1']).toBe('scheduled-1')
+      expect(schedule[2][11]['therapist-2']).toBe('inprogress-1')
+      expect(schedule[2][12]['therapist-3']).toBe('completed-1')
+    })
+
+    it('represents multi-hour sessions across all occupied hour slots', () => {
+      const longSession = createMockSession({
+        id: 'long-1',
+        therapistId: 'therapist-1',
+        scheduledDay: 1,
+        scheduledHour: 9,
+        durationMinutes: 80,
+        status: 'scheduled',
+      })
+
+      const schedule = ScheduleManager.buildScheduleFromSessions([longSession])
+      expect(schedule[1][9]['therapist-1']).toBe('long-1')
+      expect(schedule[1][10]['therapist-1']).toBe('long-1')
+    })
+  })
+
   describe('isSlotAvailable', () => {
     it('returns true for empty schedule', () => {
       const schedule: Schedule = {}
@@ -287,6 +379,30 @@ describe('ScheduleManager', () => {
       expect(newSchedule[1][14]['therapist-1']).toBe('existing-session')
       expect(newSchedule[1][9]['therapist-1']).toBe(session.id)
     })
+
+    it('does not mutate a frozen schedule (regression)', () => {
+      const schedule: Schedule = {
+        1: {
+          14: { 'therapist-1': 'existing-session' },
+        },
+      }
+      deepFreeze(schedule)
+
+      const session = createMockSession({ scheduledDay: 1, scheduledHour: 9 })
+
+      let newSchedule: Schedule | undefined
+      expect(() => {
+        newSchedule = ScheduleManager.addToSchedule(schedule, session)
+      }).not.toThrow()
+
+      // Original schedule remains unchanged
+      expect(schedule[1][9]).toBeUndefined()
+      expect(schedule[1][14]['therapist-1']).toBe('existing-session')
+
+      // New schedule contains the booking
+      expect(newSchedule![1][9]['therapist-1']).toBe(session.id)
+      expect(newSchedule![1][14]['therapist-1']).toBe('existing-session')
+    })
   })
 
   describe('removeFromSchedule', () => {
@@ -320,6 +436,27 @@ describe('ScheduleManager', () => {
 
       expect(newSchedule[1][9]['therapist-1']).toBeUndefined()
       expect(newSchedule[1][10]['therapist-1']).toBeUndefined()
+    })
+
+    it('does not mutate a frozen schedule (regression)', () => {
+      const session = createMockSession({ scheduledDay: 1, scheduledHour: 9 })
+      const schedule: Schedule = {
+        1: {
+          9: { 'therapist-1': session.id },
+        },
+      }
+      deepFreeze(schedule)
+
+      let newSchedule: Schedule | undefined
+      expect(() => {
+        newSchedule = ScheduleManager.removeFromSchedule(schedule, session)
+      }).not.toThrow()
+
+      // Original schedule remains unchanged
+      expect(schedule[1][9]['therapist-1']).toBe(session.id)
+
+      // New schedule has the session removed
+      expect(newSchedule![1][9]['therapist-1']).toBeUndefined()
     })
   })
 

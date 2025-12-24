@@ -4,6 +4,11 @@ Manages the practice calendar, session booking, slot availability, and recurring
 
 ## Schedule Data Structure
 
+Note: `schedule` is a derived occupancy map used for fast lookups/rendering.
+It must remain consistent with the source-of-truth `sessions[]` list. On load,
+the game defensively rebuilds `schedule` from `sessions` to avoid stale/missing
+entries.
+
 ```typescript
 // schedule[day][hour][therapist_id] = session_id
 
@@ -106,6 +111,19 @@ function bookSession(
 ): BookingResult {
   // CRITICAL: Use getState() to get fresh data, avoiding stale closures
   const { sessions: freshSessions, schedule: freshSchedule } = useGameStore.getState()
+
+  // 0. Validate time is not in the past relative to the current game time
+  // Sessions start at the top of the hour, so scheduling for the current hour
+  // is only valid if currentMinute === 0.
+  const currentTime = {
+    day: useGameStore.getState().currentDay,
+    hour: useGameStore.getState().currentHour,
+    minute: useGameStore.getState().currentMinute,
+  }
+  const timeCheck = ScheduleManager.validateNotInPast(currentTime, day, hour)
+  if (!timeCheck.valid) {
+    return { success: false, error: timeCheck.reason }
+  }
 
   // 1. Validate client exists
   if (!client) {

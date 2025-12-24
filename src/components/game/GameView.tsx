@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useGameStore, useUIStore } from '@/store'
+import { useTrainingProcessor } from '@/hooks'
 import { cn } from '@/lib/utils'
 import { ScheduleView } from './ScheduleView'
 import { WaitingListPanel } from './WaitingListPanel'
@@ -11,6 +12,7 @@ import { InsurancePanelView } from './InsurancePanelView'
 import { RandomEventModal } from './RandomEventModal'
 import { DecisionEventModal } from './DecisionEventModal'
 import { BookingModal } from './BookingModal'
+import { TrainingModal } from './TrainingModal'
 import { BUILDINGS, getBuilding, INSURANCE_PANELS } from '@/data'
 import { InsuranceManager } from '@/core/insurance'
 import { OfficeManager, OFFICE_CONFIG } from '@/core/office'
@@ -71,6 +73,7 @@ export function GameView({
   const [activeTab, setActiveTab] = useState<TabId>('schedule')
   const [selectedTherapistId, setSelectedTherapistId] = useState<string | null>(null)
   const [bookingSlot, setBookingSlot] = useState<{ day: number; hour: number; therapistId: string } | null>(null)
+  const [trainingTherapistId, setTrainingTherapistId] = useState<string | null>(null)
 
   // Store state
   const {
@@ -84,6 +87,7 @@ export function GameView({
     sessions,
     schedule,
     waitingList,
+    activeTrainings,
     transactionHistory,
     pendingClaims,
     currentBuildingId,
@@ -107,6 +111,9 @@ export function GameView({
   } = useGameStore()
 
   const { addNotification } = useUIStore()
+
+  // Training enrollment (daily progression is handled by App-level processor)
+  const { startTraining } = useTrainingProcessor({ enabled: false })
 
   // Get current building
   const currentBuilding = useMemo(() => {
@@ -223,6 +230,21 @@ export function GameView({
       }
 
       // Create the session
+      const now = useGameStore.getState()
+      const timeCheck = ScheduleManager.validateNotInPast(
+        { day: now.currentDay, hour: now.currentHour, minute: now.currentMinute },
+        params.day,
+        params.hour
+      )
+      if (!timeCheck.valid) {
+        addNotification({
+          type: 'error',
+          title: 'Booking Failed',
+          message: timeCheck.reason || 'Cannot schedule a session in the past.',
+        })
+        return { success: false, error: timeCheck.reason || 'Session time is in the past' }
+      }
+
       const session: Session = {
         id: crypto.randomUUID(),
         therapistId: therapist.id,
@@ -447,9 +469,11 @@ export function GameView({
         return (
           <TherapistPanel
             therapists={therapists}
+            activeTrainings={activeTrainings}
             currentBalance={balance}
             practiceLevel={practiceLevel}
             onHire={handleHire}
+            onStartTraining={(therapistId) => setTrainingTherapistId(therapistId)}
           />
         )
 
@@ -508,6 +532,7 @@ export function GameView({
         {TABS.map((tab) => (
           <button
             key={tab.id}
+            data-tab={tab.id}
             className={cn(styles.tab, activeTab === tab.id && styles.tabActive)}
             onClick={() => setActiveTab(tab.id)}
           >
@@ -553,6 +578,25 @@ export function GameView({
           selectedSlot={bookingSlot}
           onBook={handleBookingConfirmFromModal}
         />
+      )}
+
+      {/* Training Modal */}
+      {trainingTherapistId && (
+        (() => {
+          const therapist = therapists.find((t) => t.id === trainingTherapistId)
+          if (!therapist) return null
+
+          return (
+            <TrainingModal
+              therapist={therapist}
+              currentBalance={balance}
+              onStartTraining={(therapistId, programId) => {
+                startTraining(therapistId, programId)
+              }}
+              onClose={() => setTrainingTherapistId(null)}
+            />
+          )
+        })()
       )}
     </div>
   )

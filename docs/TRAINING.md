@@ -238,46 +238,91 @@ function enrollInTraining(therapist: Therapist, program: TrainingProgram): boole
 
 ## Progress Tracking
 
-Training progresses by 1 hour per hour of in-game time:
+Training progresses automatically at **8 hours per day** via the `TrainingProcessor` and `useTrainingProcessor` hook.
+
+### Training Instance
 
 ```typescript
-interface TrainingInstance {
+interface ActiveTraining {
   id: string;
-  program_id: string;
-  therapist_id: string;
-  hours_completed: number;
-  started_day: number;
+  programId: string;
+  therapistId: string;
+  therapistName: string;
+  programName: string;
+  hoursCompleted: number;
+  hoursRequired: number;
+  startedDay: number;
   status: 'in_progress' | 'completed';
 }
+```
 
-// Called each in-game hour
-function updateTrainingProgress() {
-  for (const training of activeTrainings) {
-    if (training.status !== 'in_progress') continue;
+### TrainingProcessor (Pure Functions)
 
-    training.hours_completed++;
+Located in `src/core/training/TrainingProcessor.ts`:
 
-    // Check for completion
-    const program = getProgram(training.program_id);
-    if (training.hours_completed >= program.duration_hours) {
-      completeTraining(training);
-    }
-  }
+```typescript
+const TRAINING_CONFIG = {
+  HOURS_PER_DAY: 8,  // Training progresses 8 hours per day
+};
+
+// Process all trainings at day start
+function processDailyTraining(
+  activeTrainings: ActiveTraining[],
+  therapists: Therapist[],
+  programs: TrainingProgram[],
+  currentDay: number
+): TrainingProgressResult {
+  // Returns updated trainings, completed trainings, and therapist updates
 }
 
-// Called at end of each day
-function completeTrainingDay() {
-  // Log progress
-  for (const therapist of therapists) {
-    if (therapist.current_training?.track === 'clinical') {
-      // For clinical track: therapist is offline, no sessions
-      // Nothing extra needed
-    } else if (therapist.current_training?.track === 'business') {
-      // For business track: therapist still available
-      // Training progress happens in background
-    }
-  }
-}
+// Helper functions
+function getTrainingProgress(training: ActiveTraining): number;  // 0-100%
+function getDaysRemaining(training: ActiveTraining): number;
+function isTrainingComplete(training: ActiveTraining): boolean;
+```
+
+### useTrainingProcessor Hook
+
+Located in `src/hooks/useTrainingProcessor.ts`:
+
+```typescript
+// Subscribes to DAY_STARTED event and processes training automatically
+const { startTraining, getTrainingStats } = useTrainingProcessor({
+  enabled: hasStartedGame,
+  onTrainingCompleted: (completed) => {
+    console.log(`Training completed: ${completed.programName}`);
+  },
+});
+```
+
+The hook:
+1. Listens to `DAY_STARTED` events
+2. Applies 8 hours of progress to each active training
+3. Completes trainings when hours are met
+4. Grants certifications and skill bonuses
+5. Updates therapist status from 'in_training' to 'available'
+
+### Training Progress UI
+
+The `TherapistCard` component displays active training status:
+
+```typescript
+{therapist.status === 'in_training' && activeTraining && (
+  <div className={styles.trainingProgress}>
+    <div className={styles.trainingHeader}>
+      <span>Training Progress</span>
+      <span>{trainingProgram.name}</span>
+    </div>
+    <div className={styles.trainingBar}>
+      <div style={{ width: `${TrainingProcessor.getTrainingProgress(activeTraining)}%` }} />
+    </div>
+    <div className={styles.trainingStats}>
+      <span>{progress}% complete</span>
+      <span>{daysRemaining} day(s) remaining</span>
+    </div>
+  </div>
+)}
+```
 ```
 
 ## Completion

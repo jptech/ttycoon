@@ -59,10 +59,51 @@ export interface ScheduleConflict {
   reason: string
 }
 
+export interface ScheduleTimeValidation {
+  valid: boolean
+  reason?: string
+}
+
 /**
  * Pure schedule management functions
  */
 export const ScheduleManager = {
+  /**
+   * Validate that a proposed session time is not in the past relative to the current game time.
+   * Sessions start at the top of the hour, so scheduling for the current hour is only valid
+   * if the current minute is 0.
+   */
+  validateNotInPast(currentTime: GameTime, day: number, hour: number): ScheduleTimeValidation {
+    if (day < currentTime.day) {
+      return { valid: false, reason: 'Cannot schedule for a previous day' }
+    }
+
+    if (day === currentTime.day) {
+      if (hour < currentTime.hour) {
+        return { valid: false, reason: 'Cannot schedule for a past hour' }
+      }
+
+      if (hour === currentTime.hour && currentTime.minute > 0) {
+        return { valid: false, reason: 'Cannot schedule for an hour already in progress' }
+      }
+    }
+
+    return { valid: true }
+  },
+
+  /**
+   * Rebuild a schedule map from the sessions list.
+   * Ensures every scheduled/in-progress/completed session has its occupied slots represented.
+   * (Cancelled/conflict sessions do not occupy slots.)
+   */
+  buildScheduleFromSessions(sessions: Session[]): Schedule {
+    return sessions
+      .filter((s) => s.status === 'scheduled' || s.status === 'in_progress' || s.status === 'completed')
+      .reduce<Schedule>((schedule, session) => {
+        return this.addToSchedule(schedule, session)
+      }, {})
+  },
+
   /**
    * Check if a time slot is available for a therapist
    */
@@ -262,19 +303,22 @@ export const ScheduleManager = {
     schedule: Schedule,
     session: Session
   ): Schedule {
-    const newSchedule = { ...schedule }
+    const newSchedule: Schedule = { ...schedule }
     const slotsNeeded = Math.ceil(session.durationMinutes / 60)
+
+    // IMPORTANT: Zustand+Immer may freeze nested objects.
+    // Clone at each level we mutate (day/hour) to avoid mutating frozen state.
+    const existingDaySchedule = newSchedule[session.scheduledDay]
+    const daySchedule = existingDaySchedule ? { ...existingDaySchedule } : {}
+    newSchedule[session.scheduledDay] = daySchedule
 
     for (let i = 0; i < slotsNeeded; i++) {
       const hour = session.scheduledHour + i
 
-      if (!newSchedule[session.scheduledDay]) {
-        newSchedule[session.scheduledDay] = {}
-      }
-      if (!newSchedule[session.scheduledDay][hour]) {
-        newSchedule[session.scheduledDay][hour] = {}
-      }
-      newSchedule[session.scheduledDay][hour][session.therapistId] = session.id
+      const existingHourSchedule = daySchedule[hour]
+      const hourSchedule = existingHourSchedule ? { ...existingHourSchedule } : {}
+      daySchedule[hour] = hourSchedule
+      hourSchedule[session.therapistId] = session.id
     }
 
     return newSchedule
@@ -287,18 +331,28 @@ export const ScheduleManager = {
     schedule: Schedule,
     session: Session
   ): Schedule {
-    const newSchedule = { ...schedule }
+    const newSchedule: Schedule = { ...schedule }
     const slotsNeeded = Math.ceil(session.durationMinutes / 60)
+
+    const existingDaySchedule = newSchedule[session.scheduledDay]
+    if (!existingDaySchedule) {
+      return newSchedule
+    }
+
+    const daySchedule = { ...existingDaySchedule }
+    newSchedule[session.scheduledDay] = daySchedule
 
     for (let i = 0; i < slotsNeeded; i++) {
       const hour = session.scheduledHour + i
 
-      if (
-        newSchedule[session.scheduledDay] &&
-        newSchedule[session.scheduledDay][hour]
-      ) {
-        delete newSchedule[session.scheduledDay][hour][session.therapistId]
-      }
+      const existingHourSchedule = daySchedule[hour]
+      if (!existingHourSchedule) continue
+
+      const hourSchedule = { ...existingHourSchedule }
+      delete hourSchedule[session.therapistId]
+
+      // Preserve structure (day/hour keys) for stability across callers/tests.
+      daySchedule[hour] = hourSchedule
     }
 
     return newSchedule

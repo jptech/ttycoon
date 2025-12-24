@@ -1,6 +1,11 @@
 import { useGameStore } from '@/store/gameStore'
 import type { GameState } from '@/core/types'
 import { EventBus, GameEvents } from '@/core/events'
+import { ScheduleManager } from '@/core/schedule'
+
+const SESSIONS_RETENTION_DAYS = 14
+const SCHEDULE_PAST_DAYS = 14
+const SCHEDULE_FUTURE_DAYS = 30
 
 const SAVE_VERSION = 1
 const STORAGE_KEY = 'therapy_tycoon_save'
@@ -105,14 +110,33 @@ export const SaveManager = {
   serializeState(state: GameState): GameState {
     const currentDay = state.currentDay
 
+    const activeClientIds = new Set(
+      state.clients
+        .filter((c) => c.status === 'waiting' || c.status === 'in_treatment')
+        .map((c) => c.id)
+    )
+
+    // Persist:
+    // - all scheduled/in-progress sessions
+    // - last ~2 weeks of session history
+    // - ALL session history for active clients (waiting/in_treatment)
+    const sessionsToSave = state.sessions.filter((s) => {
+      if (s.status === 'scheduled' || s.status === 'in_progress') return true
+      if (activeClientIds.has(s.clientId)) return true
+      return s.scheduledDay >= currentDay - SESSIONS_RETENTION_DAYS
+    })
+
+    // Rebuild schedule from sessions so we persist past schedule data even if runtime
+    // schedule is missing/stale.
+    const rebuiltSchedule = ScheduleManager.buildScheduleFromSessions(sessionsToSave)
+
     return {
       ...state,
-      // Prune old sessions (keep last 14 days)
-      sessions: state.sessions.filter((s) => s.scheduledDay >= currentDay - 14),
+      sessions: sessionsToSave,
       // Prune old transactions (keep last 30 days)
       transactionHistory: state.transactionHistory.filter((t) => t.day >= currentDay - 30),
-      // Prune old schedule data (keep last 7 days and next 30 days)
-      schedule: this.pruneSchedule(state.schedule, currentDay),
+      // Persist past schedule history and near-future schedule
+      schedule: this.pruneSchedule(rebuiltSchedule, currentDay),
     }
   },
 
@@ -127,7 +151,7 @@ export const SaveManager = {
 
     for (const day in schedule) {
       const dayNum = parseInt(day)
-      if (dayNum >= currentDay - 7 && dayNum <= currentDay + 30) {
+      if (dayNum >= currentDay - SCHEDULE_PAST_DAYS && dayNum <= currentDay + SCHEDULE_FUTURE_DAYS) {
         pruned[dayNum] = schedule[dayNum]
       }
     }

@@ -183,6 +183,53 @@
   transition: width 0.3s ease;
 }
 
+.trainingProgress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--color-primary-bg, #2d2d4d);
+  border-radius: 6px;
+}
+
+.trainingHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.trainingLabel {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary, #a0a0a0);
+}
+
+.trainingName {
+  font-size: 0.85rem;
+  color: var(--color-primary, #6366f1);
+  font-weight: 500;
+}
+
+.trainingBar {
+  height: 8px;
+  background: var(--color-progress-bg, #2a2a4e);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.trainingFill {
+  height: 100%;
+  background: var(--color-primary, #6366f1);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.trainingStats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary, #a0a0a0);
+}
+
 .riskBadge {
   width: 16px;
   height: 16px;

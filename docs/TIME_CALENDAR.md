@@ -172,25 +172,19 @@ User clicks "Hire therapist"
 "Skip to next session" button advances time to the next scheduled session.
 
 ```typescript
-skipToNextSession(): boolean {
-  const currentMinuteOfDay = this.getCurrentMinuteOfDay();
-  const nextSession = this.findNextScheduledSession(this.day, currentMinuteOfDay);
-
-  if (!nextSession) {
-    return false;  // No sessions remaining today
-  }
-
-  // Jump to session start time
-  this.hour = nextSession.scheduled_hour;
-  this.minute = 0;
-  EventBus.emit('skipped_to_session', nextSession.id);
-  return true;
-}
-
-// Validation:
-// - Cannot skip while sessions are in progress
-// - Cannot skip if upcoming session has conflicts
-// - Cannot skip past business hours
+// Implemented in GameEngine:
+// - src/core/engine/GameEngine.ts
+//
+// Behavior:
+// - If any session is currently in_progress, skip is blocked.
+// - If a session is scheduled to start right now (minute === 0), skip does not advance time
+//   (but it does trigger session start).
+// - If there are no sessions remaining today, skip advances to the start of the next day
+//   (and will not skip multiple days ahead).
+// - Skip will never jump past the next scheduled session start.
+// - When time lands exactly on a session start time, the session is started immediately.
+skipToNextSession(): boolean
+skipTo(targetTime: GameTime): TimeAdvanceResult | null
 ```
 
 ## Daily Cycle
@@ -418,10 +412,12 @@ function scheduleBreak(
 function updateTherapistEnergy(therapist: Therapist, deltaTime: number) {
   if (isOnBreak(therapist, currentTime)) {
     therapist.energy += 8 * (deltaTime / 3600);  // 8 per hour
-  } else if (therapist.energy === therapist.max_energy) {
-    // Already at max
-  } else if (isBusinessHours()) {
-    therapist.energy += 3 * (deltaTime / 3600);  // 3 per hour passive
+    // NOTE: This section is legacy pseudocode.
+    // In current code, therapist energy recovery is handled by
+    // `src/hooks/useTherapistEnergyProcessor.ts`, which:
+    // - recovers energy only for idle minutes (not in-session minutes)
+    // - applies large recharge at DAY_ENDED and DAY_STARTED
+    // - uses `THERAPIST_CONFIG.ENERGY_RECOVERY_PER_HOUR`
   }
 }
 ```

@@ -67,6 +67,19 @@ src/
 │   │   ├── EventBus.ts           # Central event hub (signals)
 │   │   └── types.ts              # Event type definitions
 │   │
+│   ├── training/
+│   │   ├── TrainingProcessor.ts  # Daily training progression
+│   │   └── index.ts
+│   │
+│   ├── summary/
+│   │   ├── DaySummaryManager.ts  # End-of-day statistics
+│   │   └── index.ts
+│   │
+│   ├── tutorial/
+│   │   ├── TutorialManager.ts    # Tutorial state management
+│   │   ├── tutorialSteps.ts      # Step definitions (9 steps)
+│   │   └── index.ts
+│   │
 │   └── types/
 │       ├── entities.ts           # Therapist, Client, Session, etc.
 │       ├── systems.ts            # System interfaces
@@ -82,13 +95,11 @@ src/
 │       └── ...
 │
 ├── game/                         # PixiJS rendering layer
-│   ├── GameCanvas.tsx            # React wrapper for canvas
-│   ├── scenes/
-│   │   ├── OfficeScene.ts        # Main office visualization
-│   │   └── transitions.ts        # Day transitions, animations
-│   └── objects/
-│       ├── sprites.ts            # Sprite definitions
-│       └── animations.ts         # Animation helpers
+│   ├── OfficeCanvas.tsx          # Office floor plan visualization
+│   ├── types.ts                  # Canvas type definitions
+│   ├── index.ts                  # Module exports
+│   └── config/
+│       └── roomLayouts.ts        # Room configs per building
 │
 ├── components/                   # React UI components
 │   ├── layout/
@@ -123,8 +134,10 @@ src/
 │       └── ProgressBar.tsx
 │
 ├── hooks/                        # Custom React hooks
-│   ├── useGameTime.ts
-│   ├── useGameState.ts
+│   ├── useGameLoop.ts            # Main game loop orchestration
+│   ├── useClientSpawning.ts      # Client arrival processing
+│   ├── useTrainingProcessor.ts   # Training daily progression
+│   ├── useTherapistEnergyProcessor.ts  # Energy recovery
 │   └── ...
 │
 ├── data/                         # Static game data
@@ -164,13 +177,17 @@ EventBus.emit('session_completed', sessionId, quality);
 ```
 
 **Key Events**:
-- Time: `day_started`, `hour_changed`, `minute_changed`
+- Time: `day_started`, `day_ended`, `hour_changed`, `minute_changed`
 - Sessions: `session_started`, `session_completed`, `session_cancelled`
 - Clients: `client_arrived`, `client_cured`, `client_dropped`
 - Economy: `money_changed`, `insurance_claim_scheduled`, `insurance_claim_denied`
 - Reputation: `reputation_changed`, `practice_level_changed`
 - Training: `training_started`, `training_completed`
 - Events: `random_event_triggered`, `decision_event_triggered`
+
+**Day Boundary Events**:
+- `DAY_STARTED`: Triggers training progression, client spawning, energy reset
+- `DAY_ENDED`: Triggers day summary modal, overnight rest processing
 
 ### GameEngine (Orchestrator)
 
@@ -307,6 +324,7 @@ EventsSystem or SchedulingSystem generates new client
 GameEngine emits: day_started(day)
   ├─ TrainingSystem listens → Update training progress, complete if done
   ├─ EconomySystem listens → Deduct salaries, rent
+  ├─ Therapist energy processing → Recharge/rest at day boundaries
   ├─ EventsSystem listens → Trigger 30% chance of random event
   ├─ ClientSystem listens → Decay waiting client engagement
   └─ Schedule cleanup → Remove completed sessions from history

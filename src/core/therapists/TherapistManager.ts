@@ -46,10 +46,21 @@ export const THERAPIST_CONFIG = {
   MAX_SKILL: 100,
   /** Base hiring cost multiplier (skill * this) */
   HIRING_COST_MULTIPLIER: 100,
-  /** Minimum hourly salary */
-  MIN_HOURLY_SALARY: 30,
-  /** Maximum hourly salary */
-  MAX_HOURLY_SALARY: 150,
+  /** Minimum hourly salary (USD/hr) */
+  MIN_HOURLY_SALARY: 25,
+  /** Typical hourly salary (USD/hr) */
+  TYPICAL_HOURLY_SALARY: 30,
+  /** Maximum hourly salary (USD/hr) */
+  MAX_HOURLY_SALARY: 50,
+
+  /** Hourly salary adjustment at +/-50 skill from mid-skill (50) */
+  SALARY_SKILL_SPREAD: 18,
+  /** Hourly salary bonus per certification */
+  SALARY_CERT_BONUS: 1.75,
+  /** Hourly salary bonus per level above 1 */
+  SALARY_LEVEL_BONUS: 0.25,
+  /** Stddev of random hourly salary noise (USD/hr) */
+  SALARY_NOISE_STDDEV: 2.25,
 } as const
 
 /**
@@ -158,13 +169,21 @@ export const TherapistManager = {
       creativity: randomInt(3, 10, random),
     }
 
-    // Salary based on skill and certifications
-    const certBonus = certifications.length * 10
+    // Salary: realistic hourly range with correlation to skill/experience + some noise
+    const skillDelta = (baseSkill - 50) / 50 // roughly [-0.4..0.6] for generated candidates
+    const expectedHourly =
+      THERAPIST_CONFIG.TYPICAL_HOURLY_SALARY +
+      skillDelta * THERAPIST_CONFIG.SALARY_SKILL_SPREAD +
+      certifications.length * THERAPIST_CONFIG.SALARY_CERT_BONUS +
+      Math.max(0, level - 1) * THERAPIST_CONFIG.SALARY_LEVEL_BONUS
+
+    const noisyHourly = expectedHourly + randomNormal(0, THERAPIST_CONFIG.SALARY_NOISE_STDDEV, random)
+
     const hourlySalary = Math.round(
-      THERAPIST_CONFIG.MIN_HOURLY_SALARY +
-        ((baseSkill + certBonus) / 100) *
-          (THERAPIST_CONFIG.MAX_HOURLY_SALARY - THERAPIST_CONFIG.MIN_HOURLY_SALARY)
+      clamp(noisyHourly, THERAPIST_CONFIG.MIN_HOURLY_SALARY, THERAPIST_CONFIG.MAX_HOURLY_SALARY)
     )
+
+    const certBonus = certifications.length * 10
 
     const therapist: Therapist = {
       id,
@@ -513,6 +532,18 @@ function seededRandom(seed: number): () => number {
 
 function randomInt(min: number, max: number, random: () => number = Math.random): number {
   return Math.floor(random() * (max - min + 1)) + min
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
+}
+
+function randomNormal(mean: number, stddev: number, random: () => number = Math.random): number {
+  // Box–Muller transform
+  const u1 = Math.max(Number.EPSILON, random())
+  const u2 = random()
+  const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2)
+  return mean + z0 * stddev
 }
 
 const FIRST_NAMES = [

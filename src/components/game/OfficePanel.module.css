@@ -31,6 +31,24 @@
   letter-spacing: 0.5px;
 }
 
+/* Canvas Wrapper */
+.canvasWrapper {
+  background: var(--color-surface, #1a1a2e);
+  border: 1px solid var(--color-border, #3a3a5a);
+  border-radius: 8px;
+  overflow: hidden;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.canvasLoading {
+  color: var(--color-text-secondary, #a0a0a0);
+  font-size: 0.9rem;
+  padding: 20px;
+}
+
 /* Building Card */
 .buildingCard {
   background: var(--color-surface, #1a1a2e);
