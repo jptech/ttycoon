@@ -27,9 +27,9 @@ export const THERAPIST_CONFIG = {
   /** Energy threshold for forced break */
   FORCED_BREAK_THRESHOLD: 10,
   /** Days to recover from burnout */
-  BURNOUT_RECOVERY_DAYS: 3,
+  BURNOUT_RECOVERY_DAYS: 2,
   /** Progress per day during burnout recovery */
-  BURNOUT_RECOVERY_PER_DAY: 34,
+  BURNOUT_RECOVERY_PER_DAY: 50,
   /** Base XP per session */
   BASE_XP_PER_SESSION: 25,
   /** XP multiplier for high quality sessions */

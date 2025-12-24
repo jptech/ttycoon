@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react'
 import { cn } from '@/lib/utils'
-import type { Client, Therapist, Schedule, SessionDuration } from '@/core/types'
+import type { Building, Client, Therapist, Schedule, Session, SessionDuration } from '@/core/types'
 import { ScheduleManager, SCHEDULE_CONFIG } from '@/core/schedule'
+import { canBookSessionType } from '@/core/schedule/BookingConstraints'
 import { Modal, ModalFooter, Button, Card } from '@/components/ui'
-import { Clock, User, Video, Building, Calendar, Check } from 'lucide-react'
+import { Clock, User, Video, Building as BuildingIcon, Calendar, Check } from 'lucide-react'
 
 export interface BookingModalProps {
   /** Whether the modal is open */
@@ -16,6 +17,12 @@ export interface BookingModalProps {
   therapists: Therapist[]
   /** Current schedule */
   schedule: Schedule
+  /** All sessions (used for room-capacity checks) */
+  sessions: Session[]
+  /** Current building (room capacity) */
+  currentBuilding: Building
+  /** Whether telehealth is unlocked */
+  telehealthUnlocked: boolean
   /** Pre-selected slot */
   selectedSlot?: {
     day: number
@@ -39,6 +46,9 @@ export function BookingModal({
   clients,
   therapists,
   schedule,
+  sessions,
+  currentBuilding,
+  telehealthUnlocked,
   selectedSlot,
   onBook,
 }: BookingModalProps) {
@@ -88,7 +98,7 @@ export function BookingModal({
 
     // Find slots for next 5 days
     const startDay = selectedSlot?.day || 1
-    return ScheduleManager.findMatchingSlots(
+    const baseSlots = ScheduleManager.findMatchingSlots(
       schedule,
       therapist,
       selectedClient || {
@@ -105,14 +115,57 @@ export function BookingModal({
       5,
       duration
     )
-  }, [selectedTherapistId, therapists, schedule, selectedClient, selectedSlot, duration])
+
+    if (isVirtual) {
+      if (!telehealthUnlocked) return []
+      return baseSlots
+    }
+
+    return baseSlots.filter((slot) => {
+      const check = canBookSessionType({
+        building: currentBuilding,
+        sessions,
+        telehealthUnlocked,
+        isVirtual: false,
+        day: slot.day,
+        hour: slot.hour,
+        durationMinutes: duration,
+      })
+      return check.canBook
+    })
+  }, [
+    selectedTherapistId,
+    therapists,
+    schedule,
+    selectedClient,
+    selectedSlot,
+    duration,
+    isVirtual,
+    telehealthUnlocked,
+    currentBuilding,
+    sessions,
+  ])
 
   // Can book check
+  const bookingTypeCheck = useMemo(() => {
+    if (!selectedDay || selectedHour === null) return null
+    return canBookSessionType({
+      building: currentBuilding,
+      sessions,
+      telehealthUnlocked,
+      isVirtual,
+      day: selectedDay,
+      hour: selectedHour,
+      durationMinutes: duration,
+    })
+  }, [currentBuilding, sessions, telehealthUnlocked, isVirtual, selectedDay, selectedHour, duration])
+
   const canBook =
-    selectedClientId &&
-    selectedTherapistId &&
+    !!selectedClientId &&
+    !!selectedTherapistId &&
     selectedDay !== null &&
-    selectedHour !== null
+    selectedHour !== null &&
+    (bookingTypeCheck?.canBook ?? true)
 
   // Handle booking
   const handleBook = () => {
@@ -286,16 +339,22 @@ export function BookingModal({
                     : 'bg-muted hover:bg-muted-foreground/10'
                 )}
               >
-                <Building className="w-4 h-4" />
+                <BuildingIcon className="w-4 h-4" />
                 In-Office
               </button>
               <button
-                onClick={() => setIsVirtual(true)}
+                onClick={() => {
+                  if (!telehealthUnlocked) return
+                  setIsVirtual(true)
+                }}
+                disabled={!telehealthUnlocked}
                 className={cn(
                   'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors',
                   isVirtual
                     ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted hover:bg-muted-foreground/10'
+                    : telehealthUnlocked
+                      ? 'bg-muted hover:bg-muted-foreground/10'
+                      : 'bg-muted text-muted-foreground/60 cursor-not-allowed'
                 )}
               >
                 <Video className="w-4 h-4" />

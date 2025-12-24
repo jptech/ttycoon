@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
-import type { Client, Therapist, Session, Schedule, SessionDuration } from '@/core/types'
+import type { Building, Client, Therapist, Session, Schedule, SessionDuration } from '@/core/types'
 import { ClientManager, type FollowUpInfo, FREQUENCY_DAYS } from '@/core/clients'
 import { ScheduleManager } from '@/core/schedule'
 import { ClientCard } from './ClientCard'
@@ -15,7 +15,7 @@ import {
   CheckCircle,
   XCircle,
   Video,
-  Building,
+  Building as BuildingIcon,
   Clock,
   Calendar,
   AlertTriangle,
@@ -42,6 +42,8 @@ export interface BookingDashboardProps {
   therapists: Therapist[]
   sessions: Session[]
   schedule: Schedule
+  currentBuilding: Building
+  telehealthUnlocked: boolean
   currentDay: number
   currentHour: number
   onBook: (params: BookingParams) => BookingResult | void
@@ -93,6 +95,8 @@ export function BookingDashboard({
   therapists,
   sessions,
   schedule,
+  currentBuilding,
+  telehealthUnlocked,
   currentDay,
   currentHour,
   onBook,
@@ -560,6 +564,9 @@ export function BookingDashboard({
                 client={selectedClient}
                 therapist={selectedTherapist}
                 schedule={schedule}
+                sessions={sessions}
+                currentBuilding={currentBuilding}
+                telehealthUnlocked={telehealthUnlocked}
                 currentDay={currentDay}
                 onSelectSlot={handleSelectSlot}
                 className="flex-1 overflow-y-auto"
@@ -599,7 +606,7 @@ export function BookingDashboard({
                           </>
                         ) : (
                           <>
-                            <Building className="w-3 h-3 mr-1" />
+                            <BuildingIcon className="w-3 h-3 mr-1" />
                             Office
                           </>
                         )}
@@ -627,6 +634,8 @@ export function BookingDashboard({
             schedule={schedule}
             sessions={sessions}
             therapists={therapists}
+            currentBuilding={currentBuilding}
+            telehealthUnlocked={telehealthUnlocked}
           />
         )}
       </div>

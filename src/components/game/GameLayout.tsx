@@ -27,22 +27,21 @@ export function GameLayout({ children, sidePanel, onSpeedChange, onSkip, onNewGa
   const notifications = useUIStore((state) => state.notifications)
   const removeNotification = useUIStore((state) => state.removeNotification)
 
-  // Compute player's active session
-  const activeSession: ActiveSessionInfo | null = useMemo(() => {
+  const activeSessions: ActiveSessionInfo[] = useMemo(() => {
     const playerTherapist = therapists.find((t) => t.isPlayer)
-    if (!playerTherapist) return null
+    const playerId = playerTherapist?.id
 
-    const playerSession = sessions.find(
-      (s) => s.therapistId === playerTherapist.id && s.status === 'in_progress'
-    )
-    if (!playerSession) return null
-
-    return {
-      clientName: playerSession.clientName,
-      progress: playerSession.progress,
-      durationMinutes: playerSession.durationMinutes,
-      isVirtual: playerSession.isVirtual,
-    }
+    return sessions
+      .filter((s) => s.status === 'in_progress')
+      .map((s) => ({
+        sessionId: s.id,
+        therapistName: s.therapistName,
+        clientName: s.clientName,
+        progress: s.progress,
+        durationMinutes: s.durationMinutes,
+        isVirtual: s.isVirtual,
+        isPlayer: playerId ? s.therapistId === playerId : false,
+      }))
   }, [therapists, sessions])
 
   const handleCloseModal = useCallback(() => {
@@ -65,7 +64,7 @@ export function GameLayout({ children, sidePanel, onSpeedChange, onSkip, onNewGa
         balance={balance}
         reputation={reputation}
         practiceLevel={practiceLevel}
-        activeSession={activeSession}
+        activeSessions={activeSessions}
         onSpeedChange={onSpeedChange}
         onSkip={onSkip}
         skipEnabled={skipEnabled}

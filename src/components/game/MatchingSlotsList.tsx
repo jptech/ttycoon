@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
-import type { Client, Therapist, Schedule, SessionDuration } from '@/core/types'
+import type { Building, Client, Therapist, Schedule, Session, SessionDuration } from '@/core/types'
 import { ScheduleManager } from '@/core/schedule'
+import { canBookSessionType } from '@/core/schedule/BookingConstraints'
 import { Badge, Button, Card } from '@/components/ui'
-import { Calendar, Clock, Star, Video, Building, ChevronDown, ChevronRight } from 'lucide-react'
+import { Calendar, Clock, Star, Video, Building as BuildingIcon, ChevronDown, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export interface MatchingSlotInfo {
@@ -16,6 +17,9 @@ export interface MatchingSlotsListProps {
   client: Client
   therapist: Therapist
   schedule: Schedule
+  sessions: Session[]
+  currentBuilding: Building
+  telehealthUnlocked: boolean
   currentDay: number
   daysToShow?: number
   onSelectSlot: (slot: MatchingSlotInfo, duration: SessionDuration, isVirtual: boolean) => void
@@ -39,6 +43,9 @@ export function MatchingSlotsList({
   client,
   therapist,
   schedule,
+  sessions,
+  currentBuilding,
+  telehealthUnlocked,
   currentDay,
   daysToShow = 7,
   onSelectSlot,
@@ -51,7 +58,7 @@ export function MatchingSlotsList({
 
   // Find matching slots
   const slots = useMemo(() => {
-    return ScheduleManager.findMatchingSlots(
+    const baseSlots = ScheduleManager.findMatchingSlots(
       schedule,
       therapist,
       client,
@@ -59,7 +66,37 @@ export function MatchingSlotsList({
       daysToShow,
       selectedDuration
     )
-  }, [schedule, therapist, client, currentDay, daysToShow, selectedDuration])
+
+    // Filter based on selected session type constraints.
+    if (isVirtual) {
+      if (!telehealthUnlocked) return []
+      return baseSlots
+    }
+
+    return baseSlots.filter((slot) => {
+      const check = canBookSessionType({
+        building: currentBuilding,
+        sessions,
+        telehealthUnlocked,
+        isVirtual: false,
+        day: slot.day,
+        hour: slot.hour,
+        durationMinutes: selectedDuration,
+      })
+      return check.canBook
+    })
+  }, [
+    schedule,
+    therapist,
+    client,
+    currentDay,
+    daysToShow,
+    selectedDuration,
+    isVirtual,
+    telehealthUnlocked,
+    currentBuilding,
+    sessions,
+  ])
 
   // Group slots by day and time period
   const groupedSlots = useMemo(() => {
@@ -104,6 +141,16 @@ export function MatchingSlotsList({
 
   const isSlotSelected = (slot: MatchingSlotInfo) => {
     return selectedSlot?.day === slot.day && selectedSlot?.hour === slot.hour
+  }
+
+  if (isVirtual && !telehealthUnlocked) {
+    return (
+      <div className={cn('text-center py-8 text-muted-foreground', className)}>
+        <Video className="w-8 h-8 mx-auto mb-2 opacity-50" />
+        <p>Virtual sessions require Telehealth.</p>
+        <p className="text-xs">Unlock it in the Office tab.</p>
+      </div>
+    )
   }
 
   if (slots.length === 0) {
@@ -157,16 +204,22 @@ export function MatchingSlotsList({
                   : 'bg-muted text-muted-foreground hover:bg-muted-foreground/10'
               )}
             >
-              <Building className="w-3 h-3" />
+              <BuildingIcon className="w-3 h-3" />
               Office
             </button>
             <button
-              onClick={() => setIsVirtual(true)}
+              onClick={() => {
+                if (!telehealthUnlocked) return
+                setIsVirtual(true)
+              }}
+              disabled={!telehealthUnlocked}
               className={cn(
                 'flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors',
                 isVirtual
                   ? 'bg-info/15 text-info'
-                  : 'bg-muted text-muted-foreground hover:bg-muted-foreground/10'
+                  : telehealthUnlocked
+                    ? 'bg-muted text-muted-foreground hover:bg-muted-foreground/10'
+                    : 'bg-muted text-muted-foreground/60 cursor-not-allowed'
               )}
             >
               <Video className="w-3 h-3" />

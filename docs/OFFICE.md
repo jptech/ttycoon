@@ -90,6 +90,8 @@ function getBookableSessionTypes(day: number, hour: number): ('virtual' | 'in_pe
 }
 ```
 
+In the current implementation, room capacity is enforced at booking time via `OfficeManager.canBookInPersonSession(...)`, and the booking UI filters/blocks in-office options when rooms are full.
+
 ## Upgrading Buildings
 
 ```typescript

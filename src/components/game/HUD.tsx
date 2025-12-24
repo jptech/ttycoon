@@ -1,9 +1,14 @@
 import { Settings, HelpCircle, User, Coffee } from 'lucide-react'
 import { formatMoney, formatTime } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { Badge, ProgressBar } from '@/components/ui'
 import { SpeedControls } from './SpeedControls'
 
 export interface ActiveSessionInfo {
+  /** Session id */
+  sessionId: string
+  /** Therapist name for the session */
+  therapistName: string
   /** Client name for the current session */
   clientName: string
   /** Session progress (0-1) */
@@ -12,6 +17,8 @@ export interface ActiveSessionInfo {
   durationMinutes: number
   /** Whether session is virtual */
   isVirtual?: boolean
+  /** Whether this session involves the player therapist */
+  isPlayer?: boolean
 }
 
 export interface HUDProps {
@@ -31,8 +38,8 @@ export interface HUDProps {
   reputation: number
   /** Practice level */
   practiceLevel: number
-  /** Active session info (if player is in a session) */
-  activeSession?: ActiveSessionInfo | null
+  /** Active sessions currently in progress */
+  activeSessions?: ActiveSessionInfo[]
   /** Speed change callback */
   onSpeedChange: (speed: 0 | 1 | 2 | 3) => void
   /** Skip callback */
@@ -54,7 +61,7 @@ export function HUD({
   balance,
   reputation,
   practiceLevel,
-  activeSession,
+  activeSessions,
   onSpeedChange,
   onSkip,
   skipEnabled,
@@ -63,11 +70,11 @@ export function HUD({
 }: HUDProps) {
   const speedLabel = isPaused ? 'Paused' : `${speed}x`
 
-  // Calculate remaining time for active session
-  const getSessionTimeRemaining = () => {
-    if (!activeSession) return ''
-    const elapsed = Math.floor(activeSession.progress * activeSession.durationMinutes)
-    const remaining = activeSession.durationMinutes - elapsed
+  const sessionsInProgress = activeSessions?.filter((s) => s.progress < 1) ?? []
+
+  const getSessionTimeRemaining = (session: ActiveSessionInfo) => {
+    const elapsed = Math.floor(session.progress * session.durationMinutes)
+    const remaining = session.durationMinutes - elapsed
     return `${remaining}m left`
   }
 
@@ -84,25 +91,37 @@ export function HUD({
 
           {/* Session/Break Status Indicator */}
           <div className="w-px h-6 bg-border" />
-          {activeSession ? (
+          {sessionsInProgress.length > 0 ? (
             <div className="flex items-center gap-3 bg-info/10 border border-info/30 rounded-lg px-3 py-1.5">
               <div className="flex items-center gap-2">
                 <User className="w-4 h-4 text-info" />
-                <span className="font-medium text-info">In Session</span>
+                <span className="font-medium text-info">Sessions</span>
+                <Badge variant="info" size="sm">
+                  {sessionsInProgress.length}
+                </Badge>
               </div>
               <div className="w-px h-4 bg-info/30" />
-              <div className="flex flex-col gap-0.5 min-w-[140px]">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-foreground">{activeSession.clientName}</span>
-                  <span className="text-muted-foreground text-xs">{getSessionTimeRemaining()}</span>
-                </div>
-                <ProgressBar
-                  value={activeSession.progress * 100}
-                  max={100}
-                  size="sm"
-                  variant="info"
-                  className="h-1.5"
-                />
+              <div className="flex flex-col gap-2 min-w-[220px]">
+                {sessionsInProgress.slice(0, 2).map((s) => (
+                  <div key={s.sessionId} className="flex flex-col gap-0.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className={cn('text-foreground truncate', s.isPlayer && 'font-semibold')}>
+                        {s.therapistName}: {s.clientName}
+                      </span>
+                      <span className="text-muted-foreground">{getSessionTimeRemaining(s)}</span>
+                    </div>
+                    <ProgressBar
+                      value={s.progress * 100}
+                      max={100}
+                      size="sm"
+                      variant={s.isPlayer ? 'info' : 'default'}
+                      className="h-1.5"
+                    />
+                  </div>
+                ))}
+                {sessionsInProgress.length > 2 && (
+                  <div className="text-[10px] text-muted-foreground">+{sessionsInProgress.length - 2} more</div>
+                )}
               </div>
             </div>
           ) : (

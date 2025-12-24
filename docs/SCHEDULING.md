@@ -157,6 +157,15 @@ function bookSession(
     return { success: false, error: 'Client has conflicting session' }
   }
 
+  // 4b. Validate session type constraints (rooms / telehealth)
+  // - Virtual sessions require telehealthUnlocked.
+  // - In-office sessions require an available room for every occupied hour slot.
+  //   (e.g. an 80-min session consumes 2 room-hours).
+  //
+  // Implementation uses:
+  // - OfficeManager.canBookInPersonSession(building, sessions, day, hour, durationMinutes)
+  // - canBookSessionType({ building, sessions, telehealthUnlocked, isVirtual, day, hour, durationMinutes })
+
   // 5. Validate therapist has required certification
   if (client.required_certification) {
     if (!therapist.certifications.includes(client.required_certification)) {

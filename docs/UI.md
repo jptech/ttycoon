@@ -143,6 +143,11 @@ interface ScheduleCell {
 
 The ScheduleView includes a legend showing the session type colors and a breakdown badge (e.g., "3 virtual, 2 in-office").
 
+**Concurrency & Room Capacity**
+- Schedule supports an **All Therapists** day grid to make concurrent sessions visible (multiple therapists can have sessions at the same hour).
+- When rooms are full for a time slot, **in-office booking is blocked**.
+- If telehealth is unlocked, those same time slots can still be booked as **virtual** sessions.
+
 ### Clicking a Slot
 
 ```typescript

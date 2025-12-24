@@ -17,6 +17,7 @@ import { BUILDINGS, getBuilding, INSURANCE_PANELS } from '@/data'
 import { InsuranceManager } from '@/core/insurance'
 import { OfficeManager, OFFICE_CONFIG } from '@/core/office'
 import { ScheduleManager } from '@/core/schedule'
+import { canBookSessionType } from '@/core/schedule/BookingConstraints'
 import type { Session, RandomEvent, DecisionEvent } from '@/core/types'
 import {
   Calendar,
@@ -229,6 +230,30 @@ export function GameView({
         return { success: false, error: 'Client has conflicting session' }
       }
 
+      // Check room capacity / telehealth availability for the selected session type
+      const { currentBuildingId: freshBuildingId, telehealthUnlocked: freshTelehealthUnlocked } =
+        useGameStore.getState()
+      const freshBuilding = getBuilding(freshBuildingId) || BUILDINGS.starter_suite
+
+      const typeCheck = canBookSessionType({
+        building: freshBuilding,
+        sessions: freshSessions,
+        telehealthUnlocked: freshTelehealthUnlocked,
+        isVirtual: params.isVirtual,
+        day: params.day,
+        hour: params.hour,
+        durationMinutes: params.duration,
+      })
+
+      if (!typeCheck.canBook) {
+        addNotification({
+          type: 'error',
+          title: 'Booking Failed',
+          message: typeCheck.reason,
+        })
+        return { success: false, error: typeCheck.reason }
+      }
+
       // Create the session
       const now = useGameStore.getState()
       const timeCheck = ScheduleManager.validateNotInPast(
@@ -437,6 +462,8 @@ export function GameView({
             schedule={schedule}
             sessions={sessions}
             therapists={therapists}
+            currentBuilding={currentBuilding}
+            telehealthUnlocked={telehealthUnlocked}
             selectedTherapistId={selectedTherapistId || undefined}
             onTherapistSelect={setSelectedTherapistId}
             onSlotClick={handleSlotClick}
@@ -451,6 +478,8 @@ export function GameView({
             therapists={therapists}
             sessions={sessions}
             schedule={schedule}
+            currentBuilding={currentBuilding}
+            telehealthUnlocked={telehealthUnlocked}
             currentDay={currentDay}
             currentHour={currentHour}
             onBook={handleBookingConfirmFromModal}
@@ -575,6 +604,9 @@ export function GameView({
           clients={waitingClients}
           therapists={therapists}
           schedule={schedule}
+          sessions={sessions}
+          currentBuilding={currentBuilding}
+          telehealthUnlocked={telehealthUnlocked}
           selectedSlot={bookingSlot}
           onBook={handleBookingConfirmFromModal}
         />
