@@ -1,0 +1,287 @@
+.panel {
+  background: var(--color-bg, #0f0f1a);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--color-text, #e0e0e0);
+}
+
+.compactToggle {
+  padding: 4px 12px;
+  background: transparent;
+  color: var(--color-text-secondary, #a0a0a0);
+  border: 1px solid var(--color-border, #3a3a5a);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.compactToggle:hover {
+  background: var(--color-surface, #1a1a2e);
+  color: var(--color-text, #e0e0e0);
+}
+
+.stats {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 16px;
+  background: var(--color-surface, #1a1a2e);
+  border-radius: 8px;
+  min-width: 60px;
+}
+
+.statWarning {
+  background: var(--color-error-bg, #3d0000);
+}
+
+.statValue {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-text, #e0e0e0);
+}
+
+.statWarning .statValue {
+  color: var(--color-error, #ef4444);
+}
+
+.statLabel {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary, #a0a0a0);
+}
+
+.monthlyCost {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--color-surface, #1a1a2e);
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.costValue {
+  font-weight: 600;
+  color: var(--color-warning, #f59e0b);
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.tab {
+  padding: 8px 16px;
+  background: transparent;
+  color: var(--color-text-secondary, #a0a0a0);
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.tab:hover {
+  color: var(--color-text, #e0e0e0);
+}
+
+.tabActive {
+  color: var(--color-primary, #6366f1);
+  border-bottom-color: var(--color-primary, #6366f1);
+}
+
+.therapistList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  flex: 1;
+  padding-right: 4px;
+}
+
+.therapistList::-webkit-scrollbar {
+  width: 6px;
+}
+
+.therapistList::-webkit-scrollbar-track {
+  background: var(--color-surface, #1a1a2e);
+  border-radius: 3px;
+}
+
+.therapistList::-webkit-scrollbar-thumb {
+  background: var(--color-border, #3a3a5a);
+  border-radius: 3px;
+}
+
+.emptyState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100px;
+  color: var(--color-text-secondary, #a0a0a0);
+  font-style: italic;
+}
+
+.hiringSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.hiringHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.hiringInfo {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary, #a0a0a0);
+}
+
+.refreshButton {
+  padding: 6px 12px;
+  background: var(--color-surface, #1a1a2e);
+  color: var(--color-text, #e0e0e0);
+  border: 1px solid var(--color-border, #3a3a5a);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.refreshButton:hover {
+  background: var(--color-border, #3a3a5a);
+}
+
+.candidateList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.candidateCard {
+  background: var(--color-surface, #1a1a2e);
+  border: 1px solid var(--color-border, #3a3a5a);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.candidateInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.candidateName {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--color-text, #e0e0e0);
+}
+
+.candidateStats {
+  display: flex;
+  gap: 12px;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary, #a0a0a0);
+}
+
+.candidateCerts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.certBadge {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  background: var(--color-success-bg, #003d00);
+  color: var(--color-success, #22c55e);
+  border-radius: 4px;
+  text-transform: capitalize;
+}
+
+.candidateSpecs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.specBadge {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  background: var(--color-info-bg, #002d3d);
+  color: var(--color-info, #3b82f6);
+  border-radius: 4px;
+  text-transform: capitalize;
+}
+
+.candidateCosts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  background: var(--color-bg, #0f0f1a);
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.costRow {
+  display: flex;
+  justify-content: space-between;
+  color: var(--color-text-secondary, #a0a0a0);
+}
+
+.costAmount {
+  font-weight: 600;
+  color: var(--color-text, #e0e0e0);
+}
+
+.hireButton {
+  padding: 10px 16px;
+  background: var(--color-primary, #6366f1);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.hireButton:hover:not(.disabled) {
+  background: var(--color-primary-hover, #4f46e5);
+}
+
+.hireButton.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: var(--color-disabled, #666);
+}

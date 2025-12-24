@@ -1,0 +1,273 @@
+.panel {
+  background: var(--color-bg, #0f0f1a);
+  border: 1px solid var(--color-border, #3a3a5a);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.header {
+  margin-bottom: 16px;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--color-text, #e0e0e0);
+}
+
+.section {
+  margin-bottom: 20px;
+}
+
+.section:last-child {
+  margin-bottom: 0;
+}
+
+.sectionTitle {
+  margin: 0 0 10px;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary, #a0a0a0);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Building Card */
+.buildingCard {
+  background: var(--color-surface, #1a1a2e);
+  border: 1px solid var(--color-border, #3a3a5a);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.buildingHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.buildingName {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text, #e0e0e0);
+}
+
+.tierBadge {
+  padding: 2px 8px;
+  background: var(--color-primary-bg, #2d2d4d);
+  color: var(--color-primary, #6366f1);
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.buildingStats {
+  display: flex;
+  gap: 20px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.statLabel {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary, #a0a0a0);
+}
+
+.statValue {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text, #e0e0e0);
+}
+
+/* Utilization */
+.utilizationCard {
+  background: var(--color-surface, #1a1a2e);
+  border: 1px solid var(--color-border, #3a3a5a);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.utilizationBar {
+  height: 8px;
+  background: var(--color-bg, #0f0f1a);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.utilizationFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-success, #22c55e), var(--color-warning, #f59e0b));
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.utilizationStats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary, #a0a0a0);
+  margin-bottom: 8px;
+}
+
+.sessionCounts {
+  display: flex;
+  gap: 16px;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary, #a0a0a0);
+}
+
+/* Telehealth */
+.telehealthStatus {
+  background: var(--color-surface, #1a1a2e);
+  border: 1px solid var(--color-border, #3a3a5a);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.unlockedBadge {
+  display: inline-block;
+  padding: 3px 10px;
+  background: var(--color-success-bg, #003d00);
+  color: var(--color-success, #22c55e);
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.telehealthInfo {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary, #a0a0a0);
+}
+
+.telehealthLocked {
+  background: var(--color-surface, #1a1a2e);
+  border: 1px solid var(--color-border, #3a3a5a);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.unlockButton {
+  margin-top: 10px;
+  width: 100%;
+  padding: 10px;
+  background: var(--color-primary, #6366f1);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.unlockButton:hover:not(.disabled) {
+  background: var(--color-primary-hover, #4f46e5);
+}
+
+.unlockButton.disabled {
+  background: var(--color-disabled, #666);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Upgrade List */
+.upgradeList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.upgradeCard {
+  background: var(--color-surface, #1a1a2e);
+  border: 1px solid var(--color-border, #3a3a5a);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.upgradeHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.upgradeName {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text, #e0e0e0);
+}
+
+.upgradeDetails {
+  display: flex;
+  gap: 16px;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary, #a0a0a0);
+  margin-bottom: 8px;
+}
+
+.upgradeCost {
+  font-size: 0.85rem;
+  color: var(--color-warning, #f59e0b);
+  margin-bottom: 10px;
+}
+
+.upgradeButton {
+  width: 100%;
+  padding: 8px;
+  background: var(--color-primary, #6366f1);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.upgradeButton:hover:not(.disabled) {
+  background: var(--color-primary-hover, #4f46e5);
+}
+
+.upgradeButton.disabled {
+  background: transparent;
+  border: 1px solid var(--color-border, #3a3a5a);
+  color: var(--color-text-secondary, #a0a0a0);
+  cursor: not-allowed;
+  font-weight: 400;
+}
+
+/* Locked Buildings */
+.lockedList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lockedCard {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--color-surface, #1a1a2e);
+  border: 1px solid var(--color-border, #3a3a5a);
+  border-radius: 6px;
+  opacity: 0.6;
+}
+
+.lockedName {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary, #a0a0a0);
+}
+
+.lockedRequirement {
+  font-size: 0.8rem;
+  color: var(--color-warning, #f59e0b);
+}

@@ -1,0 +1,319 @@
+.card {
+  background: var(--color-surface, #1a1a2e);
+  border: 1px solid var(--color-border, #3a3a5a);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cardCompact {
+  background: var(--color-surface, #1a1a2e);
+  border: 1px solid var(--color-border, #3a3a5a);
+  border-radius: 4px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.cardCompact:hover {
+  background: var(--color-surface-hover, #2a2a4e);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.therapistName {
+  font-weight: 600;
+  color: var(--color-text, #e0e0e0);
+  margin: 0;
+}
+
+.playerBadge {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  background: var(--color-primary, #6366f1);
+  color: white;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.level {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary, #a0a0a0);
+}
+
+.statusBadge {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 12px;
+  text-transform: capitalize;
+}
+
+.statusAvailable {
+  background: var(--color-success-bg, #003d00);
+  color: var(--color-success, #22c55e);
+}
+
+.statusSession {
+  background: var(--color-info-bg, #002d3d);
+  color: var(--color-info, #3b82f6);
+}
+
+.statusBreak {
+  background: var(--color-warning-bg, #3d3000);
+  color: var(--color-warning, #f59e0b);
+}
+
+.statusTraining {
+  background: var(--color-primary-bg, #2d2d4d);
+  color: var(--color-primary, #6366f1);
+}
+
+.statusBurnedOut {
+  background: var(--color-error-bg, #3d0000);
+  color: var(--color-error, #ef4444);
+}
+
+.stats {
+  display: flex;
+  gap: 16px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.statLabel {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary, #a0a0a0);
+}
+
+.statValue {
+  font-weight: 600;
+  color: var(--color-text, #e0e0e0);
+}
+
+.energySection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.energyLabel {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary, #a0a0a0);
+}
+
+.energyBar {
+  width: 60px;
+  height: 6px;
+  background: var(--color-progress-bg, #2a2a4e);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.energyBarLarge {
+  height: 8px;
+  background: var(--color-progress-bg, #2a2a4e);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.energyFill {
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.3s ease;
+}
+
+.energyGood .energyFill {
+  background: var(--color-success, #22c55e);
+}
+
+.energyWarning .energyFill {
+  background: var(--color-warning, #f59e0b);
+}
+
+.energyCritical .energyFill {
+  background: var(--color-error, #ef4444);
+}
+
+.burnoutWarning {
+  font-size: 0.8rem;
+  color: var(--color-error, #ef4444);
+  font-weight: 500;
+}
+
+.burnoutProgress {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary, #a0a0a0);
+}
+
+.recoveryBar {
+  height: 8px;
+  background: var(--color-progress-bg, #2a2a4e);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.recoveryFill {
+  height: 100%;
+  background: var(--color-info, #3b82f6);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.riskBadge {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 0.75rem;
+  background: var(--color-error-bg, #3d0000);
+  color: var(--color-error, #ef4444);
+  margin-left: auto;
+}
+
+.sectionLabel {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary, #a0a0a0);
+  margin-bottom: 4px;
+  display: block;
+}
+
+.certifications,
+.specializations {
+  display: flex;
+  flex-direction: column;
+}
+
+.certList,
+.specList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.certBadge {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  background: var(--color-success-bg, #003d00);
+  color: var(--color-success, #22c55e);
+  border-radius: 4px;
+  text-transform: capitalize;
+}
+
+.specBadge {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  background: var(--color-info-bg, #002d3d);
+  color: var(--color-info, #3b82f6);
+  border-radius: 4px;
+  text-transform: capitalize;
+}
+
+.moreCount {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary, #a0a0a0);
+  padding: 2px 6px;
+}
+
+.traits {
+  display: flex;
+  flex-direction: column;
+}
+
+.traitList {
+  display: flex;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary, #a0a0a0);
+}
+
+.salary {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border, #3a3a5a);
+}
+
+.salaryLabel {
+  color: var(--color-text-secondary, #a0a0a0);
+}
+
+.salaryValue {
+  font-weight: 600;
+  color: var(--color-text, #e0e0e0);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.actionButton {
+  flex: 1;
+  padding: 8px 12px;
+  background: var(--color-surface-hover, #2a2a4e);
+  color: var(--color-text, #e0e0e0);
+  border: 1px solid var(--color-border, #3a3a5a);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.actionButton:hover {
+  background: var(--color-border, #3a3a5a);
+}
+
+.primaryButton {
+  background: var(--color-primary, #6366f1);
+  border-color: var(--color-primary, #6366f1);
+  color: white;
+}
+
+.primaryButton:hover {
+  background: var(--color-primary-hover, #4f46e5);
+}
+
+.viewButton {
+  padding: 8px 16px;
+  background: transparent;
+  color: var(--color-primary, #6366f1);
+  border: 1px solid var(--color-primary, #6366f1);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.viewButton:hover {
+  background: var(--color-primary, #6366f1);
+  color: white;
+}
