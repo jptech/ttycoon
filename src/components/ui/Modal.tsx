@@ -89,6 +89,7 @@ export const Modal = forwardRef<HTMLDivElement, ModalProps>(
       >
         {/* Backdrop */}
         <div
+          data-testid="modal-backdrop"
           className="absolute inset-0 bg-black/50 animate-in fade-in duration-200"
           onClick={handleBackdropClick}
         />
@@ -96,8 +97,10 @@ export const Modal = forwardRef<HTMLDivElement, ModalProps>(
         {/* Modal content */}
         <div
           ref={ref}
+          data-testid="modal-content"
           className={cn(
             'relative w-full bg-card rounded-xl shadow-lg border border-border',
+            'max-h-[calc(100vh-2rem)] flex flex-col',
             'animate-in zoom-in-95 fade-in duration-200',
             className
           )}
@@ -125,7 +128,9 @@ export const Modal = forwardRef<HTMLDivElement, ModalProps>(
           )}
 
           {/* Body */}
-          <div className="p-4">{children}</div>
+          <div className="p-4 overflow-y-auto" data-testid="modal-body">
+            {children}
+          </div>
         </div>
       </div>,
       document.body

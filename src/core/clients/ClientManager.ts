@@ -47,7 +47,51 @@ export const CLIENT_CONFIG = {
   MINOR_CHANCE: 0.15,
   /** Chance client is a couple */
   COUPLE_CHANCE: 0.1,
+
+  /** Max fraction of newly generated clients that require credentials/certification */
+  MAX_CREDENTIAL_REQUIRED_RATE: 0.35,
+
+  /** Days to ramp credential requirements from 0 -> max (scaled with practice level) */
+  CREDENTIAL_RAMP_DAYS: 120,
+
+  /** Max practice level used for scaling */
+  MAX_PRACTICE_LEVEL: 5,
 } as const
+
+export interface ClientGenerationOptions {
+  /** Practice level (1-5) used for progressive credential requirements */
+  practiceLevel?: number
+  /** Force all generated clients to have no credential requirements */
+  forceNoCredentials?: boolean
+  /** Override max credential requirement rate (0-1). Useful for tests. */
+  maxCredentialRequiredRate?: number
+  /** Override RNG (useful for deterministic tests) */
+  random?: () => number
+}
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value))
+}
+
+/**
+ * Progressive chance that a newly generated client requires credentials.
+ * - Starts at 0% at Day 1 / Practice Level 1.
+ * - Ramps toward MAX_CREDENTIAL_REQUIRED_RATE as practice level increases and time passes.
+ */
+export function getCredentialRequirementChance(
+  currentDay: number,
+  practiceLevel: number,
+  maxRate: number = CLIENT_CONFIG.MAX_CREDENTIAL_REQUIRED_RATE
+): number {
+  const levelProgress = clamp01(
+    (practiceLevel - 1) / Math.max(1, CLIENT_CONFIG.MAX_PRACTICE_LEVEL - 1)
+  )
+  const dayProgress = clamp01((currentDay - 1) / CLIENT_CONFIG.CREDENTIAL_RAMP_DAYS)
+
+  // Weight level slightly more than time.
+  const combinedProgress = clamp01(levelProgress * 0.6 + dayProgress * 0.4)
+  return combinedProgress * clamp01(maxRate)
+}
 
 /**
  * Client match score result
@@ -155,9 +199,19 @@ export const ClientManager = {
     currentDay: number,
     availableInsurers: InsurerId[],
     sessionRate: number,
-    seed?: number
+    seed?: number,
+    options?: ClientGenerationOptions
   ): ClientGenerationResult {
-    const random = seed !== undefined ? seededRandom(seed) : Math.random
+    const random = options?.random ?? (seed !== undefined ? seededRandom(seed) : Math.random)
+
+    const practiceLevel = options?.practiceLevel ?? 1
+    const maxRate = options?.maxCredentialRequiredRate ?? CLIENT_CONFIG.MAX_CREDENTIAL_REQUIRED_RATE
+    const credentialChance = options?.forceNoCredentials
+      ? 0
+      : getCredentialRequirementChance(currentDay, practiceLevel, maxRate)
+
+    // Decide early so tests can deterministically control this with a simple RNG.
+    const requiresCredentials = !options?.forceNoCredentials && random() < credentialChance
 
     // Generate ID and name
     const id = crypto.randomUUID()
@@ -187,10 +241,16 @@ export const ClientManager = {
     const preferredTime = pickRandom<TimePreference>(['morning', 'afternoon', 'evening', 'any'], random)
     const availability = generateAvailability(preferredTime, random)
 
-    // Special requirements
-    const isMinor = random() < CLIENT_CONFIG.MINOR_CHANCE
-    const isCouple = !isMinor && conditionCategory === 'relationship' && random() < CLIENT_CONFIG.COUPLE_CHANCE
-    const requiredCertification = getRequiredCertification(conditionCategory, isMinor, isCouple)
+    // Special requirements (credentials)
+    let isMinor = false
+    let isCouple = false
+    let requiredCertification: Certification | null = null
+
+    if (requiresCredentials) {
+      isMinor = random() < CLIENT_CONFIG.MINOR_CHANCE
+      isCouple = !isMinor && conditionCategory === 'relationship' && random() < CLIENT_CONFIG.COUPLE_CHANCE
+      requiredCertification = getRequiredCertification(conditionCategory, isMinor, isCouple, random, true)
+    }
 
     // Max wait based on severity (higher severity = less patience)
     const maxWaitDays = Math.max(7, CLIENT_CONFIG.DEFAULT_MAX_WAIT_DAYS - Math.floor(severity / 2))
@@ -727,11 +787,28 @@ function generateAvailability(preference: TimePreference, random: () => number):
 function getRequiredCertification(
   category: ConditionCategory,
   isMinor: boolean,
-  isCouple: boolean
+  isCouple: boolean,
+  random: () => number,
+  ensureNonNull: boolean
 ): Certification | null {
   if (isMinor) return 'children_certified'
   if (isCouple) return 'couples_certified'
-  return CERTIFICATION_REQUIREMENTS[category] ?? null
+
+  const mapped = CERTIFICATION_REQUIREMENTS[category] ?? null
+  if (mapped) return mapped
+
+  if (!ensureNonNull) return null
+
+  // Fallback requirements so the "credentials required" fraction is meaningful
+  // even for categories without a dedicated certification mapping.
+  const fallbackCerts: Certification[] = [
+    'cbt_certified',
+    'dbt_certified',
+    'emdr_certified',
+    'substance_certified',
+  ]
+
+  return pickRandom(fallbackCerts, random)
 }
 
 /**

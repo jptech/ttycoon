@@ -206,6 +206,11 @@ describe('Client Spawning System', () => {
         expect(client.sessionRate).toBeGreaterThan(0)
         expect(client.satisfaction).toBe(70) // BASE_SATISFACTION
         expect(client.engagement).toBe(60) // BASE_ENGAGEMENT
+
+        // Starting clients must be compatible with the starting therapist (no credentials required)
+        expect(client.requiredCertification).toBeNull()
+        expect(client.isMinor).toBe(false)
+        expect(client.isCouple).toBe(false)
       }
     })
   })

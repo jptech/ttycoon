@@ -4,8 +4,14 @@ import {
   CLIENT_CONFIG,
   CONDITION_TYPES,
   CERTIFICATION_REQUIREMENTS,
+  getCredentialRequirementChance,
 } from '@/core/clients'
 import type { Client, Therapist } from '@/core/types'
+
+function makeSequenceRandom(values: number[], fallback: number = 0.5): () => number {
+  let i = 0
+  return () => values[i++] ?? fallback
+}
 
 // Helper to create a test client
 function createTestClient(overrides: Partial<Client> = {}): Client {
@@ -124,6 +130,42 @@ describe('ClientManager', () => {
       const result = ClientManager.generateClient(1, ['aetna'], 150)
 
       expect(result.reason).toContain('New client seeking help with')
+    })
+
+    it('can force generated clients to have no credential requirements (starting-client safety)', () => {
+      const result = ClientManager.generateClient(1, ['aetna'], 150, undefined, {
+        forceNoCredentials: true,
+        practiceLevel: 5,
+        random: makeSequenceRandom([0, 0, 0, 0, 0]),
+      })
+
+      expect(result.client.requiredCertification).toBeNull()
+      expect(result.client.isMinor).toBe(false)
+      expect(result.client.isCouple).toBe(false)
+    })
+
+    it('can require a certification at higher progression (progressive credential requirements)', () => {
+      const result = ClientManager.generateClient(200, ['aetna'], 150, undefined, {
+        practiceLevel: 5,
+        // Make "requiresCredentials" roll succeed.
+        random: makeSequenceRandom([0.0]),
+      })
+
+      expect(result.client.requiredCertification).not.toBeNull()
+    })
+  })
+
+  describe('getCredentialRequirementChance', () => {
+    it('starts at 0 for day 1 / level 1', () => {
+      expect(getCredentialRequirementChance(1, 1)).toBe(0)
+    })
+
+    it('ramps up with day and practice level (capped at max)', () => {
+      const early = getCredentialRequirementChance(2, 1)
+      const later = getCredentialRequirementChance(120, 5)
+
+      expect(later).toBeGreaterThan(early)
+      expect(later).toBeLessThanOrEqual(CLIENT_CONFIG.MAX_CREDENTIAL_REQUIRED_RATE)
     })
   })
 

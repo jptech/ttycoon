@@ -38,7 +38,7 @@ export function useClientSpawning(options: UseClientSpawningOptions = {}) {
    */
   const spawnClients = useCallback(() => {
     const state = useGameStore.getState()
-    const { currentDay, reputation, activePanels, clients } = state
+    const { currentDay, reputation, practiceLevel, activePanels, clients } = state
 
     // Don't spawn on day 1 (initial clients are seeded)
     if (currentDay < 2) return
@@ -56,7 +56,8 @@ export function useClientSpawning(options: UseClientSpawningOptions = {}) {
           currentDay,
           isPrivatePay ? [] : activePanels,
           sessionRate,
-          Date.now() + i + clients.length
+          Date.now() + i + clients.length,
+          { practiceLevel }
         )
 
         addClient(result.client)

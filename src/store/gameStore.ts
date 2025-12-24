@@ -560,7 +560,8 @@ export const useGameStore = create<GameStore>()(
             1, // Day 1
             [], // No insurance panels yet
             sessionRate,
-            Date.now() + i // Different seed for each client
+            Date.now() + i, // Different seed for each client
+            { forceNoCredentials: true }
           )
           initialClients.push(result.client)
           initialWaitingList.push(result.client.id)

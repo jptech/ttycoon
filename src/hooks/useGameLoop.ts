@@ -44,16 +44,27 @@ export function useGameLoop(options: UseGameLoopOptions = {}) {
     }
   }, [])
 
-  // Pause game when modal opens
+  // Keep game pause state in sync with modal lifecycle.
+  // Without resuming on close, `pauseReasons` can retain a modal reason forever,
+  // leaving the game stuck paused even though the UI is interactive.
   useEffect(() => {
-    const unsubscribe = useUIStore.subscribe((state) => {
-      if (state.activeModal) {
-        pause(`modal_${state.activeModal.type}`)
+    const unsubscribe = useUIStore.subscribe((state, prevState) => {
+      const prevType = prevState.activeModal?.type
+      const nextType = state.activeModal?.type
+
+      if (prevType === nextType) return
+
+      if (prevType) {
+        resume(`modal_${prevType}`)
+      }
+
+      if (nextType) {
+        pause(`modal_${nextType}`)
       }
     })
 
     return unsubscribe
-  }, [pause])
+  }, [pause, resume])
 
   /**
    * Skip to the next scheduled session

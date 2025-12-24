@@ -12,6 +12,27 @@ ARRIVE → WAITING → IN_TREATMENT → CURED/DROPPED
 
 ## Client Generation
 
+Implementation note (source of truth): clients are generated in `src/core/clients/ClientManager.ts` and spawned via `src/hooks/useClientSpawning.ts`.
+
+### Starting Clients (Day 1)
+
+- When a new game starts, the game seeds **2–3 initial clients** on **Day 1**.
+- These seeded clients are forced to have **no credential requirements** so they are compatible with the starting player therapist (who begins with no certifications).
+- Concretely, seeded clients have:
+  - `requiredCertification: null`
+  - `isMinor: false`
+  - `isCouple: false`
+
+### Progressive Credential Requirements
+
+As the player progresses, a growing fraction of newly arriving clients will require credentials (certifications).
+
+- Each generated client rolls a probability from **0% → MAX** based on **practice level** and **time**.
+- The chance is computed by `getCredentialRequirementChance(currentDay, practiceLevel)`.
+- The maximum fraction is `CLIENT_CONFIG.MAX_CREDENTIAL_REQUIRED_RATE`.
+
+When a client is flagged as requiring credentials, `requiredCertification` is guaranteed to be **non-null** (including for categories that do not have a dedicated mapping), which makes the “% of clients requiring credentials” meaningful.
+
 New clients arrive daily based on reputation and modifiers:
 
 ```typescript
