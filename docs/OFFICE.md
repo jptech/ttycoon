@@ -284,7 +284,7 @@ export const ROOM_COLORS: Record<RoomType, number> = {
 
 ### OfficeCanvas Component
 
-React component that renders the floor plan:
+React component that renders the floor plan (cozy, cartoon-ish style):
 
 ```typescript
 export interface OfficeCanvasProps {
@@ -322,6 +322,18 @@ Visual behavior:
 - Move to therapy room when session starts
 - Progress arc fills around sprite during session
 - Return to waiting area when session ends
+
+### Visual Readability (What You’re Looking At)
+
+The canvas is intentionally a “toy floor plan” (not strict architectural scale) with cozy, readable cues:
+
+- **Rooms**: Rounded rooms with a warm interior floor, subtle tile lines, and a colored accent strip.
+- **Lighting**: Empty rooms are slightly dimmed; occupied rooms get a soft warm highlight.
+- **Furniture/Props**: Rooms include recognizable props (desk/chairs/bookshelf in therapy, couch/coffee table in waiting, coffee station in break, etc.).
+- **People**:
+  - **Therapists**: Larger sprites with initials; session progress ring shows active sessions.
+  - **Clients**: Smaller “pawn-like” sprites; waiting clients appear in the waiting room and move to therapy rooms during sessions.
+- **Room labels**: Show occupancy counts as `Therapy 1 (1T/1C)` to clarify who is where.
 
 ### Integration with OfficePanel
 

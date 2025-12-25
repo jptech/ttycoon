@@ -4,6 +4,37 @@
 export type RoomType = 'therapy' | 'waiting' | 'office' | 'break'
 
 /**
+ * Furniture types
+ */
+export type FurnitureType =
+  | 'desk'
+  | 'rug'
+  | 'plant'
+  | 'chair'
+  | 'bookshelf'
+  | 'sofa'
+  | 'coffee_table'
+  | 'lamp'
+  | 'art'
+  | 'window'
+  | 'door'
+  | 'coffee_machine'
+  | 'counter'
+
+/**
+ * Furniture configuration
+ */
+export interface FurnitureItem {
+  type: FurnitureType
+  x: number // Relative 0-1
+  y: number // Relative 0-1
+  width?: number // Relative 0-1
+  height?: number // Relative 0-1
+  rotation?: number
+  color?: number
+}
+
+/**
  * Configuration for a single room
  */
 export interface RoomConfig {
@@ -15,6 +46,7 @@ export interface RoomConfig {
   width: number
   height: number
   color: number
+  furniture?: FurnitureItem[]
 }
 
 /**
@@ -56,6 +88,11 @@ export const ROOM_LAYOUTS: Record<string, RoomLayout> = {
         width: 160,
         height: 120,
         color: ROOM_COLORS.waiting,
+        furniture: [
+          { type: 'rug', x: 0.5, y: 0.5, width: 0.6, height: 0.6, color: 0xd1d5db }, // Light grey rug
+          { type: 'plant', x: 0.1, y: 0.1 },
+          { type: 'plant', x: 0.9, y: 0.1 },
+        ],
       },
       {
         id: 'therapy_1',
@@ -66,6 +103,15 @@ export const ROOM_LAYOUTS: Record<string, RoomLayout> = {
         width: 180,
         height: 260,
         color: ROOM_COLORS.therapy,
+        furniture: [
+          { type: 'rug', x: 0.5, y: 0.6, width: 0.5, height: 0.4, color: 0xe5e7eb }, // Very light grey
+          { type: 'desk', x: 0.5, y: 0.2, width: 0.4, height: 0.15, color: 0x8b4513 }, // Saddle Brown
+          { type: 'chair', x: 0.5, y: 0.35, width: 0.15, height: 0.1, color: 0x1f2937 }, // Dark grey
+          { type: 'chair', x: 0.3, y: 0.6, width: 0.15, height: 0.1, color: 0x4b5563, rotation: 0.5 }, // Grey
+          { type: 'chair', x: 0.7, y: 0.6, width: 0.15, height: 0.1, color: 0x4b5563, rotation: -0.5 }, // Grey
+          { type: 'plant', x: 0.1, y: 0.1 },
+          { type: 'bookshelf', x: 0.9, y: 0.2, width: 0.15, height: 0.3, color: 0x5c3a21 }, // Dark wood
+        ],
       },
     ],
   },
@@ -84,6 +130,10 @@ export const ROOM_LAYOUTS: Record<string, RoomLayout> = {
         width: 120,
         height: 120,
         color: ROOM_COLORS.waiting,
+        furniture: [
+          { type: 'rug', x: 0.5, y: 0.5, width: 0.7, height: 0.7, color: 0x93c5fd },
+          { type: 'plant', x: 0.1, y: 0.1 },
+        ],
       },
       {
         id: 'therapy_1',
@@ -94,6 +144,11 @@ export const ROOM_LAYOUTS: Record<string, RoomLayout> = {
         width: 150,
         height: 260,
         color: ROOM_COLORS.therapy,
+        furniture: [
+          { type: 'rug', x: 0.5, y: 0.6, width: 0.6, height: 0.4, color: 0xc7d2fe },
+          { type: 'desk', x: 0.5, y: 0.2, width: 0.5, height: 0.15, color: 0x8b5cf6 },
+          { type: 'plant', x: 0.9, y: 0.9 },
+        ],
       },
       {
         id: 'therapy_2',
@@ -104,6 +159,11 @@ export const ROOM_LAYOUTS: Record<string, RoomLayout> = {
         width: 150,
         height: 260,
         color: ROOM_COLORS.therapy,
+        furniture: [
+          { type: 'rug', x: 0.5, y: 0.6, width: 0.6, height: 0.4, color: 0xc7d2fe },
+          { type: 'desk', x: 0.5, y: 0.2, width: 0.5, height: 0.15, color: 0x8b5cf6 },
+          { type: 'plant', x: 0.1, y: 0.9 },
+        ],
       },
     ],
   },

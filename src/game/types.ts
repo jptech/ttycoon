@@ -22,6 +22,20 @@ export interface TherapistCanvasState {
   isInSession: boolean
   sessionProgress: number
   roomId: string | null
+  status: string // 'available' | 'in_session' | 'on_break' | ...
+  isVirtual?: boolean
+}
+
+/**
+ * Client position and state for canvas rendering
+ */
+export interface ClientCanvasState {
+  clientId: string
+  color: number
+  position: Position
+  targetPosition: Position
+  isMoving: boolean
+  roomId: string | null
 }
 
 /**

@@ -80,12 +80,16 @@ export function HUD({
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-card shadow-sm">
-      <div className="flex items-center justify-between px-4 py-2">
+      <div className="grid grid-cols-3 items-center px-4 py-2">
         {/* Left: Time */}
         <div className="flex items-center gap-4">
-          <div className="text-lg font-semibold">Day {day}</div>
-          <div className="text-muted-foreground">{formatTime(hour, minute)}</div>
-          <Badge variant={isPaused ? 'warning' : 'success'} size="sm">
+          <div className="text-lg font-semibold min-w-[70px] tabular-nums">Day {day}</div>
+          <div className="text-muted-foreground min-w-[90px] tabular-nums">{formatTime(hour, minute)}</div>
+          <Badge 
+            variant={isPaused ? 'warning' : 'success'} 
+            size="sm"
+            className="w-[64px] justify-center"
+          >
             {speedLabel}
           </Badge>
 
@@ -108,7 +112,7 @@ export function HUD({
                       <span className={cn('text-foreground truncate', s.isPlayer && 'font-semibold')}>
                         {s.therapistName}: {s.clientName}
                       </span>
-                      <span className="text-muted-foreground">{getSessionTimeRemaining(s)}</span>
+                      <span className="text-muted-foreground tabular-nums">{getSessionTimeRemaining(s)}</span>
                     </div>
                     <ProgressBar
                       value={s.progress * 100}
@@ -133,21 +137,25 @@ export function HUD({
         </div>
 
         {/* Center: Speed Controls */}
-        <SpeedControls
-          speed={speed}
-          isPaused={isPaused}
-          onSpeedChange={onSpeedChange}
-          onSkip={onSkip}
-          skipEnabled={skipEnabled}
-        />
+        <div className="flex justify-center">
+          <SpeedControls
+            speed={speed}
+            isPaused={isPaused}
+            onSpeedChange={onSpeedChange}
+            onSkip={onSkip}
+            skipEnabled={skipEnabled}
+          />
+        </div>
 
         {/* Right: Resources & Menu */}
-        <div className="flex items-center gap-4">
-          <div className="text-right">
-            <div className="font-semibold text-lg">{formatMoney(balance)}</div>
+        <div className="flex items-center justify-end gap-4">
+          <div className="text-right min-w-[100px]">
+            <div className="font-semibold text-lg tabular-nums">{formatMoney(balance)}</div>
             <div className="text-xs text-muted-foreground">Balance</div>
           </div>
-          <ReputationDisplay reputation={reputation} />
+          <div className="min-w-[160px]">
+            <ReputationDisplay reputation={reputation} />
+          </div>
           <div className="w-px h-8 bg-border" />
           {onSettingsClick && (
             <button
@@ -184,7 +192,7 @@ function ReputationDisplay({ reputation }: { reputation: number }) {
 
   return (
     <div className="text-right">
-      <div className="font-semibold text-lg flex items-center gap-1.5">
+      <div className="font-semibold text-lg flex items-center justify-end gap-1.5 tabular-nums">
         <span className="text-accent">★</span>
         <span>{Math.floor(display.current)}</span>
         <span className="text-xs px-1 py-0.5 bg-accent/10 rounded text-accent font-medium">
