@@ -626,13 +626,17 @@ Recurring bookings:
 
 ```typescript
 EventBus.emit('session_scheduled', sessionId);
-EventBus.emit('session_rescheduled', sessionId, oldDay, oldHour, newDay, newHour);
 EventBus.emit('session_cancelled', sessionId);
 EventBus.emit('break_scheduled', therapistId, day, hour, duration);
 EventBus.emit('recurring_sessions_scheduled', clientId, count, skipped);
 EventBus.emit('schedule_conflict', therapistId, day, hour);
 EventBus.emit('schedule_view_updated', day);
 ```
+
+Notes:
+
+- Rescheduling is performed by updating the existing session's scheduled fields and rebuilding the schedule map.
+- The current implementation emits `session_scheduled` after a successful reschedule (treating it as a new placement).
 
 ## Testing Strategy
 

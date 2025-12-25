@@ -18,7 +18,9 @@ import { EventBus, GameEvents } from '@/core/events'
 import { ClientManager } from '@/core/clients'
 import { SessionManager } from '@/core/session/SessionManager'
 import { ScheduleManager } from '@/core/schedule'
+import { canBookSessionType } from '@/core/schedule/BookingConstraints'
 import { getSessionRate } from '@/data/clientGeneration'
+import { BUILDINGS, getBuilding } from '@/data/buildings'
 import { getReputationChangeReason, getSessionReputationDelta } from '@/core/reputation'
 
 /**
@@ -46,6 +48,15 @@ interface GameActions {
   updateSession: (sessionId: string, updates: Partial<Session>) => void
   removeSession: (sessionId: string) => void
   updateSchedule: (schedule: Schedule) => void
+  cancelSession: (sessionId: string, reason?: string) => { success: boolean; error?: string }
+  rescheduleSession: (params: {
+    sessionId: string
+    therapistId: string
+    day: number
+    hour: number
+    duration: 50 | 80 | 180
+    isVirtual: boolean
+  }) => { success: boolean; error?: string }
   completeSession: (
     sessionId: string
   ) =>
@@ -455,6 +466,142 @@ export const useGameStore = create<GameStore>()(
           xpGained: result.xpGained,
           reputationDelta,
         }
+      },
+
+      cancelSession: (sessionId, reason = 'Cancelled by player') => {
+        const snapshot = get()
+        const session = snapshot.sessions.find((s) => s.id === sessionId)
+        if (!session) return { success: false, error: 'Session not found' }
+
+        if (session.status !== 'scheduled') {
+          return { success: false, error: `Cannot cancel a ${session.status} session` }
+        }
+
+        const currentTime = {
+          day: snapshot.currentDay,
+          hour: snapshot.currentHour,
+          minute: snapshot.currentMinute,
+        }
+
+        const timeCheck = ScheduleManager.validateNotInPast(currentTime, session.scheduledDay, session.scheduledHour)
+        if (!timeCheck.valid) {
+          return { success: false, error: 'Cannot cancel a session in the past' }
+        }
+
+        set((state) => {
+          const index = state.sessions.findIndex((s) => s.id === sessionId)
+          if (index === -1) return
+          state.sessions[index] = { ...state.sessions[index], status: 'cancelled' }
+
+          // Cancelled sessions should not occupy schedule slots.
+          state.schedule = ScheduleManager.buildScheduleFromSessions(state.sessions)
+        })
+
+        EventBus.emit(GameEvents.SESSION_CANCELLED, { sessionId, reason })
+        return { success: true }
+      },
+
+      rescheduleSession: ({ sessionId, therapistId, day, hour, duration, isVirtual }) => {
+        const snapshot = get()
+        const session = snapshot.sessions.find((s) => s.id === sessionId)
+        if (!session) return { success: false, error: 'Session not found' }
+
+        if (session.status !== 'scheduled') {
+          return { success: false, error: `Cannot reschedule a ${session.status} session` }
+        }
+
+        const currentTime = {
+          day: snapshot.currentDay,
+          hour: snapshot.currentHour,
+          minute: snapshot.currentMinute,
+        }
+
+        // Cannot reschedule a session that is already in the past.
+        const existingTimeCheck = ScheduleManager.validateNotInPast(currentTime, session.scheduledDay, session.scheduledHour)
+        if (!existingTimeCheck.valid) {
+          return { success: false, error: 'Cannot reschedule a session in the past' }
+        }
+
+        // Cannot schedule something previous to the current time.
+        const targetTimeCheck = ScheduleManager.validateNotInPast(currentTime, day, hour)
+        if (!targetTimeCheck.valid) {
+          return { success: false, error: targetTimeCheck.reason || 'Cannot schedule a session in the past.' }
+        }
+
+        // Exclude the session being moved from constraint checks.
+        const sessionsWithoutThis = snapshot.sessions.filter((s) => s.id !== sessionId)
+        const scheduleWithoutThis = ScheduleManager.buildScheduleFromSessions(sessionsWithoutThis)
+
+        // Must satisfy the same constraints as standard booking.
+        const therapistSlotAvailable = ScheduleManager.isSlotAvailable(
+          scheduleWithoutThis,
+          therapistId,
+          day,
+          hour,
+          duration
+        )
+
+        if (!therapistSlotAvailable) {
+          return { success: false, error: 'This time slot is already booked. Please select another.' }
+        }
+
+        const clientConflict = ScheduleManager.clientHasConflictingSession(
+          sessionsWithoutThis,
+          session.clientId,
+          day,
+          hour,
+          duration
+        )
+
+        if (clientConflict) {
+          return { success: false, error: 'Client already has a session scheduled at this time.' }
+        }
+
+        const building = getBuilding(snapshot.currentBuildingId) || BUILDINGS.starter_suite
+        const typeCheck = canBookSessionType({
+          building,
+          sessions: sessionsWithoutThis,
+          telehealthUnlocked: snapshot.telehealthUnlocked,
+          isVirtual,
+          day,
+          hour,
+          durationMinutes: duration,
+        })
+
+        if (!typeCheck.canBook) {
+          return { success: false, error: typeCheck.reason }
+        }
+
+        // Apply reschedule.
+        set((state) => {
+          const therapist = state.therapists.find((t) => t.id === therapistId)
+          const client = state.clients.find((c) => c.id === session.clientId)
+          const index = state.sessions.findIndex((s) => s.id === sessionId)
+          if (index === -1) return
+
+          state.sessions[index] = {
+            ...state.sessions[index],
+            therapistId,
+            scheduledDay: day,
+            scheduledHour: hour,
+            durationMinutes: duration,
+            isVirtual,
+            therapistName: therapist?.displayName ?? state.sessions[index].therapistName,
+            clientName: client?.displayName ?? state.sessions[index].clientName,
+          }
+
+          state.schedule = ScheduleManager.buildScheduleFromSessions(state.sessions)
+        })
+
+        EventBus.emit(GameEvents.SESSION_SCHEDULED, {
+          sessionId,
+          clientId: session.clientId,
+          therapistId,
+          day,
+          hour,
+        })
+
+        return { success: true }
       },
 
       // ==================== Entities ====================

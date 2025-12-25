@@ -12,6 +12,7 @@ import { InsurancePanelView } from './InsurancePanelView'
 import { RandomEventModal } from './RandomEventModal'
 import { DecisionEventModal } from './DecisionEventModal'
 import { BookingModal } from './BookingModal'
+import { ManageBookingModal } from './ManageBookingModal'
 import { TrainingModal } from './TrainingModal'
 import { BUILDINGS, getBuilding, INSURANCE_PANELS } from '@/data'
 import { InsuranceManager } from '@/core/insurance'
@@ -75,6 +76,7 @@ export function GameView({
   const [selectedTherapistId, setSelectedTherapistId] = useState<string | null>(null)
   const [bookingSlot, setBookingSlot] = useState<{ day: number; hour: number; therapistId: string } | null>(null)
   const [trainingTherapistId, setTrainingTherapistId] = useState<string | null>(null)
+  const [manageSessionId, setManageSessionId] = useState<string | null>(null)
 
   // Store state
   const {
@@ -105,6 +107,8 @@ export function GameView({
     removeFromWaitingList,
     addSession,
     updateSchedule,
+    cancelSession,
+    rescheduleSession,
     removeMoney,
     setBuilding,
     unlockTelehealth,
@@ -140,14 +144,15 @@ export function GameView({
   // Handle session click
   const handleSessionClick = useCallback(
     (session: Session) => {
-      addNotification({
-        type: 'info',
-        title: 'Session Details',
-        message: `${session.therapistName} with ${session.clientName}`,
-      })
+      setManageSessionId(session.id)
     },
-    [addNotification]
+    []
   )
+
+  const manageSession = useMemo(() => {
+    if (!manageSessionId) return null
+    return sessions.find((s) => s.id === manageSessionId) ?? null
+  }, [manageSessionId, sessions])
 
   // Handle booking confirmation from modal or dashboard
   // IMPORTANT: Uses getState() to get fresh data, avoiding stale closure issues
@@ -614,6 +619,61 @@ export function GameView({
           currentMinute={currentMinute}
           selectedSlot={bookingSlot}
           onBook={handleBookingConfirmFromModal}
+        />
+      )}
+
+      {/* Manage Booking Modal */}
+      {manageSession && (
+        <ManageBookingModal
+          open={true}
+          onClose={() => setManageSessionId(null)}
+          session={manageSession}
+          clients={clients}
+          therapists={therapists}
+          sessions={sessions}
+          currentBuilding={currentBuilding}
+          telehealthUnlocked={telehealthUnlocked}
+          currentDay={currentDay}
+          currentHour={currentHour}
+          currentMinute={currentMinute}
+          onCancel={(sessionId) => {
+            const result = cancelSession(sessionId)
+            if (!result?.success) {
+              addNotification({
+                type: 'error',
+                title: 'Cancel Failed',
+                message: result?.error || 'Unable to cancel session.',
+              })
+              return result
+            }
+
+            addNotification({
+              type: 'success',
+              title: 'Session Cancelled',
+              message: 'Booking cancelled successfully.',
+            })
+            setManageSessionId(null)
+            return result
+          }}
+          onReschedule={(params) => {
+            const result = rescheduleSession(params)
+            if (!result?.success) {
+              addNotification({
+                type: 'error',
+                title: 'Reschedule Failed',
+                message: result?.error || 'Unable to reschedule session.',
+              })
+              return result
+            }
+
+            addNotification({
+              type: 'success',
+              title: 'Session Rescheduled',
+              message: `Moved to Day ${params.day}, ${ScheduleManager.formatHour(params.hour)}`,
+            })
+            setManageSessionId(null)
+            return result
+          }}
         />
       )}
 

@@ -1,4 +1,25 @@
 import { test, expect } from '@playwright/test'
+import type { Therapist } from '@/core/types'
+
+type E2EStoreState = {
+  currentDay: number
+  balance: number
+  therapists: Array<{ certifications?: string[] }>
+  addTherapist: (therapist: Therapist) => void
+}
+
+type E2EWindow = {
+  gameStore?: {
+    getState?: () => E2EStoreState
+    setState?: (partial: Partial<E2EStoreState>) => void
+  }
+  EventBus?: {
+    emit: (event: string, payload: unknown) => void
+  }
+  GameEvents?: {
+    DAY_STARTED: string
+  }
+}
 
 test.setTimeout(60000)
 
@@ -24,20 +45,38 @@ test('training flow: hire → enroll two therapists → skip day → certificati
   await expect(page.locator('[data-tab="team"]')).toBeVisible()
 
   // Ensure we can afford hiring/training in this run.
-  await expect.poll(() => page.evaluate(() => Boolean((window as any).gameStore?.getState))).toBe(true)
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const w = window as unknown as E2EWindow
+        return Boolean(w.gameStore?.getState)
+      })
+    )
+    .toBe(true)
   await page.evaluate(() => {
-    ;(window as any).gameStore.setState({ balance: 100000 })
+    const w = window as unknown as E2EWindow
+    w.gameStore?.setState?.({ balance: 100000 })
   })
-  await expect.poll(() => page.evaluate(() => (window as any).gameStore.getState().balance)).toBe(100000)
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const w = window as unknown as E2EWindow
+        return w.gameStore?.getState?.().balance
+      })
+    )
+    .toBe(100000)
 
   // Go to Team tab
   await page.locator('[data-tab="team"]').click()
 
   // Deterministically add a 2nd therapist (avoid randomized hiring UI)
   await page.evaluate(() => {
-    const store = (window as any).gameStore
-    const state = store.getState()
-    store.getState().addTherapist({
+    const w = window as unknown as E2EWindow
+    const store = w.gameStore
+    const state = store?.getState?.()
+    if (!store || !state) return
+
+    store.getState?.().addTherapist({
       id: 'e2e-therapist-2',
       displayName: 'Dr. E2E',
       isPlayer: false,
@@ -80,9 +119,10 @@ test('training flow: hire → enroll two therapists → skip day → certificati
 
   // Advance a day (deterministic) to complete 8h programs.
   await page.evaluate(() => {
-    const { EventBus, GameEvents, gameStore } = window as any
-    const day = gameStore.getState().currentDay
-    EventBus.emit(GameEvents.DAY_STARTED, { dayNumber: day + 1 })
+    const w = window as unknown as E2EWindow
+    const day = w.gameStore?.getState?.().currentDay
+    if (day === undefined) return
+    w.EventBus?.emit?.(w.GameEvents?.DAY_STARTED ?? 'day_started', { dayNumber: day + 1 })
   })
 
   // Verify both earned the certification in state.
@@ -90,12 +130,10 @@ test('training flow: hire → enroll two therapists → skip day → certificati
     .poll(
       async () => {
         return await page.evaluate(() => {
-          const store = (window as any).gameStore
-          const state = store?.getState?.()
+          const w = window as unknown as E2EWindow
+          const state = w.gameStore?.getState?.()
           if (!state) return -1
-          return state.therapists.filter((t: any) =>
-            (t.certifications || []).includes('telehealth_certified')
-          ).length
+          return state.therapists.filter((t) => (t.certifications ?? []).includes('telehealth_certified')).length
         })
       },
       { timeout: 20000 }

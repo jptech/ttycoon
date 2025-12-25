@@ -19,7 +19,9 @@ describe('GameEngine time advancement (requestAnimationFrame loop)', () => {
       rafCallbacks.push(cb)
       return rafCallbacks.length
     })
-    vi.stubGlobal('cancelAnimationFrame', (_id: number) => {})
+    vi.stubGlobal('cancelAnimationFrame', (id: number) => {
+      void id
+    })
 
     useGameStore.setState({
       currentDay: 1,

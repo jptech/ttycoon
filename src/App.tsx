@@ -9,14 +9,23 @@ import { GameLayout, GameView, NewGameModal, DaySummaryModal, TutorialOverlay } 
 import { getAllRandomEvents, getEligibleDecisionEvents } from '@/data'
 import type { RandomEvent, DecisionEvent, Session, Therapist } from '@/core/types'
 
+declare global {
+  interface Window {
+    gameStore?: typeof useGameStore
+    uiStore?: typeof useUIStore
+    EventBus?: typeof EventBus
+    GameEvents?: typeof GameEvents
+  }
+}
+
 function App() {
   // Expose stores in dev for debugging/e2e.
   useEffect(() => {
     if (!import.meta.env.DEV) return
-    ;(window as any).gameStore = useGameStore
-    ;(window as any).uiStore = useUIStore
-    ;(window as any).EventBus = EventBus
-    ;(window as any).GameEvents = GameEvents
+    window.gameStore = useGameStore
+    window.uiStore = useUIStore
+    window.EventBus = EventBus
+    window.GameEvents = GameEvents
   }, [])
 
   // Game state
@@ -188,7 +197,7 @@ function App() {
   )
 
   // Initialize game loop
-  const { skipToNextSession, getNextSessionTime } = useGameLoop({
+  const { skipToNextSession } = useGameLoop({
     onSessionStart: handleSessionStart,
     onSessionTick: handleSessionTick,
     onTimeAdvance: handleTimeAdvance,

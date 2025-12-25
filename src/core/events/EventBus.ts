@@ -12,7 +12,7 @@ type Events = {
 class EventBusClass {
   private emitter: Emitter<Events>
   private debugMode: boolean = false
-  private handlerWrappers: WeakMap<Function, Function> = new WeakMap()
+  private handlerWrappers: WeakMap<(payload: unknown) => void, (payload: unknown) => void> = new WeakMap()
 
   constructor() {
     this.emitter = mitt<Events>()
@@ -32,7 +32,7 @@ class EventBusClass {
     event: K,
     handler: (payload: Events[K]) => void
   ): (payload: Events[K]) => void {
-    const existing = this.handlerWrappers.get(handler as unknown as Function)
+    const existing = this.handlerWrappers.get(handler as unknown as (payload: unknown) => void)
     if (existing) {
       return existing as (payload: Events[K]) => void
     }
@@ -45,7 +45,10 @@ class EventBusClass {
       }
     }
 
-    this.handlerWrappers.set(handler as unknown as Function, wrapped as unknown as Function)
+    this.handlerWrappers.set(
+      handler as unknown as (payload: unknown) => void,
+      wrapped as unknown as (payload: unknown) => void
+    )
     return wrapped
   }
 
@@ -68,8 +71,8 @@ class EventBusClass {
     event: K,
     handler: (payload: Events[K]) => void
   ): void {
-    const wrapped = this.handlerWrappers.get(handler as unknown as Function)
-    this.emitter.off(event, (wrapped as (payload: Events[K]) => void) ?? handler)
+    const wrapped = this.handlerWrappers.get(handler as unknown as (payload: unknown) => void)
+    this.emitter.off(event, (wrapped as unknown as (payload: Events[K]) => void) ?? handler)
   }
 
   /**

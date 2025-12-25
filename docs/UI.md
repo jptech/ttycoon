@@ -160,7 +160,7 @@ function onSlotClick(cell: ScheduleCell) {
 
   // If session, show details
   if (cell.session_id) {
-    showSessionDetails(cell.session_id);
+    showManageBookingModal(cell.session_id);
     return;
   }
 
@@ -171,6 +171,24 @@ function onSlotClick(cell: ScheduleCell) {
   }
 }
 ```
+
+### Manage Booking (Reschedule / Cancel)
+
+Clicking an existing **scheduled** session in the schedule grid opens a **Manage Booking** modal.
+
+Supported actions:
+
+- **Cancel**: Allowed only if the session is not in the past (relative to current game time).
+- **Reschedule**: Select a new slot and (optionally) a new therapist/session type. Rescheduling must satisfy all standard booking constraints:
+  - New time is **not in the past**.
+  - Therapist slot is available (multi-hour sessions occupy multiple slots).
+  - Client has no overlapping session.
+  - In-person sessions require available **room capacity**; virtual sessions require **telehealth unlocked**.
+
+Implementation:
+
+- Modal: `src/components/game/ManageBookingModal.tsx`
+- Store actions: `cancelSession(...)` and `rescheduleSession(...)` in `src/store/gameStore.ts`
 
 ## Booking Dashboard
 
