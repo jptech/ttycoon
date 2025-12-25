@@ -190,6 +190,18 @@ Implementation:
 - Modal: `src/components/game/ManageBookingModal.tsx`
 - Store actions: `cancelSession(...)` and `rescheduleSession(...)` in `src/store/gameStore.ts`
 
+## Sessions Tab (Quality History)
+
+A dedicated **Sessions** tab provides a historical view of completed appointments via `SessionHistoryPanel`:
+
+- **Average Quality Snapshot** – Displays the rolling average quality (0-100%) with the same rating and badge colors used during live sessions, along with a reminder of how many sessions are included.
+- **Therapist Filters** – Quick chips let you switch between all clinicians or a single therapist to compare performance trends instantly.
+- **Time Range Controls** – Toggle between All Time, Last 30 Days, or Last 7 Days to focus analytics on recent activity.
+- **Quality Distribution Grid** – Mini cards count how many sessions landed in each bucket (Excellent → Very Poor) and visualize relative share with micro progress bars.
+- **Recent Sessions List** – Chronological cards highlighting client, therapist, date/time, duration, payment amount, and an at-a-glance quality badge + progress bar. Entries use stored `Session.completedAt` timestamps when available and fall back to scheduled slots if necessary.
+
+This tab gives players a persistent hub to review outcomes after the fact—perfect for spotting quality dips, celebrating high performers, or auditing tough weeks without reopening the live schedule.
+
 ## Booking Dashboard
 
 Unified split-view for scheduling sessions with waiting and active clients:

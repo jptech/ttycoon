@@ -6,6 +6,7 @@ import { SettingsModal } from './SettingsModal'
 import { HelpModal } from './HelpModal'
 import { CheatModal } from './CheatModal'
 import { ToastContainer, Toast } from '@/components/ui'
+import { ReputationModal } from './ReputationModal'
 
 export interface GameLayoutProps {
   /** Main game content */
@@ -70,6 +71,7 @@ export function GameLayout({ children, sidePanel, onSpeedChange, onSkip, onNewGa
         skipEnabled={skipEnabled}
         onSettingsClick={() => openModal('settings')}
         onHelpClick={() => openModal('help')}
+        onReputationClick={() => openModal('reputation')}
       />
 
       {/* Main Content */}
@@ -112,6 +114,12 @@ export function GameLayout({ children, sidePanel, onSpeedChange, onSkip, onNewGa
       {/* Help Modal */}
       <HelpModal
         open={activeModal?.type === 'help'}
+        onClose={handleCloseModal}
+      />
+
+      {/* Reputation Modal */}
+      <ReputationModal
+        open={activeModal?.type === 'reputation'}
         onClose={handleCloseModal}
       />
     </div>

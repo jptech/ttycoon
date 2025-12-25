@@ -1,7 +1,15 @@
 /**
  * Valid tab IDs that can be navigated to during tutorial
  */
-export type TutorialTabId = 'schedule' | 'booking' | 'clients' | 'team' | 'finances' | 'office' | 'insurance'
+export type TutorialTabId =
+  | 'schedule'
+  | 'history'
+  | 'booking'
+  | 'clients'
+  | 'team'
+  | 'finances'
+  | 'office'
+  | 'insurance'
 
 /**
  * Definition of a tutorial step
@@ -57,6 +65,16 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     targetSelector: '[data-tab="schedule"]',
     position: 'bottom',
     tab: 'schedule',
+    canSkip: true,
+  },
+  {
+    id: 'session_history',
+    title: 'Review Past Sessions',
+    content:
+      'Check the Sessions tab to review completed appointments, quality scores, and trends over time. Use it to spot stand-out therapists or sessions that need attention.',
+    targetSelector: '[data-tab="history"]',
+    position: 'bottom',
+    tab: 'history',
     canSkip: true,
   },
   {

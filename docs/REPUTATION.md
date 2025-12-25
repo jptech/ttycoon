@@ -42,7 +42,15 @@ const REPUTATION_BY_QUALITY = {
 
 **Implementation**: `src/core/reputation/ReputationManager.ts` - `getSessionReputationDelta(quality)`
 
-Awarded in `App.tsx` during `handleSessionComplete()` callback.
+Awarded directly in `src/store/gameStore.ts` when `completeSession()` resolves.
+
+### Client Treatment Completion
+
+- Completing a client's treatment grants **+5 reputation**.
+- Triggered when a session pushes a client to `status: 'completed'`.
+- Emits `GameEvents.CLIENT_CURED` for other systems to react.
+
+**Implementation**: `src/store/gameStore.ts` - cure bonus via `REPUTATION_CONFIG.CLIENT_CURED_BONUS`
 
 ### Training Completion (Secondary Source)
 
@@ -74,7 +82,11 @@ Random events can award or penalize reputation (-3 to +8 per event, ~30% daily c
 Occurs when:
 - Session quality is fair or poor (automatic deduction based on quality)
 - Random negative events trigger
-- No direct client dropout penalty currently implemented
+- Clients drop from the waiting list after excessive delays (−3 per client, configurable)
+
+**Implementation**:
+- Session penalties applied in `src/store/gameStore.ts`
+- Waiting list penalties applied in `src/hooks/useClientSpawning.ts`
 
 ## HUD Display
 
@@ -82,10 +94,23 @@ Shows in the top right, next to balance:
 
 **Format**: `★ 175 [L3] 50/125` on first line, `Growing` on second line
 
-**Components**:
-- `★` - Reputation icon
+**Component**:
+- `src/components/game/HUD.tsx` - Reputation display in HUD (clickable for details)
 - `175` - Current reputation value
 - `[L3]` - Level badge (compact)
+
+## Reputation History & Modal
+
+- Every reputation change is recorded in `gameStore.reputationLog` (latest 50 entries).
+- Each entry tracks day, hour, minute, pre/post values, and the triggering reason.
+- Clicking the HUD reputation badge opens a detailed modal with:
+  - Current level summary and progress bar to the next milestone
+  - Upcoming level requirements and unlocks
+  - Recent reputation change history with timestamps and totals
+
+**Component**: `src/components/game/ReputationModal.tsx`
+
+**State**: `src/core/types/state.ts` – `ReputationLogEntry`
 - `50/125` - Progress toward next level (or "Max" at level 5)
 - `Growing` - Level name
 
@@ -110,8 +135,9 @@ With training bonuses and random events, progression is faster.
 ## Files
 
 **Core**:
-- `src/core/reputation/ReputationManager.ts` - Session quality calculations, display helpers
-- `src/core/types/state.ts` - Practice level definitions
+- `src/core/reputation/ReputationManager.ts` - Session quality calculations, display helpers, constants
+- `src/core/types/state.ts` - Practice level definitions, `ReputationLogEntry`
+- `src/store/gameStore.ts` - Central reputation mutations and cure bonus handling
 
 **Data**:
 - `src/data/trainingPrograms.ts` - Training program reputation bonuses
@@ -119,10 +145,11 @@ With training bonuses and random events, progression is faster.
 
 **Components**:
 - `src/components/game/HUD.tsx` - Reputation display in HUD
+- `src/components/game/ReputationModal.tsx` - Detailed reputation view & history
 
 **Hooks**:
 - `src/hooks/useTrainingProcessor.ts` - Training completion reputation awards
-- `App.tsx` - Session completion reputation awards
+- `src/hooks/useClientSpawning.ts` - Waiting list penalties and dropout notifications
 
 ## Events Emitted
 

@@ -51,6 +51,8 @@ export interface HUDProps {
   onSettingsClick?: () => void
   /** Help click callback */
   onHelpClick?: () => void
+  /** Reputation details callback */
+  onReputationClick?: () => void
 }
 
 export function HUD({
@@ -67,6 +69,7 @@ export function HUD({
   skipEnabled,
   onSettingsClick,
   onHelpClick,
+  onReputationClick,
 }: HUDProps) {
   const speedLabel = isPaused ? 'Paused' : `${speed}x`
 
@@ -154,7 +157,7 @@ export function HUD({
             <div className="text-xs text-muted-foreground">Balance</div>
           </div>
           <div className="min-w-[160px]">
-            <ReputationDisplay reputation={reputation} />
+            <ReputationDisplay reputation={reputation} onClick={onReputationClick} />
           </div>
           <div className="w-px h-8 bg-border" />
           {onSettingsClick && (
@@ -184,14 +187,14 @@ export function HUD({
 /**
  * Reputation display component for HUD
  */
-function ReputationDisplay({ reputation }: { reputation: number }) {
+function ReputationDisplay({ reputation, onClick }: { reputation: number; onClick?: () => void }) {
   const display = getReputationDisplay(reputation)
   const progressText = display.nextLevelThreshold
     ? `${Math.floor(display.progressToNext)}/${display.nextLevelThreshold - display.minForLevel}`
     : 'Max'
 
-  return (
-    <div className="text-right">
+  const content = (
+    <>
       <div className="font-semibold text-lg flex items-center justify-end gap-1.5 tabular-nums">
         <span className="text-accent">★</span>
         <span>{Math.floor(display.current)}</span>
@@ -203,6 +206,20 @@ function ReputationDisplay({ reputation }: { reputation: number }) {
         </span>
       </div>
       <div className="text-xs text-muted-foreground">{display.levelName}</div>
-    </div>
+    </>
   )
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full text-right rounded-lg px-2 py-1 transition-colors border border-transparent hover:border-accent/40 hover:bg-accent/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+      >
+        {content}
+      </button>
+    )
+  }
+
+  return <div className="text-right">{content}</div>
 }

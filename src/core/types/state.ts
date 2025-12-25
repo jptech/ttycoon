@@ -31,6 +31,7 @@ export interface GameState {
   pendingClaims: PendingClaim[]
   insuranceMultiplier: number
   transactionHistory: Transaction[]
+  reputationLog: ReputationLogEntry[]
 
   // Reputation
   reputation: number
@@ -69,6 +70,17 @@ export interface GameState {
 export type GameSpeed = 0 | 1 | 2 | 3
 
 export type PracticeLevel = 1 | 2 | 3 | 4 | 5
+
+export interface ReputationLogEntry {
+  id: string
+  day: number
+  hour: number
+  minute: number
+  reason: string
+  change: number
+  before: number
+  after: number
+}
 
 /**
  * Practice level configuration

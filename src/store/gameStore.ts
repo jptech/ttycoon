@@ -12,6 +12,7 @@ import type {
   PendingClaim,
   GameModifier,
   ActiveTraining,
+  ReputationLogEntry,
 } from '@/core/types'
 import { getPracticeLevelFromReputation } from '@/core/types'
 import { EventBus, GameEvents } from '@/core/events'
@@ -21,7 +22,7 @@ import { ScheduleManager } from '@/core/schedule'
 import { canBookSessionType } from '@/core/schedule/BookingConstraints'
 import { getSessionRate } from '@/data/clientGeneration'
 import { BUILDINGS, getBuilding } from '@/data/buildings'
-import { getReputationChangeReason, getSessionReputationDelta } from '@/core/reputation'
+import { REPUTATION_CONFIG, getReputationChangeReason, getSessionReputationDelta } from '@/core/reputation'
 
 /**
  * Actions available on the game store
@@ -130,6 +131,7 @@ const createInitialState = (practiceName: string): GameState => ({
   pendingClaims: [],
   insuranceMultiplier: 1.0,
   transactionHistory: [],
+  reputationLog: [],
 
   // Reputation
   reputation: 20,
@@ -308,6 +310,23 @@ export const useGameStore = create<GameStore>()(
           const oldValue = state.reputation
           state.reputation = Math.min(500, state.reputation + amount)
 
+          const change = state.reputation - oldValue
+          if (change !== 0) {
+            state.reputationLog.unshift({
+              id: crypto.randomUUID(),
+              day: state.currentDay,
+              hour: state.currentHour,
+              minute: state.currentMinute,
+              reason,
+              change,
+              before: oldValue,
+              after: state.reputation,
+            })
+            if (state.reputationLog.length > 50) {
+              state.reputationLog = state.reputationLog.slice(0, 50)
+            }
+          }
+
           const newLevel = getPracticeLevelFromReputation(state.reputation)
           if (newLevel !== state.practiceLevel) {
             const oldLevel = state.practiceLevel
@@ -328,6 +347,23 @@ export const useGameStore = create<GameStore>()(
           const oldValue = state.reputation
           state.reputation = Math.max(0, state.reputation - amount)
 
+          const change = state.reputation - oldValue
+          if (change !== 0) {
+            state.reputationLog.unshift({
+              id: crypto.randomUUID(),
+              day: state.currentDay,
+              hour: state.currentHour,
+              minute: state.currentMinute,
+              reason,
+              change,
+              before: oldValue,
+              after: state.reputation,
+            })
+            if (state.reputationLog.length > 50) {
+              state.reputationLog = state.reputationLog.slice(0, 50)
+            }
+          }
+
           const newLevel = getPracticeLevelFromReputation(state.reputation)
           if (newLevel !== state.practiceLevel) {
             const oldLevel = state.practiceLevel
@@ -347,6 +383,23 @@ export const useGameStore = create<GameStore>()(
         set((state) => {
           const oldValue = state.reputation
           state.reputation = Math.max(0, Math.min(500, Math.floor(reputation)))
+
+          const change = state.reputation - oldValue
+          if (change !== 0) {
+            state.reputationLog.unshift({
+              id: crypto.randomUUID(),
+              day: state.currentDay,
+              hour: state.currentHour,
+              minute: state.currentMinute,
+              reason,
+              change,
+              before: oldValue,
+              after: state.reputation,
+            })
+            if (state.reputationLog.length > 50) {
+              state.reputationLog = state.reputationLog.slice(0, 50)
+            }
+          }
 
           const newLevel = getPracticeLevelFromReputation(state.reputation)
           if (newLevel !== state.practiceLevel) {
@@ -457,6 +510,17 @@ export const useGameStore = create<GameStore>()(
           get().addReputation(reputationDelta, reason)
         } else if (reputationDelta < 0) {
           get().removeReputation(-reputationDelta, reason)
+        }
+
+        if (client.status !== 'completed' && result.client.status === 'completed') {
+          get().addReputation(
+            REPUTATION_CONFIG.CLIENT_CURED_BONUS,
+            `Completed treatment for ${result.client.displayName}`
+          )
+          EventBus.emit(GameEvents.CLIENT_CURED, {
+            clientId: result.client.id,
+            sessionsCompleted: result.client.sessionsCompleted,
+          })
         }
 
         return {
@@ -809,6 +873,7 @@ export const useGameStore = create<GameStore>()(
         // (Keeps UI + engine behavior consistent even if saves are missing schedule entries.)
         set({
           ...loadedState,
+          reputationLog: loadedState.reputationLog ?? [],
           schedule: ScheduleManager.buildScheduleFromSessions(loadedState.sessions),
         })
         EventBus.emit(GameEvents.GAME_LOADED, { timestamp: Date.now() })

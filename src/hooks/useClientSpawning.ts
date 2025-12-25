@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react'
 import { useGameStore, useUIStore } from '@/store'
 import { EventBus, GameEvents } from '@/core/events'
 import { ClientManager } from '@/core/clients'
+import { REPUTATION_CONFIG } from '@/core/reputation'
 import { getClientSpawnChance, getClientSpawnAttempts, getSessionRate } from '@/data/clientGeneration'
 
 interface UseClientSpawningOptions {
@@ -22,6 +23,7 @@ export function useClientSpawning(options: UseClientSpawningOptions = {}) {
   const addClient = useGameStore((state) => state.addClient)
   const updateClient = useGameStore((state) => state.updateClient)
   const removeFromWaitingList = useGameStore((state) => state.removeFromWaitingList)
+  const removeReputation = useGameStore((state) => state.removeReputation)
   const addNotification = useUIStore((state) => state.addNotification)
 
   // Store callbacks in ref to avoid recreation
@@ -110,11 +112,24 @@ export function useClientSpawning(options: UseClientSpawningOptions = {}) {
       updateClient(droppedClient.id, { status: 'dropped' })
       removeFromWaitingList(droppedClient.id)
 
+      const dropoutReason =
+        droppedClient.daysWaiting >= droppedClient.maxWaitDays
+          ? 'wait_exceeded'
+          : 'dissatisfied'
+
+      removeReputation(
+        Math.abs(REPUTATION_CONFIG.CLIENT_DROPOUT_PENALTY),
+        'Client left waiting list'
+      )
+
+      EventBus.emit(GameEvents.CLIENT_DROPPED, {
+        clientId: droppedClient.id,
+        reason: dropoutReason,
+      })
+
       callbacksRef.current.onClientDropped?.(
         droppedClient.id,
-        droppedClient.daysWaiting >= droppedClient.maxWaitDays
-          ? 'Waited too long'
-          : 'Lost patience'
+        dropoutReason === 'wait_exceeded' ? 'Waited too long' : 'Lost patience'
       )
     }
 
@@ -131,7 +146,7 @@ export function useClientSpawning(options: UseClientSpawningOptions = {}) {
             : `${result.droppedClients.length} clients left after waiting too long`,
       })
     }
-  }, [updateClient, removeFromWaitingList, addNotification])
+  }, [updateClient, removeFromWaitingList, removeReputation, addNotification])
 
   /**
    * Handle day start - spawn clients and process waiting list

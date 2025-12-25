@@ -9,6 +9,7 @@ import { TherapistPanel } from './TherapistPanel'
 import { EconomyPanel } from './EconomyPanel'
 import { OfficePanel } from './OfficePanel'
 import { InsurancePanelView } from './InsurancePanelView'
+import { SessionHistoryPanel } from './SessionHistoryPanel'
 import { RandomEventModal } from './RandomEventModal'
 import { DecisionEventModal } from './DecisionEventModal'
 import { BookingModal } from './BookingModal'
@@ -28,10 +29,11 @@ import {
   DollarSign,
   Building2,
   Shield,
+  History,
 } from 'lucide-react'
 import styles from './GameView.module.css'
 
-type TabId = 'schedule' | 'booking' | 'clients' | 'team' | 'finances' | 'office' | 'insurance'
+type TabId = 'schedule' | 'history' | 'booking' | 'clients' | 'team' | 'finances' | 'office' | 'insurance'
 
 interface Tab {
   id: TabId
@@ -41,6 +43,7 @@ interface Tab {
 
 const TABS: Tab[] = [
   { id: 'schedule', label: 'Schedule', icon: <Calendar className="w-4 h-4" /> },
+  { id: 'history', label: 'Sessions', icon: <History className="w-4 h-4" /> },
   { id: 'booking', label: 'Booking', icon: <CalendarPlus className="w-4 h-4" /> },
   { id: 'clients', label: 'Clients', icon: <Users className="w-4 h-4" /> },
   { id: 'team', label: 'Team', icon: <UserCheck className="w-4 h-4" /> },
@@ -474,6 +477,15 @@ export function GameView({
             onTherapistSelect={setSelectedTherapistId}
             onSlotClick={handleSlotClick}
             onSessionClick={handleSessionClick}
+          />
+        )
+
+      case 'history':
+        return (
+          <SessionHistoryPanel
+            sessions={sessions}
+            therapists={therapists}
+            currentDay={currentDay}
           />
         )
 
