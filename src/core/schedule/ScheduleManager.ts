@@ -468,6 +468,31 @@ export const ScheduleManager = {
   },
 
   /**
+   * Check whether the client already has an overlapping scheduled/in-progress session.
+   * Uses hour-slot overlap semantics (multi-hour sessions occupy multiple hour slots).
+   */
+  clientHasConflictingSession(
+    sessions: Session[],
+    clientId: string,
+    day: number,
+    hour: number,
+    duration: SessionDuration = SCHEDULE_CONFIG.DEFAULT_DURATION
+  ): boolean {
+    const proposedStart = hour
+    const proposedEnd = hour + Math.ceil(duration / 60)
+
+    return sessions.some((s) => {
+      if (s.clientId !== clientId) return false
+      if (s.scheduledDay !== day) return false
+      if (s.status !== 'scheduled' && s.status !== 'in_progress') return false
+
+      const sStart = s.scheduledHour
+      const sEnd = s.scheduledHour + Math.ceil(s.durationMinutes / 60)
+      return proposedStart < sEnd && sStart < proposedEnd
+    })
+  },
+
+  /**
    * Get next scheduled session for a therapist
    */
   getNextSession(
@@ -520,3 +545,4 @@ export const ScheduleManager = {
     return `${formatTime(startHour)} - ${formatTime(endHour, endMin)}`
   },
 }
+

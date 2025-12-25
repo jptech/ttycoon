@@ -568,7 +568,7 @@ See [ARCHITECTURE.md](./docs/ARCHITECTURE.md#design-decisions) for rationale beh
 ---
 
 ## Instructions
-Always update any relevant documentation (docs/*.md) when updating or adding new features. 
+Always update any relevant documentation (docs/*.md) when updating or adding new features. Add new documentation files if required. Do not create other markdown files unless explicitly asked (i.e., do not create AUDIT.md or SUMMARY.md or similar).
 
 Always ensure tests for any few code or bugfixes. Keep tests up to date and always ensure tests pass.
 

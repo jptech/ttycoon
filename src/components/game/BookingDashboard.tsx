@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import type { Building, Client, Therapist, Session, Schedule, SessionDuration } from '@/core/types'
 import { ClientManager, type FollowUpInfo, FREQUENCY_DAYS } from '@/core/clients'
-import { ScheduleManager } from '@/core/schedule'
+import { planRecurringBookings, ScheduleManager } from '@/core/schedule'
 import { ClientCard } from './ClientCard'
 import { ClientPreferenceSummary } from './ClientPreferenceSummary'
 import { TherapistMatchList } from './TherapistMatchList'
@@ -46,6 +46,7 @@ export interface BookingDashboardProps {
   telehealthUnlocked: boolean
   currentDay: number
   currentHour: number
+  currentMinute: number
   onBook: (params: BookingParams) => BookingResult | void
   className?: string
 }
@@ -99,6 +100,7 @@ export function BookingDashboard({
   telehealthUnlocked,
   currentDay,
   currentHour,
+  currentMinute,
   onBook,
   className,
 }: BookingDashboardProps) {
@@ -116,6 +118,11 @@ export function BookingDashboard({
     clientName: string
     therapistName: string
   } | null>(null)
+
+  // Recurring booking state
+  const [recurringEnabled, setRecurringEnabled] = useState(false)
+  const [recurringCount, setRecurringCount] = useState(4)
+  const [recurringIntervalDays, setRecurringIntervalDays] = useState<number>(7)
 
   // View and filters
   const [clientView, setClientView] = useState<ClientView>('waiting')
@@ -203,6 +210,13 @@ export function BookingDashboard({
   const handleSelectClient = useCallback(
     (client: Client) => {
       setSelectedClient(client)
+
+      // Defaults for recurring series.
+      setRecurringEnabled(false)
+      const preferredInterval = FREQUENCY_DAYS[client.preferredFrequency] ?? 7
+      setRecurringIntervalDays(preferredInterval > 0 ? preferredInterval : 7)
+      setRecurringCount(4)
+
       // Auto-select assigned therapist for active clients
       if (client.status === 'in_treatment' && client.assignedTherapistId) {
         const assignedTherapist = therapists.find((t) => t.id === client.assignedTherapistId)
@@ -228,6 +242,44 @@ export function BookingDashboard({
     },
     []
   )
+
+  const recurringPlan = useMemo(() => {
+    if (!recurringEnabled) return null
+    if (!selectedClient || !selectedTherapist || !pendingBooking) return null
+
+    return planRecurringBookings({
+      schedule,
+      sessions,
+      therapist: selectedTherapist,
+      client: selectedClient,
+      building: currentBuilding,
+      telehealthUnlocked,
+      currentTime: { day: currentDay, hour: currentHour, minute: currentMinute },
+      startDay: pendingBooking.slot.day,
+      startHour: pendingBooking.slot.hour,
+      durationMinutes: pendingBooking.duration,
+      isVirtual: pendingBooking.isVirtual,
+      count: recurringCount,
+      intervalDays: recurringIntervalDays,
+    })
+  }, [
+    recurringEnabled,
+    selectedClient,
+    selectedTherapist,
+    pendingBooking,
+    schedule,
+    sessions,
+    currentBuilding,
+    telehealthUnlocked,
+    currentDay,
+    currentHour,
+    currentMinute,
+    recurringCount,
+    recurringIntervalDays,
+  ])
+
+  const recurringPlanComplete =
+    recurringPlan && recurringPlan.failures.length === 0 && recurringPlan.planned.length === recurringCount
 
   // Handle booking confirmation
   const handleConfirmBooking = useCallback(() => {
@@ -272,19 +324,50 @@ export function BookingDashboard({
     let errorMessage: string | undefined
 
     try {
-      // Call the booking function and check result
-      const result = onBook({
-        clientId: selectedClient.id,
-        therapistId: selectedTherapist.id,
-        day: pendingBooking.slot.day,
-        hour: pendingBooking.slot.hour,
-        duration: pendingBooking.duration,
-        isVirtual: pendingBooking.isVirtual,
-      })
+      if (recurringEnabled) {
+        if (!recurringPlanComplete || !recurringPlan) {
+          bookingSucceeded = false
+          errorMessage = 'Cannot book recurring series: one or more sessions are not schedulable.'
+        } else {
+          for (const [index, slot] of recurringPlan.planned.entries()) {
+            const result = onBook({
+              clientId: selectedClient.id,
+              therapistId: selectedTherapist.id,
+              day: slot.day,
+              hour: slot.hour,
+              duration: pendingBooking.duration,
+              isVirtual: pendingBooking.isVirtual,
+            })
 
-      // Handle result (could be void for backwards compatibility)
-      bookingSucceeded = result === undefined || result.success
-      errorMessage = result === undefined ? undefined : result.error
+            const ok = result === undefined || result.success
+            if (!ok) {
+              bookingSucceeded = false
+              errorMessage =
+                (result === undefined ? undefined : result.error) ||
+                `Booking failed for session ${index + 1} of ${recurringPlan.planned.length}.`
+              break
+            }
+          }
+
+          if (errorMessage === undefined) {
+            bookingSucceeded = true
+          }
+        }
+      } else {
+        // Call the booking function and check result
+        const result = onBook({
+          clientId: selectedClient.id,
+          therapistId: selectedTherapist.id,
+          day: pendingBooking.slot.day,
+          hour: pendingBooking.slot.hour,
+          duration: pendingBooking.duration,
+          isVirtual: pendingBooking.isVirtual,
+        })
+
+        // Handle result (could be void for backwards compatibility)
+        bookingSucceeded = result === undefined || result.success
+        errorMessage = result === undefined ? undefined : result.error
+      }
     } catch (error) {
       console.error('[BookingDashboard] Booking threw an error', error)
       bookingSucceeded = false
@@ -295,7 +378,9 @@ export function BookingDashboard({
       // Show success feedback
       setBookingFeedback({
         type: 'success',
-        message: `Session booked for Day ${pendingBooking.slot.day} at ${ScheduleManager.formatHour(pendingBooking.slot.hour)}`,
+        message: recurringEnabled
+          ? `Booked ${recurringCount} sessions starting Day ${pendingBooking.slot.day} at ${ScheduleManager.formatHour(pendingBooking.slot.hour)}`
+          : `Session booked for Day ${pendingBooking.slot.day} at ${ScheduleManager.formatHour(pendingBooking.slot.hour)}`,
         clientName,
         therapistName,
       })
@@ -304,6 +389,7 @@ export function BookingDashboard({
       setSelectedClient(null)
       setSelectedTherapist(null)
       setPendingBooking(null)
+      setRecurringEnabled(false)
     } else {
       // Show error feedback
       setBookingFeedback({
@@ -316,13 +402,23 @@ export function BookingDashboard({
 
     // Auto-clear feedback after 4 seconds
     setTimeout(() => setBookingFeedback(null), 4000)
-  }, [selectedClient, selectedTherapist, pendingBooking, onBook])
+  }, [
+    selectedClient,
+    selectedTherapist,
+    pendingBooking,
+    onBook,
+    recurringEnabled,
+    recurringCount,
+    recurringPlan,
+    recurringPlanComplete,
+  ])
 
   // Handle cancel
   const handleCancel = useCallback(() => {
     setSelectedClient(null)
     setSelectedTherapist(null)
     setPendingBooking(null)
+    setRecurringEnabled(false)
   }, [])
 
   // Get follow-up info for selected client
@@ -576,8 +672,8 @@ export function BookingDashboard({
             {/* Booking confirmation */}
             {pendingBooking && (
               <Card className="mt-4 p-4 border-success/30 bg-success/5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4 min-w-0">
                     <CheckCircle className="w-5 h-5 text-success" />
                     <div>
                       <div className="font-medium">
@@ -589,7 +685,7 @@ export function BookingDashboard({
                         <span>{selectedTherapist?.displayName}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 text-sm">
+                    <div className="flex items-center gap-3 text-sm flex-wrap justify-end">
                       <span className="flex items-center gap-1">
                         <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
                         Day {pendingBooking.slot.day}
@@ -618,11 +714,88 @@ export function BookingDashboard({
                     <Button variant="ghost" size="sm" onClick={() => setPendingBooking(null)}>
                       Cancel
                     </Button>
-                    <Button variant="primary" size="sm" onClick={handleConfirmBooking}>
-                      Confirm Booking
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={handleConfirmBooking}
+                      disabled={recurringEnabled && !recurringPlanComplete}
+                    >
+                      {recurringEnabled ? `Confirm ${recurringCount} Bookings` : 'Confirm Booking'}
                     </Button>
                   </div>
                 </div>
+
+                <div className="mt-4 flex items-center justify-between gap-4">
+                  <button
+                    onClick={() => setRecurringEnabled((v) => !v)}
+                    className={cn(
+                      'flex items-center gap-2 text-sm px-3 py-1.5 rounded-md border transition-colors',
+                      recurringEnabled
+                        ? 'border-primary bg-primary/10'
+                        : 'border-border bg-background hover:border-primary/50'
+                    )}
+                  >
+                    <CalendarClock className="w-4 h-4" />
+                    Recurring
+                  </button>
+
+                  {recurringEnabled && (
+                    <div className="flex items-center gap-3 text-sm">
+                      <span className="text-muted-foreground">Every</span>
+                      <div className="flex gap-1">
+                        {[7, 14, 30].map((d) => (
+                          <button
+                            key={d}
+                            onClick={() => setRecurringIntervalDays(d)}
+                            className={cn(
+                              'px-2 py-1 rounded text-xs border transition-colors',
+                              recurringIntervalDays === d
+                                ? 'border-primary bg-primary/10'
+                                : 'border-border bg-background hover:border-primary/50'
+                            )}
+                          >
+                            {d === 7 ? 'Week' : d === 14 ? '2 Weeks' : 'Month'}
+                          </button>
+                        ))}
+                      </div>
+
+                      <span className="text-muted-foreground">Count</span>
+                      <input
+                        aria-label="Recurring session count"
+                        className="w-16 rounded-md border border-border bg-background px-2 py-1 text-sm"
+                        type="number"
+                        min={1}
+                        max={12}
+                        value={recurringCount}
+                        onChange={(e) => {
+                          const next = Number(e.target.value)
+                          setRecurringCount(Number.isFinite(next) ? Math.max(1, Math.min(12, next)) : 1)
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {recurringEnabled && (
+                  <div className="mt-3 text-sm">
+                    {recurringPlanComplete ? (
+                      <div className="text-muted-foreground">
+                        Planned: {recurringPlan?.planned
+                          .slice(0, 6)
+                          .map((s) => `Day ${s.day} @ ${ScheduleManager.formatHour(s.hour)}`)
+                          .join(' • ')}
+                        {recurringPlan && recurringPlan.planned.length > 6 ? ' • …' : ''}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-warning">
+                        <AlertTriangle className="w-4 h-4" />
+                        <span>
+                          {recurringPlan?.failures[0]?.reason || 'Some sessions in this series cannot be scheduled.'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </Card>
             )}
           </>

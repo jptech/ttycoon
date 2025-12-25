@@ -541,4 +541,66 @@ describe('ScheduleManager', () => {
       expect(conflicts[0].existingSessionId).toBe('existing-session')
     })
   })
+
+  describe('clientHasConflictingSession', () => {
+    it('detects overlap on the same hour', () => {
+      const sessions: Session[] = [
+        createMockSession({
+          id: 's1',
+          clientId: 'client-1',
+          scheduledDay: 2,
+          scheduledHour: 10,
+          durationMinutes: 50,
+          status: 'scheduled',
+        }),
+      ]
+
+      expect(
+        ScheduleManager.clientHasConflictingSession(sessions, 'client-1', 2, 10, 50)
+      ).toBe(true)
+    })
+
+    it('detects overlap across multi-hour sessions', () => {
+      const sessions: Session[] = [
+        createMockSession({
+          id: 'long',
+          clientId: 'client-1',
+          scheduledDay: 2,
+          scheduledHour: 9,
+          durationMinutes: 80,
+          status: 'scheduled',
+        }),
+      ]
+
+      // Proposed 10:00 overlaps a 9:00-11:00 session.
+      expect(
+        ScheduleManager.clientHasConflictingSession(sessions, 'client-1', 2, 10, 50)
+      ).toBe(true)
+    })
+
+    it('ignores completed/cancelled sessions', () => {
+      const sessions: Session[] = [
+        createMockSession({
+          id: 'completed',
+          clientId: 'client-1',
+          scheduledDay: 2,
+          scheduledHour: 10,
+          durationMinutes: 50,
+          status: 'completed',
+        }),
+        createMockSession({
+          id: 'cancelled',
+          clientId: 'client-1',
+          scheduledDay: 2,
+          scheduledHour: 10,
+          durationMinutes: 50,
+          status: 'cancelled',
+        }),
+      ]
+
+      expect(
+        ScheduleManager.clientHasConflictingSession(sessions, 'client-1', 2, 10, 50)
+      ).toBe(false)
+    })
+  })
 })

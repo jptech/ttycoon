@@ -118,9 +118,12 @@ function bookSession(
   const currentTime = {
     day: useGameStore.getState().currentDay,
     hour: useGameStore.getState().currentHour,
+  durationMinutes: SessionDuration,
+  isVirtual: boolean,
     minute: useGameStore.getState().currentMinute,
-  }
-  const timeCheck = ScheduleManager.validateNotInPast(currentTime, day, hour)
+    recurring?: boolean;
+    count?: number;  // How many sessions in the series (including the first)
+    intervalDays?: number; // e.g. 7 weekly, 14 biweekly
   if (!timeCheck.valid) {
     return { success: false, error: timeCheck.reason }
   }
@@ -612,6 +615,12 @@ The BookingDashboard shows both waiting clients and active clients needing follo
   - Overdue clients shown first (red indicator)
   - Due soon shown with warning indicator
   - Already scheduled shown with check mark
+
+Recurring bookings:
+
+- The BookingDashboard and BookingModal provide a **Recurring** toggle to book a series of sessions across weeks.
+- Planning is done via the pure helper `planRecurringBookings(...)` in `src/core/schedule/RecurringBookingPlanner.ts`.
+- Once a complete plan is available, the UI books sessions by calling the normal single-session booking handler repeatedly.
 
 ## Events Emitted
 

@@ -80,6 +80,7 @@ export function GameView({
   const {
     currentDay,
     currentHour,
+    currentMinute,
     balance,
     reputation,
     practiceLevel,
@@ -192,17 +193,17 @@ export function GameView({
         return { success: false, error: 'Therapist not found' }
       }
 
-      // Check if slot is already booked
-      const existingSessionInSlot = freshSessions.find(
-        (s) =>
-          s.scheduledDay === params.day &&
-          s.scheduledHour === params.hour &&
-          s.therapistId === params.therapistId &&
-          s.status === 'scheduled'
+      // Check if therapist slot is available (covers multi-hour sessions)
+      const therapistSlotAvailable = ScheduleManager.isSlotAvailable(
+        freshSchedule,
+        params.therapistId,
+        params.day,
+        params.hour,
+        params.duration
       )
 
-      if (existingSessionInSlot) {
-        console.error(`[Booking] Slot already booked: Day ${params.day}, Hour ${params.hour}`)
+      if (!therapistSlotAvailable) {
+        console.error(`[Booking] Slot not available: Day ${params.day}, Hour ${params.hour}`)
         addNotification({
           type: 'error',
           title: 'Booking Failed',
@@ -211,17 +212,17 @@ export function GameView({
         return { success: false, error: 'Slot already booked' }
       }
 
-      // Check if client already has a session at this time
-      const clientConflict = freshSessions.find(
-        (s) =>
-          s.clientId === params.clientId &&
-          s.scheduledDay === params.day &&
-          s.scheduledHour === params.hour &&
-          s.status === 'scheduled'
+      // Check if client already has an overlapping session
+      const clientConflict = ScheduleManager.clientHasConflictingSession(
+        freshSessions,
+        params.clientId,
+        params.day,
+        params.hour,
+        params.duration
       )
 
       if (clientConflict) {
-        console.error(`[Booking] Client already has session at this time`)
+        console.error(`[Booking] Client already has an overlapping session at this time`)
         addNotification({
           type: 'error',
           title: 'Booking Failed',
@@ -482,6 +483,7 @@ export function GameView({
             telehealthUnlocked={telehealthUnlocked}
             currentDay={currentDay}
             currentHour={currentHour}
+            currentMinute={currentMinute}
             onBook={handleBookingConfirmFromModal}
           />
         )
@@ -607,6 +609,9 @@ export function GameView({
           sessions={sessions}
           currentBuilding={currentBuilding}
           telehealthUnlocked={telehealthUnlocked}
+          currentDay={currentDay}
+          currentHour={currentHour}
+          currentMinute={currentMinute}
           selectedSlot={bookingSlot}
           onBook={handleBookingConfirmFromModal}
         />

@@ -214,6 +214,11 @@ Unified split-view for scheduling sessions with waiting and active clients:
 - Duration selector (50/80/180 min)
 - Virtual toggle
 
+**Recurring booking** (Booking Dashboard + Booking Modal):
+- Optional **Recurring** toggle to book a series of sessions over weeks (e.g. weekly/biweekly)
+- UI previews the planned series and disables confirm if any occurrence can’t be scheduled
+- Booking creates multiple sessions by submitting multiple single-session bookings
+
 ### Booking Feedback
 
 The dashboard provides immediate feedback on booking attempts:

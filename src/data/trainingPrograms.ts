@@ -17,6 +17,10 @@ export const TRAINING_PROGRAMS: Record<string, TrainingProgram> = {
     },
     grants: {
       certification: 'trauma_certified',
+      clinicBonus: {
+        type: 'reputation_bonus',
+        value: 3,
+      },
     },
   },
 
@@ -32,6 +36,10 @@ export const TRAINING_PROGRAMS: Record<string, TrainingProgram> = {
     },
     grants: {
       certification: 'couples_certified',
+      clinicBonus: {
+        type: 'reputation_bonus',
+        value: 2,
+      },
     },
   },
 
@@ -47,6 +55,10 @@ export const TRAINING_PROGRAMS: Record<string, TrainingProgram> = {
     },
     grants: {
       certification: 'children_certified',
+      clinicBonus: {
+        type: 'reputation_bonus',
+        value: 2,
+      },
     },
   },
 
@@ -62,6 +74,10 @@ export const TRAINING_PROGRAMS: Record<string, TrainingProgram> = {
     },
     grants: {
       certification: 'substance_certified',
+      clinicBonus: {
+        type: 'reputation_bonus',
+        value: 2,
+      },
     },
   },
 
@@ -75,6 +91,10 @@ export const TRAINING_PROGRAMS: Record<string, TrainingProgram> = {
     prerequisites: {},
     grants: {
       certification: 'telehealth_certified',
+      clinicBonus: {
+        type: 'reputation_bonus',
+        value: 1,
+      },
     },
   },
 
@@ -91,6 +111,10 @@ export const TRAINING_PROGRAMS: Record<string, TrainingProgram> = {
     grants: {
       certification: 'cbt_certified',
       skillBonus: 3,
+      clinicBonus: {
+        type: 'reputation_bonus',
+        value: 2,
+      },
     },
   },
 
@@ -108,6 +132,10 @@ export const TRAINING_PROGRAMS: Record<string, TrainingProgram> = {
     grants: {
       certification: 'dbt_certified',
       skillBonus: 5,
+      clinicBonus: {
+        type: 'reputation_bonus',
+        value: 4,
+      },
     },
   },
 
@@ -125,6 +153,10 @@ export const TRAINING_PROGRAMS: Record<string, TrainingProgram> = {
     grants: {
       certification: 'emdr_certified',
       skillBonus: 4,
+      clinicBonus: {
+        type: 'reputation_bonus',
+        value: 4,
+      },
     },
   },
 
@@ -140,6 +172,10 @@ export const TRAINING_PROGRAMS: Record<string, TrainingProgram> = {
     },
     grants: {
       certification: 'supervisor_certified',
+      clinicBonus: {
+        type: 'reputation_bonus',
+        value: 5,
+      },
     },
   },
 

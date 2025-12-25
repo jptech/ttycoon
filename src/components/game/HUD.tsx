@@ -3,6 +3,7 @@ import { formatMoney, formatTime } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { Badge, ProgressBar } from '@/components/ui'
 import { SpeedControls } from './SpeedControls'
+import { getReputationDisplay } from '@/core/reputation'
 
 export interface ActiveSessionInfo {
   /** Session id */
@@ -60,7 +61,6 @@ export function HUD({
   isPaused,
   balance,
   reputation,
-  practiceLevel,
   activeSessions,
   onSpeedChange,
   onSkip,
@@ -147,12 +147,7 @@ export function HUD({
             <div className="font-semibold text-lg">{formatMoney(balance)}</div>
             <div className="text-xs text-muted-foreground">Balance</div>
           </div>
-          <div className="text-right">
-            <div className="font-semibold text-lg flex items-center gap-1">
-              <span className="text-accent">★</span> {reputation}
-            </div>
-            <div className="text-xs text-muted-foreground">Level {practiceLevel}</div>
-          </div>
+          <ReputationDisplay reputation={reputation} />
           <div className="w-px h-8 bg-border" />
           {onSettingsClick && (
             <button
@@ -175,5 +170,31 @@ export function HUD({
         </div>
       </div>
     </header>
+  )
+}
+
+/**
+ * Reputation display component for HUD
+ */
+function ReputationDisplay({ reputation }: { reputation: number }) {
+  const display = getReputationDisplay(reputation)
+  const progressText = display.nextLevelThreshold
+    ? `${Math.floor(display.progressToNext)}/${display.nextLevelThreshold - display.minForLevel}`
+    : 'Max'
+
+  return (
+    <div className="text-right">
+      <div className="font-semibold text-lg flex items-center gap-1.5">
+        <span className="text-accent">★</span>
+        <span>{Math.floor(display.current)}</span>
+        <span className="text-xs px-1 py-0.5 bg-accent/10 rounded text-accent font-medium">
+          L{display.level}
+        </span>
+        <span className="text-xs text-muted-foreground font-normal">
+          {progressText}
+        </span>
+      </div>
+      <div className="text-xs text-muted-foreground">{display.levelName}</div>
+    </div>
   )
 }

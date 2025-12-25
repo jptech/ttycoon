@@ -1,10 +1,10 @@
 import { useState, useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import type { Building, Client, Therapist, Schedule, Session, SessionDuration } from '@/core/types'
-import { ScheduleManager, SCHEDULE_CONFIG } from '@/core/schedule'
+import { planRecurringBookings, ScheduleManager, SCHEDULE_CONFIG } from '@/core/schedule'
 import { canBookSessionType } from '@/core/schedule/BookingConstraints'
 import { Modal, ModalFooter, Button, Card } from '@/components/ui'
-import { Clock, User, Video, Building as BuildingIcon, Calendar, Check } from 'lucide-react'
+import { Clock, User, Video, Building as BuildingIcon, Calendar, Check, AlertTriangle, CalendarClock } from 'lucide-react'
 
 export interface BookingModalProps {
   /** Whether the modal is open */
@@ -23,6 +23,10 @@ export interface BookingModalProps {
   currentBuilding: Building
   /** Whether telehealth is unlocked */
   telehealthUnlocked: boolean
+  /** Current time, for not-in-past validation */
+  currentDay: number
+  currentHour: number
+  currentMinute: number
   /** Pre-selected slot */
   selectedSlot?: {
     day: number
@@ -37,7 +41,7 @@ export interface BookingModalProps {
     hour: number
     duration: SessionDuration
     isVirtual: boolean
-  }) => void
+  }) => { success: boolean; error?: string } | void
 }
 
 export function BookingModal({
@@ -49,6 +53,9 @@ export function BookingModal({
   sessions,
   currentBuilding,
   telehealthUnlocked,
+  currentDay,
+  currentHour,
+  currentMinute,
   selectedSlot,
   onBook,
 }: BookingModalProps) {
@@ -61,6 +68,10 @@ export function BookingModal({
   const [selectedHour, setSelectedHour] = useState<number | null>(selectedSlot?.hour || null)
   const [duration, setDuration] = useState<SessionDuration>(SCHEDULE_CONFIG.DEFAULT_DURATION)
   const [isVirtual, setIsVirtual] = useState(false)
+  const [recurringEnabled, setRecurringEnabled] = useState(false)
+  const [recurringCount, setRecurringCount] = useState(4)
+  const [recurringIntervalDays, setRecurringIntervalDays] = useState(7)
+  const [bookingError, setBookingError] = useState<string | null>(null)
 
   // Reset state when modal opens/closes
   const resetState = () => {
@@ -70,6 +81,10 @@ export function BookingModal({
     setSelectedHour(selectedSlot?.hour || null)
     setDuration(SCHEDULE_CONFIG.DEFAULT_DURATION)
     setIsVirtual(false)
+    setRecurringEnabled(false)
+    setRecurringCount(4)
+    setRecurringIntervalDays(7)
+    setBookingError(null)
   }
 
   // Get selected entities
@@ -97,7 +112,7 @@ export function BookingModal({
     if (!therapist) return []
 
     // Find slots for next 5 days
-    const startDay = selectedSlot?.day || 1
+    const startDay = selectedSlot?.day || currentDay
     const baseSlots = ScheduleManager.findMatchingSlots(
       schedule,
       therapist,
@@ -116,12 +131,21 @@ export function BookingModal({
       duration
     )
 
+    const notInPastSlots = baseSlots.filter((slot) => {
+      const timeCheck = ScheduleManager.validateNotInPast(
+        { day: currentDay, hour: currentHour, minute: currentMinute },
+        slot.day,
+        slot.hour
+      )
+      return timeCheck.valid
+    })
+
     if (isVirtual) {
       if (!telehealthUnlocked) return []
-      return baseSlots
+      return notInPastSlots
     }
 
-    return baseSlots.filter((slot) => {
+    return notInPastSlots.filter((slot) => {
       const check = canBookSessionType({
         building: currentBuilding,
         sessions,
@@ -144,6 +168,9 @@ export function BookingModal({
     telehealthUnlocked,
     currentBuilding,
     sessions,
+    currentDay,
+    currentHour,
+    currentMinute,
   ])
 
   // Can book check
@@ -167,9 +194,83 @@ export function BookingModal({
     selectedHour !== null &&
     (bookingTypeCheck?.canBook ?? true)
 
+  const recurringPlan = useMemo(() => {
+    if (!recurringEnabled) return null
+    if (!selectedClient || !selectedTherapist || selectedDay === null || selectedHour === null) return null
+
+    return planRecurringBookings({
+      schedule,
+      sessions,
+      therapist: selectedTherapist,
+      client: selectedClient,
+      building: currentBuilding,
+      telehealthUnlocked,
+      currentTime: { day: currentDay, hour: currentHour, minute: currentMinute },
+      startDay: selectedDay,
+      startHour: selectedHour,
+      durationMinutes: duration,
+      isVirtual,
+      count: recurringCount,
+      intervalDays: recurringIntervalDays,
+    })
+  }, [
+    recurringEnabled,
+    selectedClient,
+    selectedTherapist,
+    selectedDay,
+    selectedHour,
+    schedule,
+    sessions,
+    currentBuilding,
+    telehealthUnlocked,
+    currentDay,
+    currentHour,
+    currentMinute,
+    duration,
+    isVirtual,
+    recurringCount,
+    recurringIntervalDays,
+  ])
+
+  const recurringPlanComplete =
+    recurringPlan && recurringPlan.failures.length === 0 && recurringPlan.planned.length === recurringCount
+
   // Handle booking
   const handleBook = () => {
     if (!canBook) return
+
+    setBookingError(null)
+
+    if (recurringEnabled) {
+      if (!recurringPlanComplete || !recurringPlan) {
+        setBookingError('Cannot book recurring series: one or more sessions are not schedulable.')
+        return
+      }
+
+      for (const [index, slot] of recurringPlan.planned.entries()) {
+        const result = onBook({
+          clientId: selectedClientId!,
+          therapistId: selectedTherapistId!,
+          day: slot.day,
+          hour: slot.hour,
+          duration,
+          isVirtual,
+        })
+
+        const ok = result === undefined || result.success
+        if (!ok) {
+          setBookingError(
+            (result === undefined ? undefined : result.error) ||
+              `Booking failed for session ${index + 1} of ${recurringPlan.planned.length}.`
+          )
+          return
+        }
+      }
+
+      resetState()
+      onClose()
+      return
+    }
 
     onBook({
       clientId: selectedClientId!,
@@ -195,6 +296,12 @@ export function BookingModal({
       size="lg"
     >
       <div className="space-y-6">
+        {bookingError && (
+          <div className="flex items-center gap-2 p-3 rounded-lg border border-warning/40 bg-warning/10 text-warning text-sm">
+            <AlertTriangle className="w-4 h-4" />
+            <span>{bookingError}</span>
+          </div>
+        )}
         {/* Step 1: Select Client */}
         <div>
           <h4 className="font-medium mb-2 flex items-center gap-2">
@@ -364,6 +471,70 @@ export function BookingModal({
           </div>
         </div>
 
+        {/* Recurring */}
+        <div>
+          <h4 className="font-medium mb-2 flex items-center gap-2">
+            <CalendarClock className="w-4 h-4" />
+            Recurring
+          </h4>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setRecurringEnabled((v) => !v)}
+              className={cn(
+                'px-3 py-1.5 rounded-md border text-sm transition-colors',
+                recurringEnabled ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50'
+              )}
+            >
+              {recurringEnabled ? 'Enabled' : 'Disabled'}
+            </button>
+
+            {recurringEnabled && (
+              <>
+                <div className="flex gap-1">
+                  {[7, 14, 30].map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => setRecurringIntervalDays(d)}
+                      className={cn(
+                        'px-2 py-1 rounded text-xs border transition-colors',
+                        recurringIntervalDays === d
+                          ? 'border-primary bg-primary/10'
+                          : 'border-border bg-background hover:border-primary/50'
+                      )}
+                    >
+                      {d === 7 ? 'Week' : d === 14 ? '2 Weeks' : 'Month'}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-muted-foreground">Count</span>
+                  <input
+                    aria-label="Recurring session count"
+                    className="w-16 rounded-md border border-border bg-background px-2 py-1 text-sm"
+                    type="number"
+                    min={1}
+                    max={12}
+                    value={recurringCount}
+                    onChange={(e) => {
+                      const next = Number(e.target.value)
+                      setRecurringCount(Number.isFinite(next) ? Math.max(1, Math.min(12, next)) : 1)
+                    }}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+
+          {recurringEnabled && selectedDay !== null && selectedHour !== null && (
+            <div className="mt-2 text-xs text-muted-foreground">
+              {recurringPlanComplete
+                ? `Planned ${recurringCount} sessions.`
+                : recurringPlan?.failures[0]?.reason || 'Some sessions in this series cannot be scheduled.'}
+            </div>
+          )}
+        </div>
+
         {/* Summary */}
         {canBook && (
           <Card variant="default" className="bg-muted/50">
@@ -381,11 +552,17 @@ export function BookingModal({
       </div>
 
       <ModalFooter>
-        <Button variant="ghost" onClick={onClose}>
+        <Button
+          variant="ghost"
+          onClick={() => {
+            resetState()
+            onClose()
+          }}
+        >
           Cancel
         </Button>
-        <Button onClick={handleBook} disabled={!canBook}>
-          Book Session
+        <Button onClick={handleBook} disabled={!canBook || (recurringEnabled && !recurringPlanComplete)}>
+          {recurringEnabled ? `Book ${recurringCount} Sessions` : 'Book Session'}
         </Button>
       </ModalFooter>
     </Modal>

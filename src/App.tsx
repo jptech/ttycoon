@@ -7,6 +7,7 @@ import { useGameLoop, useClientSpawning, useTrainingProcessor, useTherapistEnerg
 import { formatTime } from '@/lib/utils'
 import { GameLayout, GameView, NewGameModal, DaySummaryModal, TutorialOverlay } from '@/components'
 import { getAllRandomEvents, getEligibleDecisionEvents } from '@/data'
+import { getSessionReputationDelta, getReputationChangeReason } from '@/core/reputation'
 import type { RandomEvent, DecisionEvent, Session, Therapist } from '@/core/types'
 
 function App() {
@@ -92,6 +93,17 @@ function App() {
       // Add payment
       addMoney(session.payment, `Session with ${session.clientName}`)
 
+      // Award reputation based on session quality
+      const reputationDelta = getSessionReputationDelta(session.quality)
+      if (reputationDelta !== 0) {
+        const reason = getReputationChangeReason(session.quality)
+        if (reputationDelta > 0) {
+          addReputation(reputationDelta, reason)
+        } else {
+          removeReputation(-reputationDelta, reason)
+        }
+      }
+
       addNotification({
         type: 'success',
         title: 'Session Completed',
@@ -105,7 +117,7 @@ function App() {
         payment: session.payment,
       })
     },
-    [updateSession, updateTherapist, addMoney, addNotification]
+    [updateSession, updateTherapist, addMoney, removeReputation, addReputation, addNotification]
   )
 
   // Session callbacks for the game loop

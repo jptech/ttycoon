@@ -4,20 +4,11 @@ Tracks practice reputation and progression through practice levels, unlocking fe
 
 ## Reputation Score (0-500)
 
-```typescript
-interface ReputationSystem {
-  reputation: number;           // 0-500 (clamped)
-  practice_level: number;       // 1-5
-  clinic_certifications_total: number;
-
-  updateReputation(delta: number): void;
-  levelUp(): void;
-}
-```
-
 **Starting**: 20 reputation at Level 1
 
 **Range**: 0-500 (clamped to this range)
+
+**Display**: Shown in HUD with level badge and progress to next level
 
 ## Practice Levels
 
@@ -26,437 +17,142 @@ Levels unlock features and staff capacity:
 | Level | Name | Rep Required | Staff Cap | Key Unlocks |
 |-------|------|--------------|-----------|-------------|
 | 1 | Starting Practice | 0 | 1 | Base gameplay (solo only) |
-| 2 | Established | 50 | 2-5 | Hiring, Training programs |
-| 3 | Growing | 125 | 3-5 | Better hiring pool, Advanced training |
-| 4 | Respected | 250 | 4-5 | Large office access, Premium features |
+| 2 | Established | 50 | 2+ | Hiring, Training programs |
+| 3 | Growing | 125 | 3+ | Better hiring pool, Advanced training |
+| 4 | Respected | 250 | 4+ | Large office access, Premium insurance |
 | 5 | Premier | 400 | 5+ | All features unlocked, highest prestige |
 
-```typescript
-const PRACTICE_LEVELS = [
-  {
-    level: 1,
-    name: 'Starting Practice',
-    rep_threshold: 0,
-    staff_cap: 1,
-    unlocks: {
-      can_hire: false,
-      can_train: false,
-      hiring_pool_quality: 'basic'
-    }
-  },
-  {
-    level: 2,
-    name: 'Established',
-    rep_threshold: 50,
-    staff_cap: 5,
-    unlocks: {
-      can_hire: true,
-      can_train: true,
-      hiring_pool_quality: 'standard',
-      advanced_training: false
-    }
-  },
-  {
-    level: 3,
-    name: 'Growing',
-    rep_threshold: 125,
-    staff_cap: 5,
-    unlocks: {
-      can_hire: true,
-      can_train: true,
-      hiring_pool_quality: 'good',
-      advanced_training: true,
-      supervision_sessions: true
-    }
-  },
-  {
-    level: 4,
-    name: 'Respected',
-    rep_threshold: 250,
-    staff_cap: 5,
-    unlocks: {
-      large_office: true,
-      premium_clients: true,
-      research_opportunities: true
-    }
-  },
-  {
-    level: 5,
-    name: 'Premier',
-    rep_threshold: 400,
-    staff_cap: 8,
-    unlocks: {
-      all_features: true,
-      prestige_milestone: true
-    }
-  }
-];
-
-function checkLevelUp() {
-  for (let i = practiceLevel; i < PRACTICE_LEVELS.length; i++) {
-    if (reputation >= PRACTICE_LEVELS[i].rep_threshold) {
-      practiceLevel = PRACTICE_LEVELS[i].level;
-      EventBus.emit('practice_level_changed', practiceLevel);
-      showLevelUpNotification(PRACTICE_LEVELS[i]);
-    } else {
-      break;
-    }
-  }
-}
-```
+**Implementation**: `src/core/types/state.ts` - `PRACTICE_LEVELS`
 
 ## Reputation Gains
 
-### Session Quality
+### Session Quality (Primary Source)
 
-Based on session outcome:
+Based on session quality at completion:
 
 ```typescript
 const REPUTATION_BY_QUALITY = {
-  excellent: 5,      // 0.8+ quality
-  good: 1,           // 0.6-0.8
-  fair: 0,           // 0.4-0.6
-  poor: -2,          // 0.2-0.4
-  very_poor: -5      // 0.0-0.2
+  excellent: 5,      // 0.80+ quality
+  good: 2,           // 0.65-0.80 quality
+  fair: 0,           // 0.50-0.65 quality
+  poor: -2,          // 0.30-0.50 quality
+  very_poor: -5      // 0.00-0.30 quality
 };
-
-function applySessionQualityReputation(session: Session) {
-  const tier = session.quality_tier;
-  const reputation = REPUTATION_BY_QUALITY[tier];
-  updateReputation(reputation);
-}
 ```
 
-### Client Outcomes
+**Implementation**: `src/core/reputation/ReputationManager.ts` - `getSessionReputationDelta(quality)`
 
-```typescript
-// Excellent outcome (all sessions completed perfectly)
-function cureClient(client: Client) {
-  updateReputation(5);  // Bonus for successful treatment
-}
+Awarded in `App.tsx` during `handleSessionComplete()` callback.
 
-// Client drops out
-function dropClient(client: Client, reason: string) {
-  updateReputation(-3);  // Penalty for dropout
-}
-```
+### Training Completion (Secondary Source)
 
-### Training Completion
+Clinical and business training programs grant reputation bonuses upon completion:
 
-```typescript
-// Each completed training grants +1 reputation
-function completeTraining(training: TrainingProgram) {
-  // ... apply rewards ...
-  updateReputation(1);
-}
-```
+**Clinical certifications**:
+- Trauma, Couples, Children, Substance: +2 rep each
+- Telehealth: +1 rep
+- CBT: +2 rep
+- DBT, EMDR, Supervisor: +4-5 rep each
 
-### Certification Bonuses
+**Business training**:
+- Practice Management: +5 rep
+- Insurance Billing: Multiplier bonus (no direct rep)
+- Leadership: Hiring capacity bonus (no direct rep)
 
-```typescript
-// Every 5 clinic certifications → +1 reputation daily (passive)
-function calculateClinicCertificationBonus() {
-  const totalCertifications = therapists.reduce(
-    (sum, t) => sum + t.certifications.length,
-    0
-  );
+**Implementation**: `src/data/trainingPrograms.ts` - `clinicBonus.type: 'reputation_bonus'`
 
-  const bonus = Math.floor(totalCertifications / 5);
-  return bonus;
-}
+Awarded in `src/hooks/useTrainingProcessor.ts` when training completes.
 
-// Called during day start
-function applyDailyPassiveBonuses() {
-  const certBonus = calculateClinicCertificationBonus();
-  if (certBonus > 0) {
-    updateReputation(certBonus);
-    EventBus.emit('certification_bonus_earned', certBonus);
-  }
-}
-```
+### Events (Tertiary Source)
 
-### Milestone Events
+Random events can award or penalize reputation (-3 to +8 per event, ~30% daily chance).
 
-```typescript
-// First successful hire
-function onFirstHire(therapist: Therapist) {
-  updateReputation(2);
-  showSpecialEvent('first_hire');
-}
-
-// First client cured
-function onFirstCure(client: Client) {
-  updateReputation(5);
-  showSpecialEvent('first_cure');
-}
-
-// Practice anniversary
-function onAnniversary(year: number) {
-  updateReputation(10);
-  showSpecialEvent('anniversary', year);
-}
-```
+**Implementation**: `src/data/randomEvents.ts` - event `effects.reputation`
 
 ## Reputation Losses
 
-### Session Cancellations
+Occurs when:
+- Session quality is fair or poor (automatic deduction based on quality)
+- Random negative events trigger
+- No direct client dropout penalty currently implemented
 
-```typescript
-function cancelSession(session: Session) {
-  // Cancelling a scheduled session damages reputation
-  updateReputation(-1 to -2);  // Random or based on how late
-}
-```
+## HUD Display
 
-### Client Dissatisfaction
+Shows in the top right, next to balance:
 
-```typescript
-function trackClientDissatisfaction() {
-  for (const client of clients) {
-    if (client.satisfaction < 20) {
-      // Very dissatisfied clients damage rep if they drop
-      updateReputation(-2);
-    }
-  }
-}
-```
+**Format**: `★ 175 [L3] 50/125` on first line, `Growing` on second line
 
-### Poor Practice Management
+**Components**:
+- `★` - Reputation icon
+- `175` - Current reputation value
+- `[L3]` - Level badge (compact)
+- `50/125` - Progress toward next level (or "Max" at level 5)
+- `Growing` - Level name
 
-```typescript
-// Multiple sessions with very poor quality
-function checkQualityTrend() {
-  const last10Sessions = getRecentSessions(10);
-  const poorCount = last10Sessions.filter(s => s.quality < 0.2).length;
+**Compact design**: Two lines only (value line + level name), all progress info inline
 
-  if (poorCount >= 7) {
-    // Pattern of very poor outcomes
-    updateReputation(-3);
-    EventBus.emit('quality_concern_warning', poorCount);
-  }
-}
-```
+**Component**: `src/components/game/HUD.tsx` - `ReputationDisplay` sub-component
 
-## Reputation Visualization
+**Helper**: `src/core/reputation/ReputationManager.ts` - `getReputationDisplay(reputation)`
 
-```typescript
-interface ReputationDisplay {
-  score: number;           // 0-500
-  level: number;           // 1-5
-  level_name: string;      // "Established"
-  progress_to_next: number; // 0.0-1.0 (% of way to next level)
-  certifications: number;  // Total clinic certifications
+## Progression Timeline
 
-  // Recent activity
-  today_gains: number;
-  today_losses: number;
-  trend: 'rising' | 'falling' | 'stable';
-}
+Estimated time to reach each level (assuming good session quality):
 
-function getReputationDisplay(): ReputationDisplay {
-  const currentLevel = PRACTICE_LEVELS[practiceLevel - 1];
-  const nextLevel = PRACTICE_LEVELS[practiceLevel];
+- **Level 1→2** (0→50): ~10-15 sessions at +2-5 rep each
+- **Level 2→3** (50→125): ~20-25 sessions
+- **Level 3→4** (125→250): ~30-40 sessions
+- **Level 4→5** (250→400): ~40-50 sessions
+- **Total**: ~100-130 high-quality sessions (~13-26 weeks at 2 sessions/day)
 
-  const progress = nextLevel
-    ? (reputation - currentLevel.rep_threshold) /
-      (nextLevel.rep_threshold - currentLevel.rep_threshold)
-    : 1.0;
+With training bonuses and random events, progression is faster.
 
-  return {
-    score: reputation,
-    level: practiceLevel,
-    level_name: currentLevel.name,
-    progress_to_next: Math.min(1.0, progress),
-    certifications: calculateClinicCertifications(),
-    today_gains: transactionsToday.filter(t => t.type === 'income').sum(),
-    today_losses: transactionsToday.filter(t => t.type === 'expense').sum(),
-    trend: calculateReputationTrend()
-  };
-}
-```
+## Files
 
-## Client Arrival Scaling
+**Core**:
+- `src/core/reputation/ReputationManager.ts` - Session quality calculations, display helpers
+- `src/core/types/state.ts` - Practice level definitions
 
-Reputation affects how many clients arrive:
+**Data**:
+- `src/data/trainingPrograms.ts` - Training program reputation bonuses
+- `src/data/randomEvents.ts` - Random event reputation effects
 
-```typescript
-function generateClientArrivals(day: number): number {
-  // Base arrival rate
-  let arrivalCount = 0.5 + (reputation / 500) * 2.5;  // 0.5 to 3 clients
+**Components**:
+- `src/components/game/HUD.tsx` - Reputation display in HUD
 
-  // Random variation
-  arrivalCount += random(-0.5, 0.5);
-
-  // Early game bonus
-  if (day <= 7) {
-    arrivalCount *= 2;  // Extra clients early on
-  }
-
-  // Modifiers
-  if (hasActiveModifier('busy_week')) {
-    arrivalCount *= 1.2;
-  }
-
-  if (hasActiveModifier('economic_downturn')) {
-    arrivalCount *= 0.8;
-  }
-
-  return Math.floor(arrivalCount);
-}
-```
-
-## Hiring Pool Quality
-
-Better reputation = better hiring candidates:
-
-```typescript
-interface HireCandidate {
-  therapist: Therapist;
-  salary_asking: number;
-  base_skill: number;
-  specializations: string[];
-}
-
-function generateHiringCandidates(): HireCandidate[] {
-  const poolSize = 3 + Math.floor(practiceLevel / 2);
-  const candidates = [];
-
-  for (let i = 0; i < poolSize; i++) {
-    // Quality increases with reputation
-    const skillMultiplier = 0.5 + (reputation / 500) * 0.5;  // 0.5x to 1.0x
-
-    const candidate: HireCandidate = {
-      therapist: createTherapist({
-        base_skill: random(30, 80) * skillMultiplier,
-        specializations: randomSpecializations(2 + Math.floor(reputation / 100))
-      }),
-      salary_asking: random(50, 150) * skillMultiplier,
-      // ...
-    };
-
-    candidates.push(candidate);
-  }
-
-  return candidates;
-}
-```
-
-## Reputation Panel
-
-UI panel showing detailed reputation info:
-
-```typescript
-interface ReputationPanel {
-  current_reputation: number;
-  practice_level: number;
-  progress_bar: {
-    current: number;
-    next_threshold: number;
-    progress_percent: number;
-  };
-
-  // Breakdown
-  reputation_sources: {
-    sessions: number;
-    training: number;
-    milestones: number;
-    certifications: number;
-  };
-
-  recent_changes: {
-    day: number;
-    amount: number;
-    reason: string;
-  }[];
-
-  // Level unlocks
-  current_unlocks: string[];
-  next_level_unlocks: string[];
-
-  // Trend
-  last_7_days_net: number;
-  trend_direction: 'up' | 'down' | 'stable';
-}
-```
-
-## Certification Score
-
-Independent metric for practice breadth:
-
-```typescript
-interface CertificationScore {
-  total_certifications: number;
-  by_therapist: Record<string, string[]>;  // therapist -> certs
-  bonus_reputation_per_5: number;  // +1 rep per 5 total certs
-
-  calculate(): number {
-    return therapists.reduce(
-      (sum, t) => sum + t.certifications.length,
-      0
-    );
-  }
-}
-
-function calculateCertificationScore(): number {
-  return therapists.reduce(
-    (sum, t) => sum + t.certifications.length,
-    0
-  );
-}
-
-// Generates passive reputation
-function applyClinicCertificationBonus() {
-  const score = calculateCertificationScore();
-  const bonus = Math.floor(score / 5);
-  if (bonus > 0) {
-    updateReputation(bonus);
-  }
-}
-```
+**Hooks**:
+- `src/hooks/useTrainingProcessor.ts` - Training completion reputation awards
+- `App.tsx` - Session completion reputation awards
 
 ## Events Emitted
 
 ```typescript
-EventBus.emit('reputation_changed', oldRep, newRep, reason);
-EventBus.emit('practice_level_changed', newLevel);
-EventBus.emit('certification_bonus_earned', amount);
-EventBus.emit('quality_concern_warning', poorSessionCount);
+EventBus.emit(GameEvents.REPUTATION_CHANGED, {
+  oldValue: number,
+  newValue: number,
+  reason: string,        // e.g., "Excellent session", "Practice Management Training"
+})
+
+EventBus.emit(GameEvents.PRACTICE_LEVEL_CHANGED, {
+  oldLevel: PracticeLevel,
+  newLevel: PracticeLevel,
+})
 ```
 
-## Testing Strategy
+## Testing
+
+All reputation calculations are pure functions and can be tested in isolation:
 
 ```typescript
-test('reputation clamped between 0 and 500', () => {
-  updateReputation(600);
-  expect(reputation).toBe(500);
-  updateReputation(-600);
-  expect(reputation).toBe(0);
-});
+test('excellent session awards 5 reputation', () => {
+  const delta = getSessionReputationDelta(0.85)
+  expect(delta).toBe(5)
+})
 
-test('level up triggered at threshold', () => {
-  reputation = 49;
-  checkLevelUp();
-  expect(practiceLevel).toBe(1);
-
-  reputation = 50;
-  checkLevelUp();
-  expect(practiceLevel).toBe(2);
-});
-
-test('clinic certification bonus calculated correctly', () => {
-  therapists[0].certifications = ['cert1', 'cert2'];
-  therapists[1].certifications = ['cert3', 'cert4', 'cert5'];
-  const bonus = calculateClinicCertificationBonus();
-  expect(bonus).toBe(1);  // 5 certs / 5 = 1
-});
-
-test('client arrivals scale with reputation', () => {
-  reputation = 0;
-  const arrivals0 = generateClientArrivals(10);
-
-  reputation = 500;
-  const arrivals500 = generateClientArrivals(10);
-
-  expect(arrivals500).toBeGreaterThan(arrivals0);
-});
+test('reputation display shows correct level and progress', () => {
+  const display = getReputationDisplay(175)  // Level 3, 50 toward level 4
+  expect(display.level).toBe(3)
+  expect(display.levelName).toBe('Growing')
+  expect(display.progressToNext).toBe(50)
+})
 ```
