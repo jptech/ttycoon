@@ -148,4 +148,41 @@ describe('GameEngine skip-time guardrails', () => {
     expect(state.currentHour).toBe(8)
     expect(state.currentMinute).toBe(0)
   })
+
+  it('skipToNextSession goes to next-day start on an empty day (no sessions scheduled)', () => {
+    const engine = getGameEngine({ tickRateMs: 100 })
+
+    useGameStore.setState({
+      currentDay: 1,
+      currentHour: 10,
+      currentMinute: 15,
+      sessions: [],
+    })
+
+    expect(engine.skipToNextSession()).toBe(true)
+
+    const state = useGameStore.getState()
+    expect(state.currentDay).toBe(2)
+    expect(state.currentHour).toBe(8)
+    expect(state.currentMinute).toBe(0)
+  })
+
+  it('invokes onTimeAdvance when skipping time', () => {
+    const onTimeAdvance = vi.fn()
+    const engine = getGameEngine({ tickRateMs: 100, onTimeAdvance })
+
+    useGameStore.setState({
+      currentDay: 1,
+      currentHour: 16,
+      currentMinute: 30,
+      sessions: [createSession({ id: 's-future', scheduledDay: 3, scheduledHour: 9, status: 'scheduled' })],
+    })
+
+    expect(engine.skipToNextSession()).toBe(true)
+    expect(onTimeAdvance).toHaveBeenCalledTimes(1)
+
+    const result = onTimeAdvance.mock.calls[0][0]
+    expect(result.previousTime).toEqual({ day: 1, hour: 16, minute: 30 })
+    expect(result.newTime).toEqual({ day: 2, hour: 8, minute: 0 })
+  })
 })

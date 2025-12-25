@@ -32,6 +32,19 @@ export class GameEngine {
   private accumulatedTime: number = 0
   private isRunning: boolean = false
 
+  private safeCall<TArgs extends unknown[]>(
+    label: string,
+    fn: ((...args: TArgs) => void) | undefined,
+    ...args: TArgs
+  ): void {
+    if (!fn) return
+    try {
+      fn(...args)
+    } catch (error) {
+      console.error(`[GameEngine] Unhandled error in ${label}:`, error)
+    }
+  }
+
   constructor(config: Partial<GameEngineConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config }
   }
@@ -81,13 +94,20 @@ export class GameEngine {
     const currentTime = performance.now()
     const deltaTime = currentTime - this.lastTickTime
 
-    // Only tick if enough time has passed
-    if (deltaTime >= this.config.tickRateMs) {
-      this.tick(deltaTime)
+    try {
+      // Only tick if enough time has passed
+      if (deltaTime >= this.config.tickRateMs) {
+        this.tick(deltaTime)
+        this.lastTickTime = currentTime
+      }
+    } catch (error) {
+      // Defensive: never let an exception permanently stop the game loop.
+      // If tick throws before scheduling the next frame, time can freeze.
+      console.error('[GameEngine] Unhandled error in tick:', error)
       this.lastTickTime = currentTime
+    } finally {
+      this.animationFrameId = requestAnimationFrame(this.loop)
     }
-
-    this.animationFrameId = requestAnimationFrame(this.loop)
   }
 
   /**
@@ -121,10 +141,13 @@ export class GameEngine {
 
       // Process game systems
       this.processActiveSessions(minutes)
-      this.checkSessionStarts(result.newTime)
 
-      // Notify callback
-      this.config.onTimeAdvance?.(result)
+      // Notify callback BEFORE starting sessions at the new time.
+      // This ensures time-based processors (e.g. idle energy recovery) can apply
+      // up to the start of a session that begins exactly at `result.newTime`.
+      this.safeCall('onTimeAdvance', this.config.onTimeAdvance, result)
+
+      this.checkSessionStarts(result.newTime)
     }
   }
 
@@ -169,7 +192,7 @@ export class GameEngine {
     const activeSessions = sessions.filter((s) => s.status === 'in_progress')
 
     for (const session of activeSessions) {
-      this.config.onSessionTick?.(session.id, deltaMinutes)
+      this.safeCall('onSessionTick', this.config.onSessionTick, session.id, deltaMinutes)
     }
   }
 
@@ -188,7 +211,7 @@ export class GameEngine {
     )
 
     for (const session of sessionsToStart) {
-      this.config.onSessionStart?.(session.id)
+      this.safeCall('onSessionStart', this.config.onSessionStart, session.id)
     }
   }
 
@@ -241,6 +264,9 @@ export class GameEngine {
 
     if (result.minuteChanged) {
       this.applyTimeAdvance(result)
+
+      // Notify callback BEFORE starting sessions at the new time.
+      this.safeCall('onTimeAdvance', this.config.onTimeAdvance, result)
 
       // If we landed exactly at the top of an hour, start any sessions scheduled for that time.
       this.checkSessionStarts(result.newTime)

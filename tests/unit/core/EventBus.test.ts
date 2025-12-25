@@ -43,6 +43,23 @@ describe('EventBus', () => {
     expect(handler2).toHaveBeenCalledTimes(1)
   })
 
+  it('does not break other handlers if one throws', () => {
+    const badHandler = vi.fn(() => {
+      throw new Error('handler boom')
+    })
+    const goodHandler = vi.fn()
+
+    EventBus.on(GameEvents.MINUTE_CHANGED, badHandler)
+    EventBus.on(GameEvents.MINUTE_CHANGED, goodHandler)
+
+    expect(() => {
+      EventBus.emit(GameEvents.MINUTE_CHANGED, { minute: 1 })
+    }).not.toThrow()
+
+    expect(badHandler).toHaveBeenCalledTimes(1)
+    expect(goodHandler).toHaveBeenCalledTimes(1)
+  })
+
   it('passes correct payload types', () => {
     const handler = vi.fn()
 

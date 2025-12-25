@@ -12,6 +12,7 @@ type Events = {
 class EventBusClass {
   private emitter: Emitter<Events>
   private debugMode: boolean = false
+  private handlerWrappers: WeakMap<Function, Function> = new WeakMap()
 
   constructor() {
     this.emitter = mitt<Events>()
@@ -27,6 +28,27 @@ class EventBusClass {
     this.emitter.emit(event, payload)
   }
 
+  private wrapHandler<K extends keyof Events>(
+    event: K,
+    handler: (payload: Events[K]) => void
+  ): (payload: Events[K]) => void {
+    const existing = this.handlerWrappers.get(handler as unknown as Function)
+    if (existing) {
+      return existing as (payload: Events[K]) => void
+    }
+
+    const wrapped = (payload: Events[K]) => {
+      try {
+        handler(payload)
+      } catch (error) {
+        console.error(`[EventBus] Unhandled error in handler for ${String(event)}:`, error)
+      }
+    }
+
+    this.handlerWrappers.set(handler as unknown as Function, wrapped as unknown as Function)
+    return wrapped
+  }
+
   /**
    * Subscribe to an event
    */
@@ -34,8 +56,9 @@ class EventBusClass {
     event: K,
     handler: (payload: Events[K]) => void
   ): () => void {
-    this.emitter.on(event, handler)
-    return () => this.emitter.off(event, handler)
+    const wrapped = this.wrapHandler(event, handler)
+    this.emitter.on(event, wrapped)
+    return () => this.emitter.off(event, wrapped)
   }
 
   /**
@@ -45,7 +68,8 @@ class EventBusClass {
     event: K,
     handler: (payload: Events[K]) => void
   ): void {
-    this.emitter.off(event, handler)
+    const wrapped = this.handlerWrappers.get(handler as unknown as Function)
+    this.emitter.off(event, (wrapped as (payload: Events[K]) => void) ?? handler)
   }
 
   /**

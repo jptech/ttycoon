@@ -82,8 +82,8 @@ export function SpeedControls({
               'disabled:opacity-50 disabled:cursor-not-allowed',
               inactiveStyle
             )}
-            aria-label="Skip to next session"
-            title="Skip to next session"
+            aria-label="Skip"
+            title="Skip to next session (or next day)"
           >
             <SkipForward className="w-4 h-4" />
           </button>

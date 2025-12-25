@@ -450,24 +450,45 @@ function App() {
   )
 
   const handleSkipToNext = useCallback(() => {
-    const nextTime = getNextSessionTime()
-    if (nextTime) {
-      const success = skipToNextSession()
-      if (success) {
-        addNotification({
-          type: 'info',
-          title: 'Skipped',
-          message: `Jumped to Day ${nextTime.day}, ${formatTime(nextTime.hour, 0)}`,
-        })
-      }
-    } else {
+    const before = useGameStore.getState()
+    const beforeTime = {
+      day: before.currentDay,
+      hour: before.currentHour,
+      minute: before.currentMinute,
+    }
+
+    const success = skipToNextSession()
+    if (!success) {
       addNotification({
         type: 'warning',
-        title: 'No Sessions',
-        message: 'No upcoming sessions to skip to',
+        title: 'Cannot Skip',
+        message: 'Cannot skip while a session is in progress',
       })
+      return
     }
-  }, [getNextSessionTime, skipToNextSession, addNotification])
+
+    const after = useGameStore.getState()
+    const afterTime = {
+      day: after.currentDay,
+      hour: after.currentHour,
+      minute: after.currentMinute,
+    }
+
+    const timeChanged =
+      afterTime.day !== beforeTime.day ||
+      afterTime.hour !== beforeTime.hour ||
+      afterTime.minute !== beforeTime.minute
+
+    // If time didn't change, skip likely started a session scheduled right now.
+    // `handleSessionStart` already shows a toast for that.
+    if (!timeChanged) return
+
+    addNotification({
+      type: 'info',
+      title: 'Skipped',
+      message: `Jumped to Day ${afterTime.day}, ${formatTime(afterTime.hour, afterTime.minute)}`,
+    })
+  }, [skipToNextSession, addNotification])
 
   // Handle starting a new game from settings
   const handleNewGame = useCallback(() => {

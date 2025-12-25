@@ -62,7 +62,7 @@ export function HelpModal({ open, onClose }: HelpModalProps) {
               <strong>1x, 2x, 3x</strong> - Control game speed
             </li>
             <li>
-              <strong>Skip ({">>"})</strong> - Jump to next scheduled session
+              <strong>Skip ({">>"})</strong> - Jump to the next session, or to the start of the next day if none remain today
             </li>
           </ul>
         </div>
