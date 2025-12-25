@@ -13,4 +13,5 @@ export type {
   WaitingListResult,
   SessionOutcomeResult,
   FollowUpInfo,
+  ClientUpcomingSessionsSummary,
 } from './ClientManager'

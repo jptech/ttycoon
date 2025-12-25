@@ -16,8 +16,10 @@ import type {
 import { getPracticeLevelFromReputation } from '@/core/types'
 import { EventBus, GameEvents } from '@/core/events'
 import { ClientManager } from '@/core/clients'
+import { SessionManager } from '@/core/session/SessionManager'
 import { ScheduleManager } from '@/core/schedule'
 import { getSessionRate } from '@/data/clientGeneration'
+import { getReputationChangeReason, getSessionReputationDelta } from '@/core/reputation'
 
 /**
  * Actions available on the game store
@@ -44,6 +46,17 @@ interface GameActions {
   updateSession: (sessionId: string, updates: Partial<Session>) => void
   removeSession: (sessionId: string) => void
   updateSchedule: (schedule: Schedule) => void
+  completeSession: (
+    sessionId: string
+  ) =>
+    | {
+        session: Session
+        therapist: Therapist
+        client: Client
+        xpGained: number
+        reputationDelta: number
+      }
+    | null
 
   // Entities
   addTherapist: (therapist: Therapist) => void
@@ -372,6 +385,76 @@ export const useGameStore = create<GameStore>()(
         set((state) => {
           state.schedule = schedule
         })
+      },
+
+      completeSession: (sessionId) => {
+        const snapshot = get()
+        const session = snapshot.sessions.find((s) => s.id === sessionId)
+        if (!session) return null
+
+        // Prevent double-completion (avoids double payouts / double XP / double rep).
+        if (session.status === 'completed') return null
+
+        const therapist = snapshot.therapists.find((t) => t.id === session.therapistId)
+        const client = snapshot.clients.find((c) => c.id === session.clientId)
+        if (!therapist || !client) return null
+
+        const result = SessionManager.completeSession(session, therapist, client, {
+          day: snapshot.currentDay,
+          hour: snapshot.currentHour,
+          minute: snapshot.currentMinute,
+        })
+
+        // Apply entity updates.
+        set((state) => {
+          const sessionIndex = state.sessions.findIndex((s) => s.id === sessionId)
+          if (sessionIndex !== -1) {
+            state.sessions[sessionIndex] = result.session
+          }
+
+          const therapistIndex = state.therapists.findIndex((t) => t.id === therapist.id)
+          if (therapistIndex !== -1) {
+            const previousStatus = state.therapists[therapistIndex].status
+            state.therapists[therapistIndex] = {
+              ...result.therapist,
+              // Only reset to 'available' if they were actively in-session.
+              // Preserve statuses like 'on_break' / 'in_training'.
+              status: previousStatus === 'in_session' ? 'available' : previousStatus,
+            }
+          }
+
+          const clientIndex = state.clients.findIndex((c) => c.id === client.id)
+          if (clientIndex !== -1) {
+            state.clients[clientIndex] = result.client
+          }
+
+          // Safety: ensure completed/in-treatment clients aren't lingering in waiting list.
+          if (result.client.status !== 'waiting') {
+            state.waitingList = state.waitingList.filter((id) => id !== result.client.id)
+          }
+        })
+
+        // Economy + reputation rewards.
+        const reputationDelta = getSessionReputationDelta(result.session.quality)
+        const reason = getReputationChangeReason(result.session.quality)
+
+        if (result.paymentAmount !== 0) {
+          get().addMoney(result.paymentAmount, `Session with ${result.session.clientName}`)
+        }
+
+        if (reputationDelta > 0) {
+          get().addReputation(reputationDelta, reason)
+        } else if (reputationDelta < 0) {
+          get().removeReputation(-reputationDelta, reason)
+        }
+
+        return {
+          session: result.session,
+          therapist: result.therapist,
+          client: result.client,
+          xpGained: result.xpGained,
+          reputationDelta,
+        }
       },
 
       // ==================== Entities ====================

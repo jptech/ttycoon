@@ -258,77 +258,15 @@ function getQualityTier(quality: number): string {
 
 When progress reaches 100%, trigger completion flow:
 
-```typescript
-function completeSession(session: Session) {
-  session.status = 'completed';
-  session.progress = 1.0;
+Implementation notes (current code):
 
-  // 1. Calculate quality
-  const quality = calculateSessionQuality(session);
-
-  // 2. Therapist energy cost
-  const therapist = getTherapist(session.therapist_id);
-  const energyCost = 5 + (getClient(session.client_id).severity * 2);
-  therapist.energy = Math.max(0, therapist.energy - energyCost);
-
-  // 3. Client treatment progress
-  const client = getClient(session.client_id);
-  const progressGain = (1 / client.sessions_required) * (quality / 0.5);
-  client.treatment_progress += progressGain;
-  client.sessions_completed++;
-  client.satisfaction = Math.min(100, client.satisfaction + quality * 20);
-  client.engagement = Math.min(100, client.engagement + quality * 10);
-
-  // 4. Payment processing
-  if (session.is_insurance) {
-    economySystem.processInsuranceSession(session);
-  } else {
-    const payment = Math.round(150 * getPaymentMultiplier(quality));
-    session.payment = payment;
-    economySystem.addMoney(payment, `session_payment_${client.id}`);
-  }
-
-  // 5. Reputation effects
-  const tierReputation: Record<string, number> = {
-    excellent: 5,
-    good: 1,
-    fair: 0,
-    poor: -2,
-    very_poor: -5
-  };
-  reputationSystem.updateReputation(tierReputation[session.quality_tier]);
-
-  // 6. Check for client cure
-  if (client.treatment_progress >= 1.0) {
-    cureClient(client);
-  }
-
-  // 7. Therapist XP gain
-  therapist.experience_points += 10 + quality * 10;
-  checkLevelUp(therapist);
-
-  // 8. Emit events
-  EventBus.emit('session_completed', session.id, quality);
-  EventBus.emit('money_changed', oldBalance, newBalance, 'session_payment');
-
-  // 9. Show results to player
-  displaySessionResults(session);
-}
-
-function getPaymentMultiplier(quality: number): number {
-  if (quality >= 0.8) return 1.0;
-  if (quality >= 0.6) return 0.9;
-  if (quality >= 0.4) return 0.7;
-  if (quality >= 0.2) return 0.5;
-  return 0.3;
-}
-
-function cureClient(client: Client) {
-  client.status = 'completed';
-  reputationSystem.updateReputation(5);  // Bonus for cure
-  EventBus.emit('client_cured', client.id);
-}
-```
+- The pure calculation happens in `SessionManager.completeSession(...)` (updates session outcome, therapist XP/level, and client treatment progress).
+- The state mutation and rewards are centralized in the Zustand store action `useGameStore.getState().completeSession(sessionId)`:
+  - Updates the `Session`, `Therapist`, and `Client` records
+  - Awards money for the session payment
+  - Awards reputation based on the final session quality tier
+  - Guards against double-completion (prevents double XP/money/reputation)
+- Persistence: `SaveManager.save()` serializes the store state, so these updates persist across save/load.
 
 ## Decision Events
 

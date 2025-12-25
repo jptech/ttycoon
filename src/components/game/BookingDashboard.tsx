@@ -427,6 +427,15 @@ export function BookingDashboard({
     return ClientManager.getFollowUpInfo(selectedClient, sessions, currentDay)
   }, [selectedClient, sessions, currentDay])
 
+  const selectedClientUpcoming = useMemo(() => {
+    if (!selectedClient) return null
+    return ClientManager.getUpcomingSessionsSummary(selectedClient, sessions, {
+      day: currentDay,
+      hour: currentHour,
+      minute: currentMinute,
+    })
+  }, [selectedClient, sessions, currentDay, currentHour, currentMinute])
+
   return (
     <div className={cn('flex gap-4 h-full', className)}>
       {/* Left panel: Client list */}
@@ -636,6 +645,79 @@ export function BookingDashboard({
                           </Badge>
                         )
                       })()}
+                    </div>
+                  </Card>
+                )}
+
+                {selectedClientUpcoming && (
+                  <Card className="mt-3 p-3">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="font-medium">Upcoming Sessions</div>
+                        <div className="text-xs text-muted-foreground">
+                          Remaining: {selectedClientUpcoming.remainingNeeded}
+                          {' • '}
+                          Scheduled: {selectedClientUpcoming.scheduledCount}
+                          {selectedClientUpcoming.inProgressCount > 0
+                            ? ` • In progress: ${selectedClientUpcoming.inProgressCount}`
+                            : ''}
+                          {selectedClient.status === 'in_treatment'
+                            ? ` • Unscheduled: ${selectedClientUpcoming.unscheduledRemaining}`
+                            : ''}
+                        </div>
+                      </div>
+
+                      {selectedClientUpcoming.scheduledCount > 0 && (
+                        <Badge variant="default" size="sm">
+                          {selectedClientUpcoming.scheduledCount} scheduled
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="mt-3 space-y-2">
+                      {selectedClientUpcoming.inProgress.map((s) => (
+                        <div
+                          key={s.id}
+                          className="flex items-center justify-between text-sm rounded-md bg-muted/40 px-2 py-1"
+                        >
+                          <div className="min-w-0">
+                            <span className="font-medium">Day {s.scheduledDay}</span>
+                            <span className="text-muted-foreground"> • {ScheduleManager.formatHour(s.scheduledHour)}</span>
+                            <span className="text-muted-foreground"> • {s.therapistName || s.therapistId}</span>
+                          </div>
+                          <Badge variant="info" size="sm">
+                            In progress
+                          </Badge>
+                        </div>
+                      ))}
+
+                      {selectedClientUpcoming.upcomingScheduled.slice(0, 6).map((s) => (
+                        <div
+                          key={s.id}
+                          className="flex items-center justify-between text-sm rounded-md bg-muted/40 px-2 py-1"
+                        >
+                          <div className="min-w-0">
+                            <span className="font-medium">Day {s.scheduledDay}</span>
+                            <span className="text-muted-foreground"> • {ScheduleManager.formatHour(s.scheduledHour)}</span>
+                            <span className="text-muted-foreground"> • {s.therapistName || s.therapistId}</span>
+                            <span className="text-muted-foreground"> • {s.isVirtual ? 'Virtual' : 'Office'}</span>
+                          </div>
+                          <Badge variant="outline" size="sm">
+                            Scheduled
+                          </Badge>
+                        </div>
+                      ))}
+
+                      {selectedClientUpcoming.upcomingScheduled.length === 0 &&
+                        selectedClientUpcoming.inProgress.length === 0 && (
+                          <div className="text-sm text-muted-foreground">No upcoming sessions scheduled.</div>
+                        )}
+
+                      {selectedClientUpcoming.upcomingScheduled.length > 6 && (
+                        <div className="text-xs text-muted-foreground">
+                          Showing 6 of {selectedClientUpcoming.upcomingScheduled.length} scheduled sessions.
+                        </div>
+                      )}
                     </div>
                   </Card>
                 )}

@@ -154,6 +154,194 @@ describe('ClientManager', () => {
       expect(result.client.requiredCertification).not.toBeNull()
     })
   })
+  
+  describe('getUpcomingSessionsSummary', () => {
+    it('filters and sorts upcoming scheduled sessions at/after current time', () => {
+      const client = createTestClient({ id: 'c1', displayName: 'Client', status: 'in_treatment', sessionsRequired: 6 })
+
+      const sessions = [
+        {
+          id: 'sPast',
+          clientId: 'c1',
+          clientName: 'Client',
+          therapistId: 't1',
+          therapistName: 'Therapist',
+          scheduledDay: 2,
+          scheduledHour: 9,
+          duration: 1,
+          isVirtual: false,
+          roomId: 'r1',
+          status: 'scheduled',
+          notes: '',
+          quality: null,
+          decisionEvent: null,
+          billing: null,
+        },
+        {
+          id: 'sNow',
+          clientId: 'c1',
+          clientName: 'Client',
+          therapistId: 't1',
+          therapistName: 'Therapist',
+          scheduledDay: 2,
+          scheduledHour: 10,
+          duration: 1,
+          isVirtual: true,
+          roomId: null,
+          status: 'scheduled',
+          notes: '',
+          quality: null,
+          decisionEvent: null,
+          billing: null,
+        },
+        {
+          id: 'sFuture1',
+          clientId: 'c1',
+          clientName: 'Client',
+          therapistId: 't2',
+          therapistName: 'Therapist 2',
+          scheduledDay: 2,
+          scheduledHour: 11,
+          duration: 2,
+          isVirtual: false,
+          roomId: 'r2',
+          status: 'scheduled',
+          notes: '',
+          quality: null,
+          decisionEvent: null,
+          billing: null,
+        },
+        {
+          id: 'sFuture2',
+          clientId: 'c1',
+          clientName: 'Client',
+          therapistId: 't3',
+          therapistName: 'Therapist 3',
+          scheduledDay: 3,
+          scheduledHour: 9,
+          duration: 1,
+          isVirtual: false,
+          roomId: 'r3',
+          status: 'scheduled',
+          notes: '',
+          quality: null,
+          decisionEvent: null,
+          billing: null,
+        },
+      ]
+
+      const summary = ClientManager.getUpcomingSessionsSummary(client, sessions as any, { day: 2, hour: 10, minute: 0 })
+      expect(summary.scheduledCount).toBe(3)
+      expect(summary.upcomingScheduled.map((s) => s.id)).toEqual(['sNow', 'sFuture1', 'sFuture2'])
+    })
+
+    it('excludes current-hour sessions once the hour has started (minute > 0)', () => {
+      const client = createTestClient({ id: 'c1', displayName: 'Client', status: 'in_treatment', sessionsRequired: 4 })
+
+      const sessions = [
+        {
+          id: 'sNow',
+          clientId: 'c1',
+          clientName: 'Client',
+          therapistId: 't1',
+          therapistName: 'Therapist',
+          scheduledDay: 2,
+          scheduledHour: 10,
+          duration: 1,
+          isVirtual: true,
+          roomId: null,
+          status: 'scheduled',
+          notes: '',
+          quality: null,
+          decisionEvent: null,
+          billing: null,
+        },
+        {
+          id: 'sLater',
+          clientId: 'c1',
+          clientName: 'Client',
+          therapistId: 't1',
+          therapistName: 'Therapist',
+          scheduledDay: 2,
+          scheduledHour: 11,
+          duration: 1,
+          isVirtual: true,
+          roomId: null,
+          status: 'scheduled',
+          notes: '',
+          quality: null,
+          decisionEvent: null,
+          billing: null,
+        },
+      ]
+
+      const summary = ClientManager.getUpcomingSessionsSummary(client, sessions as any, { day: 2, hour: 10, minute: 5 })
+      expect(summary.upcomingScheduled.map((s) => s.id)).toEqual(['sLater'])
+    })
+
+    it('counts in-progress sessions separately and clamps unscheduledRemaining to >= 0', () => {
+      const client = createTestClient({ id: 'c1', displayName: 'Client', status: 'in_treatment', sessionsRequired: 2 })
+
+      const sessions = [
+        {
+          id: 's1',
+          clientId: 'c1',
+          clientName: 'Client',
+          therapistId: 't1',
+          therapistName: 'Therapist',
+          scheduledDay: 2,
+          scheduledHour: 10,
+          duration: 1,
+          isVirtual: false,
+          roomId: 'r1',
+          status: 'in_progress',
+          notes: '',
+          quality: null,
+          decisionEvent: null,
+          billing: null,
+        },
+        {
+          id: 's2',
+          clientId: 'c1',
+          clientName: 'Client',
+          therapistId: 't1',
+          therapistName: 'Therapist',
+          scheduledDay: 2,
+          scheduledHour: 11,
+          duration: 1,
+          isVirtual: false,
+          roomId: 'r1',
+          status: 'scheduled',
+          notes: '',
+          quality: null,
+          decisionEvent: null,
+          billing: null,
+        },
+        {
+          id: 's3',
+          clientId: 'c1',
+          clientName: 'Client',
+          therapistId: 't1',
+          therapistName: 'Therapist',
+          scheduledDay: 2,
+          scheduledHour: 12,
+          duration: 1,
+          isVirtual: false,
+          roomId: 'r1',
+          status: 'scheduled',
+          notes: '',
+          quality: null,
+          decisionEvent: null,
+          billing: null,
+        },
+      ]
+
+      const summary = ClientManager.getUpcomingSessionsSummary(client, sessions as any, { day: 2, hour: 10, minute: 0 })
+      expect(summary.inProgressCount).toBe(1)
+      expect(summary.scheduledCount).toBe(2)
+      expect(summary.unscheduledRemaining).toBe(0)
+    })
+  })
 
   describe('getCredentialRequirementChance', () => {
     it('starts at 0 for day 1 / level 1', () => {

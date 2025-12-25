@@ -158,6 +158,21 @@ export interface FollowUpInfo {
   remainingSessions: number
 }
 
+export interface ClientUpcomingSessionsSummary {
+  /** Scheduled sessions at or after the current time */
+  upcomingScheduled: Session[]
+  /** Sessions currently in progress for this client */
+  inProgress: Session[]
+  /** Remaining sessions needed (sessionsRequired - sessionsCompleted) */
+  remainingNeeded: number
+  /** Count of upcoming scheduled sessions */
+  scheduledCount: number
+  /** Count of in-progress sessions */
+  inProgressCount: number
+  /** Remaining sessions not yet scheduled (clamped to >= 0) */
+  unscheduledRemaining: number
+}
+
 /**
  * Days between sessions for each frequency
  */
@@ -606,6 +621,67 @@ export const ClientManager = {
       .sort((a, b) => a.scheduledDay - b.scheduledDay || a.scheduledHour - b.scheduledHour)
 
     return upcomingSessions[0] ?? null
+  },
+
+  /**
+   * Get upcoming sessions for a client.
+   * - Includes `scheduled` sessions at or after the current time.
+   * - Includes all `in_progress` sessions (treated as upcoming for UI summary).
+   */
+  getUpcomingSessionsForClient(
+    clientId: string,
+    sessions: Session[],
+    currentTime: { day: number; hour: number; minute: number }
+  ): { upcomingScheduled: Session[]; inProgress: Session[] } {
+    const inProgress = sessions
+      .filter((s) => s.clientId === clientId && s.status === 'in_progress')
+      .sort((a, b) => a.scheduledDay - b.scheduledDay || a.scheduledHour - b.scheduledHour)
+
+    const upcomingScheduled = sessions
+      .filter((s) => {
+        if (s.clientId !== clientId) return false
+        if (s.status !== 'scheduled') return false
+
+        if (s.scheduledDay > currentTime.day) return true
+        if (s.scheduledDay < currentTime.day) return false
+
+        // Same day: sessions start on the hour.
+        if (s.scheduledHour > currentTime.hour) return true
+        if (s.scheduledHour < currentTime.hour) return false
+        return currentTime.minute === 0
+      })
+      .sort((a, b) => a.scheduledDay - b.scheduledDay || a.scheduledHour - b.scheduledHour)
+
+    return { upcomingScheduled, inProgress }
+  },
+
+  /**
+   * Compute a compact summary for UI about what is scheduled vs remaining.
+   */
+  getUpcomingSessionsSummary(
+    client: Client,
+    sessions: Session[],
+    currentTime: { day: number; hour: number; minute: number }
+  ): ClientUpcomingSessionsSummary {
+    const remainingNeeded = client.sessionsRequired - client.sessionsCompleted
+    const { upcomingScheduled, inProgress } = this.getUpcomingSessionsForClient(
+      client.id,
+      sessions,
+      currentTime
+    )
+
+    const scheduledCount = upcomingScheduled.length
+    const inProgressCount = inProgress.length
+    const unscheduledRemaining = Math.max(0, remainingNeeded - scheduledCount - inProgressCount)
+
+    return {
+      upcomingScheduled,
+      inProgress,
+      remainingNeeded,
+      scheduledCount,
+      inProgressCount,
+      unscheduledRemaining,
+    }
   },
 
   /**

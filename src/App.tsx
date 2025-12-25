@@ -7,7 +7,6 @@ import { useGameLoop, useClientSpawning, useTrainingProcessor, useTherapistEnerg
 import { formatTime } from '@/lib/utils'
 import { GameLayout, GameView, NewGameModal, DaySummaryModal, TutorialOverlay } from '@/components'
 import { getAllRandomEvents, getEligibleDecisionEvents } from '@/data'
-import { getSessionReputationDelta, getReputationChangeReason } from '@/core/reputation'
 import type { RandomEvent, DecisionEvent, Session, Therapist } from '@/core/types'
 
 function App() {
@@ -31,7 +30,8 @@ function App() {
   // Store actions
   const { setGameSpeed, pause, resume, newGame } = useGameStore()
   const { addMoney, removeMoney, addReputation, removeReputation } = useGameStore()
-  const { setEventCooldown, addModifier, updateSession, updateTherapist } = useGameStore()
+  const { setEventCooldown, addModifier, updateSession, updateTherapist, completeSession } =
+    useGameStore()
 
   const addNotification = useUIStore((state) => state.addNotification)
 
@@ -49,59 +49,17 @@ function App() {
   // Handle session completion
   const handleSessionComplete = useCallback(
     (session: Session) => {
-      // Get fresh state
-      const { currentDay: day, currentHour: hour, currentMinute: minute, therapists: freshTherapists } =
-        useGameStore.getState()
+      const completion = completeSession(session.id)
+      if (!completion) return
 
-      // Prevent double-completion
-      if (session.status === 'completed') {
-        console.warn(`[handleSessionComplete] Session ${session.id} already completed`)
-        return
-      }
-
-      updateSession(session.id, {
-        status: 'completed',
-        progress: 1,
-        completedAt: { day, hour, minute },
-      })
-
-      // Update therapist status and energy
-      const therapist = freshTherapists.find((t) => t.id === session.therapistId)
-      if (therapist) {
-        const newEnergy = Math.max(0, therapist.energy - session.energyCost)
-
-        // Only reset to 'available' if therapist was 'in_session'
-        // Preserve other statuses like 'on_break', 'in_training'
-        const newStatus = therapist.status === 'in_session' ? 'available' : therapist.status
-
-        updateTherapist(session.therapistId, {
-          status: newStatus,
-          energy: newEnergy,
-          xp: therapist.xp + session.xpGained,
+      // Check for burnout/low energy on the updated therapist state.
+      const updatedTherapist = completion.therapist
+      if (updatedTherapist.energy <= 10) {
+        addNotification({
+          type: 'warning',
+          title: 'Low Energy',
+          message: `${updatedTherapist.displayName} is running low on energy!`,
         })
-
-        // Check for burnout
-        if (newEnergy <= 10) {
-          addNotification({
-            type: 'warning',
-            title: 'Low Energy',
-            message: `${therapist.displayName} is running low on energy!`,
-          })
-        }
-      }
-
-      // Add payment
-      addMoney(session.payment, `Session with ${session.clientName}`)
-
-      // Award reputation based on session quality
-      const reputationDelta = getSessionReputationDelta(session.quality)
-      if (reputationDelta !== 0) {
-        const reason = getReputationChangeReason(session.quality)
-        if (reputationDelta > 0) {
-          addReputation(reputationDelta, reason)
-        } else {
-          removeReputation(-reputationDelta, reason)
-        }
       }
 
       addNotification({
@@ -113,11 +71,11 @@ function App() {
       // Emit event for other systems to react
       EventBus.emit(GameEvents.SESSION_COMPLETED, {
         sessionId: session.id,
-        quality: session.quality,
-        payment: session.payment,
+        quality: completion.session.quality,
+        payment: completion.session.payment,
       })
     },
-    [updateSession, updateTherapist, addMoney, removeReputation, addReputation, addNotification]
+    [completeSession, addNotification]
   )
 
   // Session callbacks for the game loop

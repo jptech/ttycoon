@@ -200,6 +200,10 @@ Unified split-view for scheduling sessions with waiting and active clients:
 - Frequency (weekly/biweekly/monthly)
 - Certification requirements (if any)
 
+**Upcoming Sessions** - Shows a compact schedule summary for the selected client:
+- Counts: scheduled, in-progress (if any), and unscheduled remaining sessions (for in-treatment clients)
+- Lists in-progress sessions first, then upcoming scheduled sessions (sorted by day/time; UI may cap the visible list)
+
 **TherapistMatchList** - Therapists sorted by compatibility:
 - Uses `ClientManager.calculateMatchScore()` for ranking
 - Shows match percentage with color coding (green 70%+, yellow 50-70%, red <50%)
