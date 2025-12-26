@@ -323,17 +323,59 @@ Visual behavior:
 - Progress arc fills around sprite during session
 - Return to waiting area when session ends
 
-### Visual Readability (What You’re Looking At)
+### Visual Readability (What You're Looking At)
 
-The canvas is intentionally a “toy floor plan” (not strict architectural scale) with cozy, readable cues:
+The canvas is intentionally a "toy floor plan" (not strict architectural scale) with cozy, readable cues:
 
 - **Rooms**: Rounded rooms with a warm interior floor, subtle tile lines, and a colored accent strip.
 - **Lighting**: Empty rooms are slightly dimmed; occupied rooms get a soft warm highlight.
+- **Active Session Effects**: Rooms with active sessions display a pulsing green border (see below).
 - **Furniture/Props**: Rooms include recognizable props (desk/chairs/bookshelf in therapy, couch/coffee table in waiting, coffee station in break, etc.).
 - **People**:
-  - **Therapists**: Larger sprites with initials; session progress ring shows active sessions.
-  - **Clients**: Smaller “pawn-like” sprites; waiting clients appear in the waiting room and move to therapy rooms during sessions.
+  - **Therapists**: Larger sprites with initials; session progress ring shows active sessions; pulsing glow effect when in session.
+  - **Clients**: Smaller "pawn-like" sprites; waiting clients appear in the waiting room and move to therapy rooms during sessions.
 - **Room labels**: Show occupancy counts as `Therapy 1 (1T/1C)` to clarify who is where.
+
+### Active Session Animations
+
+When a therapy session is in progress, the canvas provides visual feedback:
+
+**Therapist Sprite Effects**:
+- Pulsing green glow radiating outward (indicates active session)
+- Progress ring around sprite showing session completion (0-100%)
+- Time remaining display below the sprite (e.g., "42m")
+
+**Room Effects**:
+- Pulsing green border around the therapy room with an active session
+- Border width and opacity pulse smoothly using sine wave animation
+- Color: `0x22c55e` (green) to match the therapist glow
+
+**Implementation**:
+```typescript
+// TherapistSprite.tsx - Pulsing glow for in-session therapists
+useTick((ticker) => {
+  if (state.isInSession) {
+    setPulsePhase((prev) => (prev + 0.03 * ticker.deltaTime) % (Math.PI * 2))
+  }
+})
+
+const drawGlow = (g: Graphics) => {
+  if (state.isInSession) {
+    const glowAlpha = 0.15 + 0.1 * Math.sin(pulsePhase)
+    const glowRadius = 24 + 4 * Math.sin(pulsePhase)
+    g.fill({ color: 0x22c55e, alpha: glowAlpha })
+    g.circle(0, 0, glowRadius)
+  }
+}
+
+// RoomDecor.tsx - Pulsing border for active sessions
+if (hasActiveSession) {
+  const pulseAlpha = 0.3 + 0.2 * Math.sin(pulsePhase)
+  const pulseWidth = 3 + 1.5 * Math.sin(pulsePhase)
+  g.stroke({ width: pulseWidth, color: 0x22c55e, alpha: pulseAlpha })
+  g.roundRect(room.x + 2, room.y + 2, room.width - 4, room.height - 4, radius - 2)
+}
+```
 
 ### Integration with OfficePanel
 

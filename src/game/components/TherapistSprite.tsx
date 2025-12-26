@@ -1,24 +1,32 @@
-import { useRef, useCallback } from 'react'
+import { useRef, useCallback, useState } from 'react'
 import type { Container, Graphics } from 'pixi.js'
 import { useTick } from '@pixi/react'
 import type { TherapistCanvasState } from '../types'
 
 interface TherapistSpriteProps {
   state: TherapistCanvasState
+  /** Session duration in minutes (default 50) */
+  sessionDuration?: number
 }
 
-export function TherapistSprite({ state }: TherapistSpriteProps) {
+export function TherapistSprite({ state, sessionDuration = 50 }: TherapistSpriteProps) {
   const containerRef = useRef<Container>(null)
-  
-  // Smooth movement
+  const [pulsePhase, setPulsePhase] = useState(0)
+
+  // Smooth movement and pulse animation
   useTick((ticker) => {
     if (containerRef.current) {
       const dt = ticker.deltaTime
       const speed = 0.15 // Adjust speed as needed
-      
+
       // Lerp position
       containerRef.current.x += (state.targetPosition.x - containerRef.current.x) * speed * dt
       containerRef.current.y += (state.targetPosition.y - containerRef.current.y) * speed * dt
+    }
+
+    // Update pulse phase for glow animation
+    if (state.isInSession) {
+      setPulsePhase((prev) => (prev + 0.03 * ticker.deltaTime) % (Math.PI * 2))
     }
   })
 
@@ -34,6 +42,36 @@ export function TherapistSprite({ state }: TherapistSpriteProps) {
     },
     [state.color]
   )
+
+  // Pulsing glow effect when in session
+  const drawGlow = useCallback(
+    (g: Graphics) => {
+      g.clear()
+      if (state.isInSession) {
+        const glowAlpha = 0.15 + 0.1 * Math.sin(pulsePhase)
+        const glowRadius = 24 + 4 * Math.sin(pulsePhase)
+
+        // Outer glow
+        g.fill({ color: 0x22c55e, alpha: glowAlpha * 0.5 })
+        g.circle(0, 0, glowRadius + 6)
+        g.fill()
+
+        // Inner glow
+        g.fill({ color: 0x22c55e, alpha: glowAlpha })
+        g.circle(0, 0, glowRadius)
+        g.fill()
+      }
+    },
+    [state.isInSession, pulsePhase]
+  )
+
+  // Calculate time remaining
+  const getTimeRemaining = (): string => {
+    if (!state.isInSession) return ''
+    const remainingProgress = 1 - state.sessionProgress
+    const remainingMinutes = Math.ceil(remainingProgress * sessionDuration)
+    return `${remainingMinutes}m`
+  }
 
   const drawProgress = useCallback(
     (g: Graphics) => {
@@ -78,12 +116,17 @@ export function TherapistSprite({ state }: TherapistSpriteProps) {
     [state.status, state.isVirtual]
   )
 
+  const timeRemaining = getTimeRemaining()
+
   return (
-    <pixiContainer 
-      ref={containerRef} 
+    <pixiContainer
+      ref={containerRef}
       x={state.targetPosition.x} // Initial position
       y={state.targetPosition.y}
     >
+      {/* Pulsing glow effect (behind everything) */}
+      <pixiGraphics draw={drawGlow} />
+
       {/* Session progress ring */}
       <pixiGraphics draw={drawProgress} />
 
@@ -103,6 +146,21 @@ export function TherapistSprite({ state }: TherapistSpriteProps) {
           fontWeight: 'bold',
         }}
       />
+
+      {/* Time remaining display (below sprite) */}
+      {state.isInSession && timeRemaining && (
+        <pixiText
+          text={timeRemaining}
+          x={0}
+          y={28}
+          anchor={0.5}
+          style={{
+            fontSize: 10,
+            fill: 0x22c55e,
+            fontWeight: 'bold',
+          }}
+        />
+      )}
     </pixiContainer>
   )
 }

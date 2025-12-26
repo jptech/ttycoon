@@ -192,6 +192,15 @@ export function OfficeCanvas({ buildingId, className }: OfficeCanvasProps) {
     return ids
   }, [therapistStates, clientStates])
 
+  // Calculate rooms with active sessions (for pulsing effect)
+  const activeSessionRoomIds = useMemo(() => {
+    const ids = new Set<string>()
+    therapistStates.forEach(t => {
+      if (t.roomId && t.isInSession) ids.add(t.roomId)
+    })
+    return ids
+  }, [therapistStates])
+
   const roomOccupancyCounts = useMemo(() => {
     const counts = new Map<string, { therapists: number; clients: number }>()
     for (const t of therapistStates) {
@@ -227,10 +236,11 @@ export function OfficeCanvas({ buildingId, className }: OfficeCanvasProps) {
       >
         {/* Render rooms with decor */}
         {layout.rooms.map((room) => (
-          <RoomDecor 
-            key={room.id} 
-            room={room} 
+          <RoomDecor
+            key={room.id}
+            room={room}
             isOccupied={occupiedRoomIds.has(room.id)}
+            hasActiveSession={activeSessionRoomIds.has(room.id)}
           />
         ))}
 

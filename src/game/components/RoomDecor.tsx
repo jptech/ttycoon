@@ -1,14 +1,24 @@
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { Graphics } from 'pixi.js'
+import { useTick } from '@pixi/react'
 import type { RoomConfig, FurnitureItem } from '../config/roomLayouts'
 import { DECOR_COLORS, getDefaultFurniture } from '../visuals/officeDecor'
 
 interface RoomDecorProps {
   room: RoomConfig
   isOccupied?: boolean
+  hasActiveSession?: boolean
 }
 
-export function RoomDecor({ room, isOccupied = false }: RoomDecorProps) {
+export function RoomDecor({ room, isOccupied = false, hasActiveSession = false }: RoomDecorProps) {
+  const [pulsePhase, setPulsePhase] = useState(0)
+
+  // Animate pulse for active sessions
+  useTick((ticker) => {
+    if (hasActiveSession) {
+      setPulsePhase((prev) => (prev + 0.02 * ticker.deltaTime) % (Math.PI * 2))
+    }
+  })
   const draw = useCallback(
     (g: Graphics) => {
       g.clear()
@@ -250,8 +260,17 @@ export function RoomDecor({ room, isOccupied = false }: RoomDecorProps) {
         g.roundRect(room.x + inset + 2, room.y + inset + 2, room.width - inset * 2 - 4, room.height - inset * 2 - 4, radius - 6)
         g.stroke()
       }
+
+      // Pulsing border effect for active sessions
+      if (hasActiveSession) {
+        const pulseAlpha = 0.3 + 0.2 * Math.sin(pulsePhase)
+        const pulseWidth = 3 + 1.5 * Math.sin(pulsePhase)
+        g.stroke({ width: pulseWidth, color: 0x22c55e, alpha: pulseAlpha })
+        g.roundRect(room.x + 2, room.y + 2, room.width - 4, room.height - 4, radius - 2)
+        g.stroke()
+      }
     },
-    [room, isOccupied]
+    [room, isOccupied, hasActiveSession, pulsePhase]
   )
 
   return <pixiGraphics draw={draw} />

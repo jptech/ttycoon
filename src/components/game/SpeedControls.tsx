@@ -47,10 +47,7 @@ export function SpeedControls({
     'relative p-2 rounded-lg transition-all duration-150',
     'focus-ring'
   )
-  const activeStyle = cn(
-    'bg-primary/15 text-primary',
-    'before:absolute before:inset-x-1.5 before:bottom-0.5 before:h-0.5 before:bg-primary before:rounded-full'
-  )
+  const activeStyle = 'bg-primary/15 text-primary'
   const inactiveStyle = 'text-muted-foreground hover:text-foreground hover:bg-surface-hover'
 
   return (
