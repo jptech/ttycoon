@@ -71,22 +71,19 @@ export function HelpModal({ open, onClose }: HelpModalProps) {
           <h3 className={styles.sectionTitle}>Tabs</h3>
           <ul className={styles.list}>
             <li>
-              <strong>Schedule</strong> - View and manage your weekly calendar
+              <strong>Today</strong> - View your daily schedule and active sessions
             </li>
             <li>
-              <strong>Clients</strong> - See waiting clients and book sessions
+              <strong>Book</strong> - Schedule clients with available therapists
             </li>
             <li>
-              <strong>Team</strong> - Manage your therapists and hire new ones
+              <strong>People</strong> - Manage your waiting clients and therapist team
             </li>
             <li>
-              <strong>Finances</strong> - Track income, expenses, and pending claims
+              <strong>Practice</strong> - Track finances, session history, and insurance panels
             </li>
             <li>
               <strong>Office</strong> - Upgrade your building and unlock telehealth
-            </li>
-            <li>
-              <strong>Insurance</strong> - Apply to insurance panels for more clients
             </li>
           </ul>
         </div>

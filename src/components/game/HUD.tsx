@@ -1,4 +1,4 @@
-import { Settings, HelpCircle, Star, Activity } from 'lucide-react'
+import { Settings, HelpCircle, Star, Activity, Pause } from 'lucide-react'
 import { formatMoney, formatTime } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui'
@@ -98,6 +98,14 @@ export function HUD({
             </div>
           ) : (
             <span className="text-sm text-muted-foreground">No sessions</span>
+          )}
+
+          {/* Pause indicator - prominent when game is paused */}
+          {isPaused && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-warning/15 text-warning border border-warning/30">
+              <Pause className="w-3.5 h-3.5 fill-current" />
+              <span className="text-xs font-semibold uppercase tracking-wide">Paused</span>
+            </div>
           )}
         </div>
 

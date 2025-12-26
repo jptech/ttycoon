@@ -1,9 +1,40 @@
 // ================== THERAPIST ==================
 
+/**
+ * Professional credential/license type
+ * Affects salary ranges, client preferences, and supervision eligibility
+ */
+export type CredentialType =
+  | 'LMFT'   // Licensed Marriage & Family Therapist
+  | 'LCSW'   // Licensed Clinical Social Worker
+  | 'LPC'    // Licensed Professional Counselor
+  | 'LPCC'   // Licensed Professional Clinical Counselor
+  | 'PsyD'   // Doctor of Psychology
+  | 'PhD'    // Doctor of Philosophy (Psychology)
+
+/**
+ * Primary therapeutic modality/approach
+ * Affects session quality based on condition matching
+ */
+export type TherapeuticModality =
+  | 'CBT'           // Cognitive Behavioral Therapy
+  | 'DBT'           // Dialectical Behavior Therapy
+  | 'Psychodynamic' // Insight-oriented therapy
+  | 'Humanistic'    // Person-centered/Rogerian
+  | 'EMDR'          // Eye Movement Desensitization & Reprocessing
+  | 'Somatic'       // Body-based trauma therapy
+  | 'FamilySystems' // Systemic/family therapy
+  | 'Integrative'   // Eclectic/mixed approach
+
 export interface Therapist {
   id: string
   displayName: string
   isPlayer: boolean
+
+  // Professional Identity
+  credential: CredentialType
+  primaryModality: TherapeuticModality
+  secondaryModalities: TherapeuticModality[]
 
   // Stats
   energy: number
@@ -259,6 +290,8 @@ export interface TrainingProgram {
 export interface TrainingPrerequisites {
   minSkill?: number
   certifications?: Certification[]
+  /** Required credential types (any of these qualifies) */
+  requiredCredentials?: CredentialType[]
 }
 
 export interface TrainingGrants {

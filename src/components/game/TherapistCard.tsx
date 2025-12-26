@@ -1,5 +1,5 @@
 import type { Therapist, ActiveTraining, TrainingProgram } from '@/core/types'
-import { TherapistManager } from '@/core/therapists'
+import { TherapistManager, CREDENTIAL_CONFIG, MODALITY_CONFIG } from '@/core/therapists'
 import { TrainingProcessor } from '@/core/training'
 import styles from './TherapistCard.module.css'
 
@@ -71,6 +71,9 @@ export function TherapistCard({
   }
 
   if (compact) {
+    const trainingProgress = activeTraining ? TrainingProcessor.getTrainingProgress(activeTraining) : 0
+    const daysRemaining = activeTraining ? TrainingProcessor.getDaysRemaining(activeTraining) : 0
+
     return (
       <div
         className={`${styles.cardCompact} ${getStatusClass()}`}
@@ -81,12 +84,19 @@ export function TherapistCard({
       >
         <span className={styles.therapistName}>{therapist.displayName}</span>
         <span className={styles.level}>Lv.{therapist.level}</span>
-        <div className={`${styles.energyBar} ${getEnergyClass()}`}>
-          <div
-            className={styles.energyFill}
-            style={{ width: `${energyDisplay.percentage}%` }}
-          />
-        </div>
+        {therapist.status === 'in_training' && activeTraining ? (
+          <div className={styles.trainingBadgeCompact} title={`Training: ${trainingProgress}% (${daysRemaining}d remaining)`}>
+            <span className={styles.trainingIcon}>📚</span>
+            <span className={styles.trainingPercent}>{trainingProgress}%</span>
+          </div>
+        ) : (
+          <div className={`${styles.energyBar} ${getEnergyClass()}`}>
+            <div
+              className={styles.energyFill}
+              style={{ width: `${energyDisplay.percentage}%` }}
+            />
+          </div>
+        )}
         {therapist.isPlayer && <span className={styles.playerBadge}>You</span>}
         {burnoutRisk && <span className={styles.riskBadge}>!</span>}
       </div>
@@ -104,6 +114,17 @@ export function TherapistCard({
           {formatStatus(therapist.status)}
         </span>
       </div>
+
+      {therapist.credential && therapist.primaryModality && (
+        <div className={styles.professionalInfo}>
+          <span className={styles.credentialBadge} title={CREDENTIAL_CONFIG[therapist.credential]?.name ?? 'Unknown'}>
+            {therapist.credential}
+          </span>
+          <span className={styles.modalityBadge} title={MODALITY_CONFIG[therapist.primaryModality]?.description ?? 'Unknown'}>
+            {MODALITY_CONFIG[therapist.primaryModality]?.name ?? therapist.primaryModality}
+          </span>
+        </div>
+      )}
 
       <div className={styles.stats}>
         <div className={styles.stat}>

@@ -163,12 +163,13 @@ export const TRAINING_PROGRAMS: Record<string, TrainingProgram> = {
   supervisor_training: {
     id: 'supervisor_training',
     name: 'Clinical Supervisor Certification',
-    description: 'Learn to supervise and mentor other therapists.',
+    description: 'Learn to supervise and mentor other therapists. Requires supervisory credential (PsyD, PhD, or LPCC).',
     track: 'clinical',
     cost: 3500,
     durationHours: 60,
     prerequisites: {
       minSkill: 70,
+      requiredCredentials: ['PsyD', 'PhD', 'LPCC'],
     },
     grants: {
       certification: 'supervisor_certified',

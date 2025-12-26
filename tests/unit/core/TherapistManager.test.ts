@@ -56,8 +56,12 @@ describe('TherapistManager', () => {
       const result = TherapistManager.generateTherapist(1, 1)
 
       expect(result.therapist.id).toBeDefined()
-      expect(result.therapist.displayName).toMatch(/^Dr\. \w+ \w+$/)
+      // Name may or may not have "Dr." prefix depending on credential
+      expect(result.therapist.displayName).toMatch(/^(Dr\. )?\w+ \w+$/)
       expect(result.therapist.isPlayer).toBe(false)
+      // Should have credential and modality
+      expect(result.therapist.credential).toBeDefined()
+      expect(result.therapist.primaryModality).toBeDefined()
       expect(result.therapist.energy).toBe(THERAPIST_CONFIG.BASE_MAX_ENERGY)
       expect(result.therapist.status).toBe('available')
       expect(result.therapist.hourlySalary).toBeGreaterThanOrEqual(THERAPIST_CONFIG.MIN_HOURLY_SALARY)

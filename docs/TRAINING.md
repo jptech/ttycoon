@@ -40,6 +40,7 @@ export interface TrainingProgram {
   prerequisites: {
     minSkill?: number
     certifications?: Certification[]
+    requiredCredentials?: CredentialType[]  // Any of these qualifies
   }
   grants: {
     skillBonus?: number
@@ -51,6 +52,16 @@ export interface TrainingProgram {
   }
 }
 ```
+
+### Credential Requirements
+
+Some training programs require specific credential types:
+
+| Program | Required Credentials | Reason |
+|---------|---------------------|--------|
+| Clinical Supervisor Certification | PsyD, PhD, LPCC | Only supervisory credentials can supervise |
+
+Non-qualifying therapists will see "Requires credential: PsyD, PhD, LPCC" when attempting to enroll.
 
 ### ActiveTraining
 

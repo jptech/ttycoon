@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import type { Building, Client, Therapist, Session, SessionDuration } from '@/core/types'
 import { ScheduleManager } from '@/core/schedule'
 import { canBookSessionType } from '@/core/schedule/BookingConstraints'
-import { Modal, ModalFooter, Button, Card, Badge } from '@/components/ui'
+import { Modal, ModalFooter, Button, Card, Badge, ConfirmDialog } from '@/components/ui'
 import { cn, formatTime } from '@/lib/utils'
 import { Calendar, Clock, Video, Building as BuildingIcon, User, AlertTriangle } from 'lucide-react'
 
@@ -56,6 +56,7 @@ export function ManageBookingModal(props: ManageBookingModalProps) {
   const [isVirtual, setIsVirtual] = useState<boolean>(session.isVirtual)
   const [selectedSlot, setSelectedSlot] = useState<{ day: number; hour: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
 
   const currentTime = useMemo(
     () => ({ day: currentDay, hour: currentHour, minute: currentMinute }),
@@ -137,13 +138,16 @@ export function ManageBookingModal(props: ManageBookingModalProps) {
 
   const isSlotSelected = (day: number, hour: number) => selectedSlot?.day === day && selectedSlot?.hour === hour
 
-  const handleCancel = () => {
+  const handleCancelClick = () => {
     setError(null)
     if (!canCancel) {
       setError('Cannot cancel a session in the past.')
       return
     }
+    setShowCancelConfirm(true)
+  }
 
+  const handleConfirmCancel = () => {
     const result = onCancel(session.id)
     const ok = result === undefined || result.success
     if (!ok) {
@@ -220,7 +224,7 @@ export function ManageBookingModal(props: ManageBookingModalProps) {
                 You cannot cancel sessions that are already in the past.
               </div>
             </div>
-            <Button variant="danger" onClick={handleCancel} disabled={!canCancel}>
+            <Button variant="danger" onClick={handleCancelClick} disabled={!canCancel}>
               Cancel Session
             </Button>
           </div>
@@ -380,6 +384,23 @@ export function ManageBookingModal(props: ManageBookingModalProps) {
           Reschedule
         </Button>
       </ModalFooter>
+
+      <ConfirmDialog
+        open={showCancelConfirm}
+        onClose={() => setShowCancelConfirm(false)}
+        onConfirm={handleConfirmCancel}
+        title="Cancel Session"
+        message={`Are you sure you want to cancel this session with ${session.clientName}?`}
+        details={
+          <div className="space-y-1">
+            <div>Day {session.scheduledDay} at {ScheduleManager.formatHour(session.scheduledHour)}</div>
+            <div className="text-warning">This will reduce client engagement and cost 1 reputation.</div>
+          </div>
+        }
+        confirmText="Cancel Session"
+        cancelText="Keep Session"
+        variant="danger"
+      />
     </Modal>
   )
 }

@@ -11,6 +11,11 @@ interface Therapist {
   display_name: string;
   is_player: boolean;  // true = player's therapist, cannot be fired
 
+  // Professional Identity
+  credential: CredentialType;           // e.g., 'LMFT', 'PsyD', 'PhD'
+  primaryModality: TherapeuticModality; // e.g., 'CBT', 'EMDR'
+  secondaryModalities: TherapeuticModality[];
+
   // Energy System
   energy: number;      // 0-100 (current)
   max_energy: number;  // 50-150 (individual capacity)
@@ -27,7 +32,7 @@ interface Therapist {
   current_training: Training | null;
 
   // Employment
-  hourly_salary: number;        // $25-50/hour (typical ~$30, 0 for player)
+  hourly_salary: number;        // $25-65/hour (credential-adjusted)
   hired_day: number;
 
   // Personality
@@ -40,6 +45,68 @@ interface Therapist {
   breaks: TherapistBreak[];
 }
 ```
+
+## Credential Types
+
+Professional credentials determine salary range, supervision eligibility, and prestige:
+
+| Credential | Full Name | Salary Multiplier | Can Supervise | Min Practice Level |
+|------------|-----------|-------------------|---------------|-------------------|
+| LPC | Licensed Professional Counselor | 0.95x | No | 1 |
+| LMFT | Licensed Marriage & Family Therapist | 1.0x | No | 1 |
+| LCSW | Licensed Clinical Social Worker | 1.0x | No | 1 |
+| LPCC | Licensed Professional Clinical Counselor | 1.05x | Yes | 2 |
+| PsyD | Doctor of Psychology | 1.25x | Yes | 3 |
+| PhD | Doctor of Philosophy (Psychology) | 1.30x | Yes | 4 |
+
+**Hiring Pool**: Available credentials depend on practice level:
+- Level 1: LPC, LMFT, LCSW
+- Level 2: +LPCC
+- Level 3: +PsyD
+- Level 4+: +PhD
+
+**Name Display**: Doctoral credentials (PsyD, PhD) display "Dr." prefix.
+
+## Therapeutic Modalities
+
+Each therapist has a primary therapeutic modality (and optionally secondary modalities) that affects session quality based on condition matching:
+
+| Modality | Strong Match Conditions | Match Bonus |
+|----------|------------------------|-------------|
+| CBT (Cognitive Behavioral) | anxiety, depression, behavioral | +10% |
+| DBT (Dialectical Behavior) | behavioral, stress | +12% |
+| Psychodynamic | depression, relationship | +8% |
+| Humanistic | stress, depression | +8% |
+| EMDR | trauma | +15% |
+| Somatic | trauma, stress | +12% |
+| Family Systems | relationship | +12% |
+| Integrative | (all conditions) | +5% |
+
+**Modality Match Bonus Calculation**:
+```typescript
+function getModalityMatchBonus(therapist, conditionCategory): number {
+  // Check primary modality
+  if (primaryModality.strongMatch.includes(conditionCategory)) {
+    return primaryModality.matchBonus // Full bonus
+  }
+
+  // Check secondary modalities
+  for (const secondary of therapist.secondaryModalities) {
+    if (secondary.strongMatch.includes(conditionCategory)) {
+      return secondary.matchBonus * 0.5 // Half bonus
+    }
+  }
+
+  // Integrative gets small bonus for everything
+  if (therapist.primaryModality === 'Integrative') {
+    return 0.05
+  }
+
+  return 0
+}
+```
+
+The modality match bonus is applied during session quality calculation.
 
 ## Starting Therapist
 

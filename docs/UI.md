@@ -288,6 +288,30 @@ Standardized dialog windows for all major functions:
 └─────────────────────────────────────────┘
 ```
 
+### ConfirmDialog Component
+
+Reusable confirmation dialog for destructive or expensive actions:
+
+```typescript
+interface ConfirmDialogProps {
+  open: boolean
+  onClose: () => void
+  onConfirm: () => void
+  title: string
+  message: string
+  confirmText?: string  // Default: 'Confirm'
+  cancelText?: string   // Default: 'Cancel'
+  variant?: 'default' | 'warning' | 'danger'
+  details?: React.ReactNode  // Additional context (e.g., cost breakdown)
+}
+```
+
+**Used for:**
+- Session cancellation (variant: danger)
+- Future: Hiring confirmation, firing therapists, major purchases
+
+**Component**: `src/components/ui/ConfirmDialog.tsx`
+
 ### Hiring Panel
 
 Browse and hire therapists:
@@ -805,17 +829,18 @@ Interactive onboarding system with spotlight effect for new players:
 └────────────────────────────────────────────────────┘
 ```
 
-### Tutorial Steps (9 total)
+### Tutorial Steps (10 total)
 
 1. **Welcome** - Game introduction (center)
-2. **Waiting List** - Navigate to Booking tab
-3. **Booking** - Book a client
-4. **Schedule** - View weekly schedule
-5. **Session Quality** - Explain decision events
-6. **Therapist Energy** - Monitor energy levels
-7. **Training** - Improve therapist skills
-8. **Finances** - Check income/expenses
-9. **Complete** - Tutorial finished
+2. **Waiting List** - Navigate to People tab (clients section)
+3. **Booking** - Book a client with a therapist
+4. **Schedule** - View daily schedule (Today tab)
+5. **Session History** - Review past sessions (Practice > Sessions)
+6. **Session Quality** - Explain decision events
+7. **Therapist Energy** - Monitor energy levels (People tab)
+8. **Training** - Improve therapist skills
+9. **Finances** - Check income/expenses (Practice tab)
+10. **Complete** - Tutorial finished
 
 ### Tutorial Interface
 

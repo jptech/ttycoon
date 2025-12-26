@@ -1,15 +1,8 @@
 /**
  * Valid tab IDs that can be navigated to during tutorial
+ * Must match the data-tab attributes in GameView.tsx
  */
-export type TutorialTabId =
-  | 'schedule'
-  | 'history'
-  | 'booking'
-  | 'clients'
-  | 'team'
-  | 'finances'
-  | 'office'
-  | 'insurance'
+export type TutorialTabId = 'today' | 'booking' | 'people' | 'practice' | 'office'
 
 /**
  * Definition of a tutorial step
@@ -43,10 +36,10 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'waiting_list',
     title: 'Your Waiting List',
-    content: 'New clients arrive in your waiting list. Each client has unique conditions, payment methods, and session preferences. Review them carefully before scheduling.',
-    targetSelector: '[data-tab="clients"]',
+    content: 'New clients arrive in your waiting list. Open the People tab to see clients with unique conditions, payment methods, and session preferences. Review them carefully before scheduling.',
+    targetSelector: '[data-tab="people"]',
     position: 'bottom',
-    tab: 'clients',
+    tab: 'people',
     canSkip: true,
   },
   {
@@ -61,20 +54,20 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'schedule',
     title: 'View Your Schedule',
-    content: 'The Schedule shows all upcoming sessions. Click on time slots to see session details or book new appointments.',
-    targetSelector: '[data-tab="schedule"]',
+    content: 'The Today tab shows your daily schedule with all upcoming sessions. Click on time slots to see session details or book new appointments.',
+    targetSelector: '[data-tab="today"]',
     position: 'bottom',
-    tab: 'schedule',
+    tab: 'today',
     canSkip: true,
   },
   {
     id: 'session_history',
     title: 'Review Past Sessions',
     content:
-      'Check the Sessions tab to review completed appointments, quality scores, and trends over time. Use it to spot stand-out therapists or sessions that need attention.',
-    targetSelector: '[data-tab="history"]',
+      'Open the Practice tab and select Sessions to review completed appointments, quality scores, and trends over time. Use it to spot stand-out therapists or sessions that need attention.',
+    targetSelector: '[data-tab="practice"]',
     position: 'bottom',
-    tab: 'history',
+    tab: 'practice',
     canSkip: true,
   },
   {
@@ -87,10 +80,10 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'therapist_energy',
     title: 'Manage Therapist Energy',
-    content: 'Your therapists have limited energy. Monitor their levels and give them breaks to prevent burnout. A burned out therapist can\'t see clients!',
-    targetSelector: '[data-tab="team"]',
+    content: 'Your therapists have limited energy. Open the People tab to monitor their levels and give them breaks to prevent burnout. A burned out therapist can\'t see clients!',
+    targetSelector: '[data-tab="people"]',
     position: 'bottom',
-    tab: 'team',
+    tab: 'people',
     canSkip: true,
   },
   {
@@ -98,16 +91,16 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     title: 'Improve Skills Through Training',
     content: 'Enroll therapists in training programs to gain certifications and improve their skills. Better skills mean higher session quality and more income!',
     position: 'center',
-    tab: 'team',
+    tab: 'people',
     canSkip: true,
   },
   {
     id: 'finances',
     title: 'Track Your Finances',
-    content: 'Keep an eye on your income and expenses in the Finances tab. Balance session revenue with operating costs to grow your practice.',
-    targetSelector: '[data-tab="finances"]',
+    content: 'The Practice tab shows your financial overview. Keep an eye on your income, expenses, and insurance claims to grow your practice.',
+    targetSelector: '[data-tab="practice"]',
     position: 'bottom',
-    tab: 'finances',
+    tab: 'practice',
     canSkip: true,
   },
   {

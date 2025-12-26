@@ -541,6 +541,7 @@ export function GameView({
             pendingClaims={pendingClaims}
             therapists={therapists}
             transactions={transactionHistory.slice(-20)}
+            sessions={sessions}
             currentBuildingId={currentBuildingId}
             currentDay={currentDay}
             activePanels={activePanels}

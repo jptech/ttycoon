@@ -60,14 +60,9 @@
   border-radius: 3px 3px 0 0;
 }
 
+/* Desktop-focused: Always show tab labels */
 .tabLabel {
-  display: none;
-}
-
-@media (min-width: 640px) {
-  .tabLabel {
-    display: inline;
-  }
+  display: inline;
 }
 
 .content {

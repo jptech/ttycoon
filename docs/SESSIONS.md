@@ -177,11 +177,29 @@ Session quality determines reputation impact, client satisfaction, and treatment
 | Therapist energy | -0.10 to +0.10 | Based on 50% threshold |
 | Client engagement | +0.00 to +0.15 | `(engagement / 100) * 0.15` |
 | Specialization match | +0.10 | If therapist specialization matches condition |
+| **Modality match** | +0.00 to +0.15 | Primary modality bonus for matching condition (half for secondary) |
 | Certification match | +0.05 | If required certification held |
 | Virtual mismatch | -0.05 | If virtual session but client prefers in-person |
 | High severity (7+) | -0.05 to -0.15 | Penalty for difficult cases |
 | **Early game buffer** | +0.05 to +0.10 | Days 1-7: +0.10, Days 8-14: +0.05 |
 | Decision events | ±0.15 | Applied during session from choices |
+
+### Modality Match Bonuses
+
+Therapeutic modalities provide quality bonuses when treating matching conditions:
+
+| Modality | Strong Matches | Bonus |
+|----------|---------------|-------|
+| CBT | anxiety, depression | +0.12 |
+| DBT | behavioral | +0.10 |
+| Psychodynamic | depression, relationship | +0.08 |
+| Humanistic | depression, stress | +0.08 |
+| EMDR | trauma | +0.15 |
+| Somatic | trauma, stress | +0.12 |
+| FamilySystems | relationship | +0.10 |
+| Integrative | (all conditions) | +0.05 |
+
+Secondary modalities provide half the bonus (+0.025 to +0.075).
 
 ### Typical Quality Outcomes
 
@@ -230,6 +248,20 @@ Implementation notes (current code):
   - Awards reputation based on the final session quality tier
   - Guards against double-completion (prevents double XP/money/reputation)
 - Persistence: `SaveManager.save()` serializes the store state, so these updates persist across save/load.
+
+## Session History
+
+Players can review past sessions in the **Practice > Sessions** subtab. The `SessionHistoryPanel` component displays:
+
+- **Average Quality** - Aggregate quality score across completed sessions
+- **Quality Distribution** - Breakdown by rating tier (Excellent, Good, Fair, Poor, Very Poor)
+- **Individual Sessions** - List of completed sessions with client, therapist, time, payment, and quality
+
+Filters available:
+- **By Therapist** - Filter to show sessions by a specific therapist
+- **By Time Range** - All time, last 30 days, or last 7 days
+
+Component: `src/components/game/SessionHistoryPanel.tsx`
 
 ## Non-Linear Treatment Progress
 

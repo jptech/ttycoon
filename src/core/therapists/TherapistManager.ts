@@ -6,6 +6,9 @@ import type {
   Specialization,
   ActiveTraining,
   TrainingProgram,
+  CredentialType,
+  TherapeuticModality,
+  ConditionCategory,
 } from '@/core/types'
 
 /**
@@ -64,6 +67,128 @@ export const THERAPIST_CONFIG = {
 } as const
 
 /**
+ * Credential configuration - salary multipliers and characteristics
+ */
+export const CREDENTIAL_CONFIG: Record<CredentialType, {
+  name: string
+  abbreviation: string
+  salaryMultiplier: number // Multiplier on base salary
+  minPracticeLevel: number // Minimum practice level to see in hiring pool
+  canSupervise: boolean // Can supervise other therapists
+  description: string
+}> = {
+  LMFT: {
+    name: 'Licensed Marriage & Family Therapist',
+    abbreviation: 'LMFT',
+    salaryMultiplier: 1.0,
+    minPracticeLevel: 1,
+    canSupervise: false,
+    description: 'Specializes in relationship and family dynamics',
+  },
+  LCSW: {
+    name: 'Licensed Clinical Social Worker',
+    abbreviation: 'LCSW',
+    salaryMultiplier: 1.0,
+    minPracticeLevel: 1,
+    canSupervise: false,
+    description: 'Holistic approach including social factors',
+  },
+  LPC: {
+    name: 'Licensed Professional Counselor',
+    abbreviation: 'LPC',
+    salaryMultiplier: 0.95,
+    minPracticeLevel: 1,
+    canSupervise: false,
+    description: 'General mental health counseling',
+  },
+  LPCC: {
+    name: 'Licensed Professional Clinical Counselor',
+    abbreviation: 'LPCC',
+    salaryMultiplier: 1.05,
+    minPracticeLevel: 2,
+    canSupervise: true,
+    description: 'Advanced clinical counselor with supervision rights',
+  },
+  PsyD: {
+    name: 'Doctor of Psychology',
+    abbreviation: 'PsyD',
+    salaryMultiplier: 1.25,
+    minPracticeLevel: 3,
+    canSupervise: true,
+    description: 'Doctorate focused on clinical practice',
+  },
+  PhD: {
+    name: 'Doctor of Philosophy in Psychology',
+    abbreviation: 'PhD',
+    salaryMultiplier: 1.30,
+    minPracticeLevel: 4,
+    canSupervise: true,
+    description: 'Research doctorate with clinical expertise',
+  },
+}
+
+/**
+ * Modality configuration - condition matching bonuses
+ */
+export const MODALITY_CONFIG: Record<TherapeuticModality, {
+  name: string
+  description: string
+  /** Conditions this modality is particularly effective for */
+  strongMatch: ConditionCategory[]
+  /** Quality bonus when treating a strong match condition (0.0-0.15) */
+  matchBonus: number
+}> = {
+  CBT: {
+    name: 'Cognitive Behavioral Therapy',
+    description: 'Structured, goal-oriented therapy focusing on thoughts and behaviors',
+    strongMatch: ['anxiety', 'depression', 'behavioral'],
+    matchBonus: 0.10,
+  },
+  DBT: {
+    name: 'Dialectical Behavior Therapy',
+    description: 'Skills-based therapy for emotional regulation',
+    strongMatch: ['behavioral', 'stress'],
+    matchBonus: 0.12,
+  },
+  Psychodynamic: {
+    name: 'Psychodynamic Therapy',
+    description: 'Insight-oriented therapy exploring unconscious patterns',
+    strongMatch: ['depression', 'relationship'],
+    matchBonus: 0.08,
+  },
+  Humanistic: {
+    name: 'Humanistic/Person-Centered',
+    description: 'Empathetic, client-led therapeutic relationship',
+    strongMatch: ['stress', 'depression'],
+    matchBonus: 0.08,
+  },
+  EMDR: {
+    name: 'Eye Movement Desensitization & Reprocessing',
+    description: 'Specialized trauma processing technique',
+    strongMatch: ['trauma'],
+    matchBonus: 0.15,
+  },
+  Somatic: {
+    name: 'Somatic Therapy',
+    description: 'Body-based approach to trauma and stress',
+    strongMatch: ['trauma', 'stress'],
+    matchBonus: 0.12,
+  },
+  FamilySystems: {
+    name: 'Family Systems Therapy',
+    description: 'Systemic approach to family and relationship dynamics',
+    strongMatch: ['relationship'],
+    matchBonus: 0.12,
+  },
+  Integrative: {
+    name: 'Integrative/Eclectic',
+    description: 'Flexible approach drawing from multiple modalities',
+    strongMatch: [],
+    matchBonus: 0.05, // Small bonus for all conditions
+  },
+}
+
+/**
  * Result of processing a session for therapist
  */
 export interface SessionWorkResult {
@@ -109,11 +234,14 @@ export const TherapistManager = {
   /**
    * Create the player's therapist
    */
-  createPlayerTherapist(displayName: string): Therapist {
+  createPlayerTherapist(displayName: string, credential: CredentialType = 'LPC', modality: TherapeuticModality = 'Integrative'): Therapist {
     return {
       id: 'player',
       displayName,
       isPlayer: true,
+      credential,
+      primaryModality: modality,
+      secondaryModalities: [],
       energy: THERAPIST_CONFIG.BASE_MAX_ENERGY,
       maxEnergy: THERAPIST_CONFIG.BASE_MAX_ENERGY,
       baseSkill: 40,
@@ -144,15 +272,27 @@ export const TherapistManager = {
     const random = seed !== undefined ? seededRandom(seed) : Math.random
 
     const id = crypto.randomUUID()
-    const displayName = generateTherapistName(random)
+
+    // Pick credential based on practice level
+    const credential = pickRandomCredential(practiceLevel, random)
+    const credentialConfig = CREDENTIAL_CONFIG[credential]
+
+    // Generate name with appropriate title
+    const displayName = generateTherapistName(credential, random)
 
     // Skill based on practice level (better candidates at higher levels)
-    const minSkill = 30 + practiceLevel * 5
-    const maxSkill = Math.min(80, 50 + practiceLevel * 8)
+    // Doctoral credentials get a skill boost
+    const credentialSkillBoost = credential === 'PsyD' || credential === 'PhD' ? 10 : 0
+    const minSkill = 30 + practiceLevel * 5 + credentialSkillBoost
+    const maxSkill = Math.min(90, 50 + practiceLevel * 8 + credentialSkillBoost)
     const baseSkill = randomInt(minSkill, maxSkill, random)
 
     // Level based on skill
     const level = Math.max(1, Math.floor(baseSkill / 10))
+
+    // Pick modalities - primary and possibly secondary
+    const primaryModality = pickRandomModality(random)
+    const secondaryModalities = random() > 0.6 ? [pickRandomModality(random, [primaryModality])] : []
 
     // Random certifications (more at higher skill)
     const certCount = Math.floor(random() * (baseSkill / 25)) + (baseSkill > 60 ? 1 : 0)
@@ -169,18 +309,21 @@ export const TherapistManager = {
       creativity: randomInt(3, 10, random),
     }
 
-    // Salary: realistic hourly range with correlation to skill/experience + some noise
-    const skillDelta = (baseSkill - 50) / 50 // roughly [-0.4..0.6] for generated candidates
-    const expectedHourly =
+    // Salary: realistic hourly range with correlation to skill/experience + credential multiplier
+    const skillDelta = (baseSkill - 50) / 50
+    const baseSalary =
       THERAPIST_CONFIG.TYPICAL_HOURLY_SALARY +
       skillDelta * THERAPIST_CONFIG.SALARY_SKILL_SPREAD +
       certifications.length * THERAPIST_CONFIG.SALARY_CERT_BONUS +
       Math.max(0, level - 1) * THERAPIST_CONFIG.SALARY_LEVEL_BONUS
 
-    const noisyHourly = expectedHourly + randomNormal(0, THERAPIST_CONFIG.SALARY_NOISE_STDDEV, random)
+    // Apply credential multiplier
+    const credentialAdjustedSalary = baseSalary * credentialConfig.salaryMultiplier
+
+    const noisyHourly = credentialAdjustedSalary + randomNormal(0, THERAPIST_CONFIG.SALARY_NOISE_STDDEV, random)
 
     const hourlySalary = Math.round(
-      clamp(noisyHourly, THERAPIST_CONFIG.MIN_HOURLY_SALARY, THERAPIST_CONFIG.MAX_HOURLY_SALARY)
+      clamp(noisyHourly, THERAPIST_CONFIG.MIN_HOURLY_SALARY, THERAPIST_CONFIG.MAX_HOURLY_SALARY * credentialConfig.salaryMultiplier)
     )
 
     const certBonus = certifications.length * 10
@@ -189,6 +332,9 @@ export const TherapistManager = {
       id,
       displayName,
       isPlayer: false,
+      credential,
+      primaryModality,
+      secondaryModalities,
       energy: THERAPIST_CONFIG.BASE_MAX_ENERGY,
       maxEnergy: THERAPIST_CONFIG.BASE_MAX_ENERGY,
       baseSkill,
@@ -203,8 +349,9 @@ export const TherapistManager = {
       traits,
     }
 
-    // Hiring cost
-    const hiringCost = Math.round(baseSkill * THERAPIST_CONFIG.HIRING_COST_MULTIPLIER + certBonus * 50)
+    // Hiring cost - credential affects hiring cost too
+    const credentialHiringMultiplier = credential === 'PhD' || credential === 'PsyD' ? 1.5 : 1.0
+    const hiringCost = Math.round((baseSkill * THERAPIST_CONFIG.HIRING_COST_MULTIPLIER + certBonus * 50) * credentialHiringMultiplier)
     const monthlySalary = hourlySalary * 8 * 22 // 8 hours/day, 22 work days/month
 
     return { therapist, hiringCost, monthlySalary }
@@ -427,6 +574,16 @@ export const TherapistManager = {
       }
     }
 
+    // Check credential requirements
+    if (program.prerequisites.requiredCredentials && program.prerequisites.requiredCredentials.length > 0) {
+      if (!program.prerequisites.requiredCredentials.includes(therapist.credential)) {
+        const credentialNames = program.prerequisites.requiredCredentials
+          .map((c) => CREDENTIAL_CONFIG[c]?.abbreviation || c)
+          .join(', ')
+        return { canStart: false, reason: `Requires credential: ${credentialNames}` }
+      }
+    }
+
     if (program.grants.certification && therapist.certifications.includes(program.grants.certification)) {
       return { canStart: false, reason: 'Already has this certification' }
     }
@@ -498,6 +655,55 @@ export const TherapistManager = {
   },
 
   /**
+   * Calculate modality match bonus for a therapist treating a specific condition
+   * Returns a quality bonus (0.0 to ~0.15) based on modality-condition match
+   */
+  getModalityMatchBonus(therapist: Therapist, conditionCategory: ConditionCategory): number {
+    const primaryConfig = MODALITY_CONFIG[therapist.primaryModality]
+
+    // Check primary modality match
+    if (primaryConfig.strongMatch.includes(conditionCategory)) {
+      return primaryConfig.matchBonus
+    }
+
+    // Check secondary modalities (reduced bonus)
+    for (const modality of therapist.secondaryModalities) {
+      const config = MODALITY_CONFIG[modality]
+      if (config.strongMatch.includes(conditionCategory)) {
+        return config.matchBonus * 0.5 // Half bonus for secondary
+      }
+    }
+
+    // Integrative gets a small bonus for everything
+    if (therapist.primaryModality === 'Integrative') {
+      return MODALITY_CONFIG.Integrative.matchBonus
+    }
+
+    return 0
+  },
+
+  /**
+   * Get credential display info
+   */
+  getCredentialInfo(credential: CredentialType): typeof CREDENTIAL_CONFIG[CredentialType] {
+    return CREDENTIAL_CONFIG[credential]
+  },
+
+  /**
+   * Get modality display info
+   */
+  getModalityInfo(modality: TherapeuticModality): typeof MODALITY_CONFIG[TherapeuticModality] {
+    return MODALITY_CONFIG[modality]
+  },
+
+  /**
+   * Check if therapist can supervise others
+   */
+  canSupervise(therapist: Therapist): boolean {
+    return CREDENTIAL_CONFIG[therapist.credential].canSupervise
+  },
+
+  /**
    * Get energy display info
    */
   getEnergyDisplay(therapist: Therapist): {
@@ -558,10 +764,12 @@ const LAST_NAMES = [
   'Martin', 'Lee', 'Thompson', 'White', 'Harris', 'Clark', 'Lewis', 'Robinson',
 ]
 
-function generateTherapistName(random: () => number): string {
+function generateTherapistName(credential: CredentialType, random: () => number): string {
   const firstName = FIRST_NAMES[Math.floor(random() * FIRST_NAMES.length)]
   const lastName = LAST_NAMES[Math.floor(random() * LAST_NAMES.length)]
-  return `Dr. ${firstName} ${lastName}`
+  // Doctoral credentials use "Dr.", others don't
+  const title = credential === 'PsyD' || credential === 'PhD' ? 'Dr. ' : ''
+  return `${title}${firstName} ${lastName}`
 }
 
 const ALL_CERTIFICATIONS: Certification[] = [
@@ -582,4 +790,58 @@ const ALL_SPECIALIZATIONS: Specialization[] = [
 function pickRandomSpecializations(count: number, random: () => number): Specialization[] {
   const shuffled = [...ALL_SPECIALIZATIONS].sort(() => random() - 0.5)
   return shuffled.slice(0, Math.min(count, shuffled.length))
+}
+
+const ALL_CREDENTIALS: CredentialType[] = ['LMFT', 'LCSW', 'LPC', 'LPCC', 'PsyD', 'PhD']
+
+/**
+ * Pick a random credential based on practice level
+ * Higher practice levels unlock more prestigious credentials
+ */
+function pickRandomCredential(practiceLevel: number, random: () => number): CredentialType {
+  // Filter credentials available at this practice level
+  const availableCredentials = ALL_CREDENTIALS.filter(
+    (cred) => CREDENTIAL_CONFIG[cred].minPracticeLevel <= practiceLevel
+  )
+
+  // Weight toward more common credentials at lower levels
+  // At higher levels, doctoral credentials become more likely
+  if (practiceLevel >= 4 && random() > 0.7) {
+    // 30% chance of doctoral at level 4+
+    const doctoralCreds = availableCredentials.filter(c => c === 'PsyD' || c === 'PhD')
+    if (doctoralCreds.length > 0) {
+      return doctoralCreds[Math.floor(random() * doctoralCreds.length)]
+    }
+  }
+
+  if (practiceLevel >= 3 && random() > 0.8) {
+    // 20% chance of PsyD at level 3
+    if (availableCredentials.includes('PsyD')) {
+      return 'PsyD'
+    }
+  }
+
+  // Otherwise pick randomly from available (non-doctoral weighted more)
+  const nonDoctoral = availableCredentials.filter(c => c !== 'PsyD' && c !== 'PhD')
+  if (nonDoctoral.length > 0) {
+    return nonDoctoral[Math.floor(random() * nonDoctoral.length)]
+  }
+
+  return availableCredentials[Math.floor(random() * availableCredentials.length)]
+}
+
+const ALL_MODALITIES: TherapeuticModality[] = [
+  'CBT', 'DBT', 'Psychodynamic', 'Humanistic', 'EMDR', 'Somatic', 'FamilySystems', 'Integrative'
+]
+
+/**
+ * Pick a random modality, optionally excluding some
+ */
+function pickRandomModality(random: () => number, exclude: TherapeuticModality[] = []): TherapeuticModality {
+  const available = ALL_MODALITIES.filter(m => !exclude.includes(m))
+  // CBT and Integrative are more common - add extra entries to weight them
+  const extraCBT: TherapeuticModality[] = exclude.includes('CBT') ? [] : ['CBT']
+  const extraIntegrative: TherapeuticModality[] = exclude.includes('Integrative') ? [] : ['Integrative']
+  const weighted: TherapeuticModality[] = [...available, ...extraCBT, ...extraIntegrative]
+  return weighted[Math.floor(random() * weighted.length)]
 }

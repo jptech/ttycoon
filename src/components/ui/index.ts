@@ -3,4 +3,5 @@ export { Card, CardHeader, CardTitle, CardContent, CardFooter, type CardProps } 
 export { Badge, type BadgeProps } from './Badge'
 export { ProgressBar, type ProgressBarProps } from './ProgressBar'
 export { Modal, ModalFooter, type ModalProps } from './Modal'
+export { ConfirmDialog, type ConfirmDialogProps } from './ConfirmDialog'
 export { Toast, ToastContainer, type ToastProps, type ToastType, type ToastContainerProps } from './Toast'

@@ -1003,8 +1003,23 @@ export const useGameStore = create<GameStore>()(
       loadState: (loadedState) => {
         // Defensive: ensure schedule contains all scheduled sessions.
         // (Keeps UI + engine behavior consistent even if saves are missing schedule entries.)
+
+        // Migration: Add credential and modality to existing therapists that don't have them
+        const migratedTherapists = loadedState.therapists.map((therapist) => {
+          if (!therapist.credential || !therapist.primaryModality) {
+            return {
+              ...therapist,
+              credential: therapist.credential ?? (therapist.isPlayer ? 'LPC' : 'LMFT'),
+              primaryModality: therapist.primaryModality ?? 'Integrative',
+              secondaryModalities: therapist.secondaryModalities ?? [],
+            }
+          }
+          return therapist
+        })
+
         set({
           ...loadedState,
+          therapists: migratedTherapists,
           reputationLog: loadedState.reputationLog ?? [],
           schedule: ScheduleManager.buildScheduleFromSessions(loadedState.sessions),
         })

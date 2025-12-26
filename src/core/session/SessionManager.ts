@@ -7,6 +7,7 @@ import type {
   DecisionEvent,
   DecisionChoice,
 } from '@/core/types'
+import { TherapistManager, MODALITY_CONFIG } from '@/core/therapists'
 
 /**
  * Configuration for session management
@@ -193,6 +194,22 @@ export const SessionManager = {
         value: 0.1,
         description: 'Therapist specialization matches condition',
       })
+    }
+
+    // Therapeutic modality match bonus (0-0.15)
+    if (therapist.primaryModality) {
+      const modalityBonus = TherapistManager.getModalityMatchBonus(therapist, client.conditionCategory)
+      if (modalityBonus > 0) {
+        const modalityConfig = MODALITY_CONFIG[therapist.primaryModality]
+        const isPrimaryMatch = modalityConfig?.strongMatch?.includes(client.conditionCategory)
+        modifiers.push({
+          source: 'modality_match',
+          value: modalityBonus,
+          description: isPrimaryMatch
+            ? `${modalityConfig.name} is ideal for ${client.conditionCategory}`
+            : `Secondary modality matches ${client.conditionCategory}`,
+        })
+      }
     }
 
     // Required certification bonus (0.05)
