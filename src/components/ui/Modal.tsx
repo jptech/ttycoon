@@ -18,6 +18,10 @@ export interface ModalProps extends HTMLAttributes<HTMLDivElement> {
   closeOnBackdropClick?: boolean
   /** Whether pressing Escape closes the modal */
   closeOnEscape?: boolean
+  /** Use display font for title */
+  displayTitle?: boolean
+  /** Show decorative accent header */
+  accentHeader?: boolean
 }
 
 export const Modal = forwardRef<HTMLDivElement, ModalProps>(
@@ -31,6 +35,8 @@ export const Modal = forwardRef<HTMLDivElement, ModalProps>(
       showCloseButton = true,
       closeOnBackdropClick = true,
       closeOnEscape = true,
+      displayTitle = false,
+      accentHeader = false,
       children,
       ...props
     },
@@ -87,10 +93,10 @@ export const Modal = forwardRef<HTMLDivElement, ModalProps>(
         aria-modal="true"
         aria-labelledby={title ? 'modal-title' : undefined}
       >
-        {/* Backdrop */}
+        {/* Backdrop with blur */}
         <div
           data-testid="modal-backdrop"
-          className="absolute inset-0 bg-black/50 animate-in fade-in duration-200"
+          className="absolute inset-0 modal-backdrop animate-in fade-in duration-200"
           onClick={handleBackdropClick}
         />
 
@@ -101,27 +107,44 @@ export const Modal = forwardRef<HTMLDivElement, ModalProps>(
           className={cn(
             'relative w-full bg-card rounded-xl shadow-lg border border-border',
             'max-h-[calc(100vh-2rem)] flex flex-col',
-            'animate-in zoom-in-95 fade-in duration-200',
+            'modal-enter',
             className
           )}
           style={{ maxWidth: sizeStyles[size] }}
           {...props}
         >
+          {/* Accent header decoration */}
+          {accentHeader && (
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary to-accent rounded-t-xl" />
+          )}
+
           {/* Header */}
           {(title || showCloseButton) && (
-            <div className="flex items-center justify-between p-4 border-b border-border">
+            <div
+              className={cn(
+                'flex items-center justify-between p-4 border-b border-border-subtle',
+                accentHeader && 'pt-5',
+                accentHeader && 'bg-gradient-to-b from-surface-elevated/50 to-transparent'
+              )}
+            >
               {title && (
-                <h2 id="modal-title" className="text-lg font-semibold">
+                <h2
+                  id="modal-title"
+                  className={cn(
+                    'text-lg font-semibold',
+                    displayTitle && 'font-display text-xl'
+                  )}
+                >
                   {title}
                 </h2>
               )}
               {showCloseButton && (
                 <button
                   onClick={onClose}
-                  className="p-1 rounded-md hover:bg-muted transition-colors ml-auto"
+                  className="p-1.5 rounded-lg hover:bg-surface-hover transition-colors ml-auto focus-ring"
                   aria-label="Close modal"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-5 h-5 text-muted-foreground" />
                 </button>
               )}
             </div>
@@ -146,7 +169,11 @@ export const ModalFooter = forwardRef<HTMLDivElement, ModalFooterProps>(
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn('flex items-center justify-end gap-2 pt-4 border-t border-border -mx-4 -mb-4 px-4 py-3 bg-muted/30 rounded-b-xl', className)}
+      className={cn(
+        'flex items-center justify-end gap-2 pt-4 border-t border-border-subtle',
+        '-mx-4 -mb-4 px-4 py-3 bg-surface-elevated/30 rounded-b-xl',
+        className
+      )}
       {...props}
     />
   )

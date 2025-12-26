@@ -166,93 +166,56 @@ const handleSessionComplete = useCallback((sessionId: string) => {
 
 ## Quality Calculation
 
-Session quality determines payments, reputation impact, and client satisfaction:
+Session quality determines reputation impact, client satisfaction, and treatment progress. Quality is calculated when a session **starts** (not when created).
 
-```typescript
-function calculateSessionQuality(session: Session): number {
-  const therapist = getTherapist(session.therapist_id);
-  const client = getClient(session.client_id);
+### Quality Modifiers
 
-  // Base quality from therapist skill
-  let quality = therapist.base_skill / 100;  // 0.0-1.0
+| Modifier | Range | Description |
+|----------|-------|-------------|
+| Base | 0.50 | Starting baseline |
+| Therapist skill | +0.00 to +0.30 | `(skill / 100) * 0.3` |
+| Therapist energy | -0.10 to +0.10 | Based on 50% threshold |
+| Client engagement | +0.00 to +0.15 | `(engagement / 100) * 0.15` |
+| Specialization match | +0.10 | If therapist specialization matches condition |
+| Certification match | +0.05 | If required certification held |
+| Virtual mismatch | -0.05 | If virtual session but client prefers in-person |
+| High severity (7+) | -0.05 to -0.15 | Penalty for difficult cases |
+| **Early game buffer** | +0.05 to +0.10 | Days 1-7: +0.10, Days 8-14: +0.05 |
+| Decision events | ±0.15 | Applied during session from choices |
 
-  // Modifiers
-  let modifiers = 0;
+### Typical Quality Outcomes
 
-  // 1. Therapist-Client Match
-  const matchBonus = calculateTherapistClientMatch(therapist, client);
-  modifiers += matchBonus;  // 0.0 to +0.4
+**Early game (days 1-7) with average conditions:**
+- Base: 0.50
+- Skill (50): +0.15
+- Energy (100%): +0.10
+- Engagement (60): +0.09
+- Early buffer: +0.10
+- **Total: 0.94** (Excellent)
 
-  // 2. Therapist Energy Penalty
-  if (therapist.energy < 30) {
-    const energyPenalty = (1 - therapist.energy / 100) * 0.3;
-    modifiers -= energyPenalty;  // up to -0.3
-  }
+**Mid-game without buffers:**
+- Base: 0.50
+- Skill (60): +0.18
+- Energy (70%): +0.04
+- Engagement (65): +0.10
+- Specialization: +0.10
+- **Total: 0.92** (Excellent)
 
-  // 3. Client Severity Effect
-  const severityMalus = (client.severity / 10) * 0.1;
-  modifiers -= severityMalus;  // 0 to -0.1
+**Stressed therapist, difficult case:**
+- Base: 0.50
+- Skill (60): +0.18
+- Energy (30%): -0.04
+- Engagement (50): +0.075
+- Severity 8: -0.075
+- **Total: 0.63** (Fair → needs decision event boost)
 
-  // 4. Therapist Specialization Match
-  if (therapist.specializations.includes(client.condition_category)) {
-    modifiers += 0.15;
-  }
+### Implementation
 
-  // 5. Decision Events (applied during session)
-  // This is added as choices are made
-  // We track accumulated decision_quality_impact in session
-  if (session.decision_quality_impact) {
-    modifiers += session.decision_quality_impact;  // ±0.3 total
-  }
+Quality modifiers are calculated in `SessionManager.calculateInitialQualityModifiers()`.
 
-  // Final calculation
-  const finalQuality = Math.max(0.0, Math.min(1.0, quality + modifiers));
+Early game buffer is added in `src/App.tsx` - `handleSessionStart()`.
 
-  session.quality = finalQuality;
-  session.quality_tier = getQualityTier(finalQuality);
-
-  return finalQuality;
-}
-
-function calculateTherapistClientMatch(therapist: Therapist, client: Client): number {
-  let bonus = 0;
-
-  // Certification match (required)
-  if (client.required_certification) {
-    if (therapist.certifications.includes(client.required_certification)) {
-      bonus += 0.1;
-    } else {
-      return -0.5;  // No session without certification
-    }
-  }
-
-  // Specialization match
-  const matchCount = therapist.specializations.filter(s =>
-    s === client.condition_category || s === client.condition_type
-  ).length;
-  bonus += Math.min(0.2, matchCount * 0.1);
-
-  // Virtual preference match
-  if (therapist.can_do_telehealth && client.prefers_virtual) {
-    bonus += 0.05;
-  }
-
-  // Personality fit (simplified)
-  if (therapist.warmth > 7 && client.severity < 5) {
-    bonus += 0.05;  // Good match for lighter cases
-  }
-
-  return bonus;
-}
-
-function getQualityTier(quality: number): string {
-  if (quality >= 0.8) return 'excellent';
-  if (quality >= 0.6) return 'good';
-  if (quality >= 0.4) return 'fair';
-  if (quality >= 0.2) return 'poor';
-  return 'very_poor';
-}
-```
+Decision events modify quality via `SessionManager.applyDecision()`.
 
 ## Session Completion
 
@@ -267,6 +230,70 @@ Implementation notes (current code):
   - Awards reputation based on the final session quality tier
   - Guards against double-completion (prevents double XP/money/reputation)
 - Persistence: `SaveManager.save()` serializes the store state, so these updates persist across save/load.
+
+## Non-Linear Treatment Progress
+
+Treatment progress is not purely linear. Sessions can result in different types of progress based on session quality, client state, and random factors:
+
+### Progress Types
+
+| Type | Condition | Effect | Description |
+|------|-----------|--------|-------------|
+| **Normal** | Default | 1x progress | Steady advancement in treatment |
+| **Breakthrough** | Quality ≥90% + 20% chance | 2x progress | Major insight or therapeutic breakthrough |
+| **Plateau** | Satisfaction <50 + 15% chance | 0.25x progress | Client struggling to engage |
+| **Regression** | Crisis decision + 30% chance | Progress - 2% | Processing difficult material causes setback |
+
+### Configuration
+
+```typescript
+// SESSION_CONFIG values
+BREAKTHROUGH_QUALITY_THRESHOLD: 0.9,  // Quality must be 90%+ for breakthrough
+BREAKTHROUGH_CHANCE: 0.2,              // 20% chance when eligible
+BREAKTHROUGH_MULTIPLIER: 2.0,          // Double progress
+
+PLATEAU_SATISFACTION_THRESHOLD: 50,    // Client satisfaction below 50
+PLATEAU_CHANCE: 0.15,                  // 15% chance when eligible
+PLATEAU_MULTIPLIER: 0.25,              // Only 25% of normal progress
+
+REGRESSION_AMOUNT: 0.02,               // 2% progress penalty
+```
+
+### Evaluation Order
+
+Progress type is evaluated in this priority order:
+
+1. **Regression** - Checked first if session had crisis-related decisions
+2. **Breakthrough** - Checked if quality meets threshold
+3. **Plateau** - Checked if satisfaction is low
+4. **Normal** - Default if no special conditions trigger
+
+### UI Feedback
+
+The Session Summary modal displays the progress type with visual indicators:
+
+- **Breakthrough**: Sparkle icon with accent color, celebration message
+- **Plateau**: Pause icon with warning color, explanation of stalled progress
+- **Regression**: Downward trend icon with error color, setback message
+
+### Implementation
+
+```typescript
+// SessionManager.calculateTreatmentProgress()
+const progressResult = SessionManager.calculateTreatmentProgress(
+  sessionQuality,
+  clientSatisfaction,
+  hadCrisisDecision,
+  optionalSeed  // For deterministic testing
+)
+
+// Result contains:
+interface TreatmentProgressResult {
+  progressGained: number      // Actual progress to apply
+  progressType: 'normal' | 'breakthrough' | 'plateau' | 'regression'
+  description: string         // Player-facing explanation
+}
+```
 
 ## Decision Events
 
@@ -295,22 +322,52 @@ interface DecisionChoice {
 
 ### Decision Event Triggering
 
+Decision events use a **three-phase guaranteed event system** to ensure meaningful player interactions during every session:
+
+#### Phase 1: Early Random Window (25%-50% progress)
+- Random chance to trigger first event
+- Base 1.5% per minute, scales with game speed
+- If triggered, event fires and Phase 2 is skipped
+
+#### Phase 2: Guaranteed Event (65% threshold)
+- If no event occurred in Phase 1, a guaranteed event fires at 65% progress
+- Ensures at least one decision event per session
+- Bypasses random chance entirely
+
+#### Phase 3: Optional Second Event (70%-90% progress)
+- 35% chance for a second event in this window
+- Only triggers if exactly one event has already occurred
+- Provides variety without overwhelming the player
+
+**Configuration** (in `EVENT_CONFIG`):
 ```typescript
-function updateSessionProgress(session: Session, deltaTime: number) {
-  if (session.status !== 'in_progress') return;
+FIRST_EVENT_WINDOW_START: 0.25,  // 25% progress
+FIRST_EVENT_WINDOW_END: 0.50,    // 50% progress
+GUARANTEED_EVENT_THRESHOLD: 0.65, // Force event if none yet
+SECOND_EVENT_WINDOW_START: 0.70,  // 70% progress
+SECOND_EVENT_WINDOW_END: 0.90,    // 90% progress
+SECOND_EVENT_CHANCE: 0.35,        // 35% chance for second
+```
 
-  // ... progress update ...
-
-  // Check for decision event trigger
-  // Base 1.5% per minute, scales with game speed
-  const triggerChance = 0.015 * gameSpeed * (deltaTime / 1000);
-  if (Math.random() < triggerChance) {
-    const event = selectDecisionEvent(session);
-    if (event) {
-      triggerDecisionEvent(session, event);
-    }
-  }
+**Implementation** (in `App.tsx` `handleSessionTick`):
+```typescript
+// Phase 1: Random check in early window
+if (eventsOccurred === 0 && progress >= 0.25 && progress < 0.50) {
+  const check = EventManager.checkDecisionEventTrigger(...)
+  if (check.shouldTrigger) eventToTrigger = check.event
 }
+
+// Phase 2: Guaranteed event at 65% if none occurred
+if (!eventToTrigger && eventsOccurred === 0 && progress >= 0.65 && progress < 0.70) {
+  eventToTrigger = EventManager.selectGuaranteedDecisionEvent(...)
+}
+
+// Phase 3: Optional second event in 70%-90% window
+if (!eventToTrigger && eventsOccurred === 1 && progress >= 0.70 && progress < 0.90) {
+  const check = EventManager.checkSecondDecisionEventTrigger(...)
+  if (check.shouldTrigger) eventToTrigger = check.event
+}
+```
 
 function triggerDecisionEvent(session: Session, eventTemplate: DecisionEventTemplate) {
   const event: DecisionEvent = {
@@ -354,6 +411,62 @@ function resolveDecisionEvent(session: Session, event: DecisionEvent, choiceInde
   }
 
   gameEngine.resume('decision_event');
+}
+```
+
+### Trigger Conditions
+
+Decision events can have **trigger conditions** that restrict when they appear:
+
+```typescript
+interface DecisionEvent {
+  id: string
+  title: string
+  description: string
+  choices: DecisionChoice[]
+  triggerConditions?: {
+    minSeverity?: number           // Client severity must be >= this
+    conditionCategories?: string[] // Client condition must be in this list
+  }
+}
+```
+
+**Filtering Logic** (in `getEligibleDecisionEvents` and `EventManager.checkDecisionEventTrigger`):
+
+1. Events **without** `triggerConditions` are always eligible (general events)
+2. If `minSeverity` is set, client severity must be >= that value
+3. If `conditionCategories` is set, client's condition must be in the array
+
+```typescript
+// Example: Crisis disclosure only triggers for severe cases
+{
+  id: 'crisis_disclosure',
+  title: 'Crisis Disclosure',
+  triggerConditions: {
+    minSeverity: 6  // Only for severity 6-10 clients
+  },
+  // ...
+}
+
+// Example: Anxiety spiral only for anxiety clients
+{
+  id: 'anxiety_spiral',
+  title: 'Anxiety Escalation',
+  triggerConditions: {
+    conditionCategories: ['anxiety']
+  },
+  // ...
+}
+
+// Example: Trauma flashback requires both conditions
+{
+  id: 'trauma_flashback',
+  title: 'Trauma Response',
+  triggerConditions: {
+    conditionCategories: ['trauma'],
+    minSeverity: 5
+  },
+  // ...
 }
 ```
 

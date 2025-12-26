@@ -11,6 +11,9 @@ import {
   TrendingUp,
   Heart,
   Clock,
+  Sparkles,
+  Pause,
+  TrendingDown,
 } from 'lucide-react'
 
 export interface SessionSummaryProps {
@@ -146,6 +149,36 @@ export function SessionSummary({ open, onClose, session, results }: SessionSumma
             value={results.client.treatmentProgress * 100}
             variant={results.client.status === 'completed' ? 'success' : 'default'}
           />
+
+          {/* Progress Type Indicator (breakthrough/plateau/regression) */}
+          {results.progressType === 'breakthrough' && (
+            <div className="mt-3 p-2 bg-accent/10 rounded-lg flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-accent shrink-0" />
+              <div>
+                <span className="text-sm font-medium text-accent">Breakthrough!</span>
+                <p className="text-xs text-muted-foreground">{results.progressDescription}</p>
+              </div>
+            </div>
+          )}
+          {results.progressType === 'plateau' && (
+            <div className="mt-3 p-2 bg-warning/10 rounded-lg flex items-center gap-2">
+              <Pause className="w-5 h-5 text-warning shrink-0" />
+              <div>
+                <span className="text-sm font-medium text-warning">Progress Plateau</span>
+                <p className="text-xs text-muted-foreground">{results.progressDescription}</p>
+              </div>
+            </div>
+          )}
+          {results.progressType === 'regression' && (
+            <div className="mt-3 p-2 bg-error/10 rounded-lg flex items-center gap-2">
+              <TrendingDown className="w-5 h-5 text-error shrink-0" />
+              <div>
+                <span className="text-sm font-medium text-error">Minor Setback</span>
+                <p className="text-xs text-muted-foreground">{results.progressDescription}</p>
+              </div>
+            </div>
+          )}
+
           {results.client.status === 'completed' && (
             <div className="mt-3 p-2 bg-success/10 rounded-lg text-center">
               <Badge variant="success">Treatment Complete!</Badge>
@@ -156,7 +189,49 @@ export function SessionSummary({ open, onClose, session, results }: SessionSumma
           )}
         </Card>
 
-        {/* Decisions Made */}
+        {/* Quality Breakdown */}
+        <Card>
+          <div className="flex items-center gap-2 mb-3">
+            <Star className="w-5 h-5 text-accent" />
+            <span className="font-medium">Quality Breakdown</span>
+          </div>
+          <div className="space-y-1">
+            {/* Base quality */}
+            <div className="text-sm flex items-center justify-between py-1.5 px-3 rounded bg-muted/50">
+              <span className="text-muted-foreground">Base quality</span>
+              <Badge variant="default" size="sm">50%</Badge>
+            </div>
+            {/* All quality modifiers */}
+            {session.qualityModifiers.map((modifier, index) => (
+              <div
+                key={index}
+                className={cn(
+                  'text-sm flex items-center justify-between py-1.5 px-3 rounded',
+                  modifier.value > 0 ? 'bg-success/10' : modifier.value < 0 ? 'bg-error/10' : 'bg-muted/50'
+                )}
+              >
+                <span className="text-muted-foreground truncate max-w-[200px]">{modifier.description}</span>
+                <Badge
+                  variant={modifier.value > 0 ? 'success' : modifier.value < 0 ? 'error' : 'default'}
+                  size="sm"
+                >
+                  {modifier.value >= 0 ? '+' : ''}
+                  {Math.round(modifier.value * 100)}%
+                </Badge>
+              </div>
+            ))}
+            {/* Total separator */}
+            <div className="border-t my-2" />
+            <div className="text-sm flex items-center justify-between py-1.5 px-3 rounded bg-accent/10 font-medium">
+              <span>Final Quality</span>
+              <Badge variant={qualityVariant} size="sm">
+                {Math.round(session.quality * 100)}%
+              </Badge>
+            </div>
+          </div>
+        </Card>
+
+        {/* Key Moments (Decisions Made) */}
         {session.decisionsMade.length > 0 && (
           <Card>
             <div className="flex items-center gap-2 mb-3">
@@ -164,23 +239,34 @@ export function SessionSummary({ open, onClose, session, results }: SessionSumma
               <span className="font-medium">Key Moments</span>
             </div>
             <div className="space-y-2">
-              {session.qualityModifiers
-                .filter((m) => m.source.startsWith('decision_'))
-                .map((modifier, index) => (
+              {session.decisionsMade.map((decision, index) => {
+                const modifier = session.qualityModifiers.find(m => m.source === `decision_${decision.eventId}`)
+                return (
                   <div
                     key={index}
                     className={cn(
                       'text-sm flex items-center justify-between py-2 px-3 rounded',
-                      modifier.value >= 0 ? 'bg-success/10' : 'bg-error/10'
+                      (decision.effects.quality ?? 0) >= 0 ? 'bg-success/10' : 'bg-error/10'
                     )}
                   >
-                    <span className="text-muted-foreground">{modifier.description}...</span>
-                    <Badge variant={modifier.value >= 0 ? 'success' : 'error'} size="sm">
-                      {modifier.value >= 0 ? '+' : ''}
-                      {Math.round(modifier.value * 100)}%
-                    </Badge>
+                    <span className="text-muted-foreground truncate max-w-[200px]">
+                      {modifier?.description ?? 'Decision made'}
+                    </span>
+                    <div className="flex gap-2">
+                      {decision.effects.quality !== undefined && (
+                        <Badge variant={(decision.effects.quality ?? 0) >= 0 ? 'success' : 'error'} size="sm">
+                          Quality: {decision.effects.quality >= 0 ? '+' : ''}{Math.round(decision.effects.quality * 100)}%
+                        </Badge>
+                      )}
+                      {decision.effects.energy !== undefined && decision.effects.energy !== 0 && (
+                        <Badge variant={decision.effects.energy > 0 ? 'success' : 'warning'} size="sm">
+                          Energy: {decision.effects.energy > 0 ? '+' : ''}{decision.effects.energy}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
-                ))}
+                )
+              })}
             </div>
           </Card>
         )}

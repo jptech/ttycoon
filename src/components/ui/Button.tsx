@@ -2,21 +2,46 @@ import { forwardRef, type ButtonHTMLAttributes } from 'react'
 import { cn } from '@/lib/utils'
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'accent'
   size?: 'sm' | 'md' | 'lg'
   isLoading?: boolean
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'primary', size = 'md', isLoading, disabled, children, ...props }, ref) => {
-    const baseStyles =
-      'inline-flex items-center justify-center font-medium transition-colors focus-ring rounded-lg disabled:opacity-50 disabled:pointer-events-none'
+    const baseStyles = `
+      inline-flex items-center justify-center font-medium
+      transition-all duration-150 ease-out
+      focus-ring rounded-lg
+      disabled:opacity-50 disabled:pointer-events-none
+      active:scale-[0.98]
+    `
 
     const variants = {
-      primary: 'bg-primary text-primary-foreground hover:bg-primary/90',
-      secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
-      ghost: 'hover:bg-muted text-foreground',
-      danger: 'bg-error text-white hover:bg-error/90',
+      primary: `
+        bg-primary text-primary-foreground
+        hover:bg-primary-hover
+        shadow-sm hover:shadow-md hover:shadow-primary/20
+      `,
+      secondary: `
+        bg-secondary text-secondary-foreground
+        border border-border
+        hover:bg-surface-hover hover:border-border
+      `,
+      ghost: `
+        hover:bg-surface-hover text-foreground
+        active:bg-surface
+      `,
+      danger: `
+        bg-error text-white
+        hover:bg-error/90
+        shadow-sm hover:shadow-md hover:shadow-error/20
+      `,
+      accent: `
+        bg-accent text-accent-foreground
+        hover:bg-accent-hover
+        shadow-sm hover:shadow-md hover:shadow-accent/20
+      `,
     }
 
     const sizes = {

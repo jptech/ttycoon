@@ -634,6 +634,82 @@ Popup during sessions:
 └────────────────────────────────────┘
 ```
 
+## Session Summary Modal
+
+Auto-opens when a therapy session completes, showing detailed quality breakdown and outcomes:
+
+```
+┌────────────────────────────────────────┐
+│ ✓ Session Complete                     │
+├────────────────────────────────────────┤
+│                                        │
+│ John Smith with Dr. Parker             │
+│ Day 5 • 10:00 AM - 10:50 AM           │
+│                                        │
+│ SESSION QUALITY          ⭐ 82% Good   │
+│ ════════════════════════════════════   │
+│                                        │
+│ QUALITY BREAKDOWN                      │
+│ ├─ Base quality           50%         │
+│ ├─ Therapist skill (65)   +19%        │
+│ ├─ Well-rested therapist  +10%        │
+│ ├─ Client engagement      +8%         │
+│ ├─ Specialization match   +10%        │
+│ └─ Decision: Explored...  -5%         │
+│                         ═══════        │
+│                         82% Final      │
+│                                        │
+│ ┌──────────┬──────────┐               │
+│ │ Payment  │ XP Gained│               │
+│ │ $150     │ +18 XP   │               │
+│ └──────────┴──────────┘               │
+│                                        │
+│ KEY MOMENTS                            │
+│ ├─ Explored resistance  Quality: -5%  │
+│ │                       Energy: -10   │
+│                                        │
+│ TREATMENT PROGRESS                     │
+│ Session 3 of 8          ████░░░░ 38%  │
+│                                        │
+│                      [Continue →]      │
+└────────────────────────────────────────┘
+```
+
+### Quality Breakdown Display
+
+The quality breakdown shows how the final session quality was calculated:
+
+| Modifier | Range | Description |
+|----------|-------|-------------|
+| Base quality | 50% | Starting baseline |
+| Therapist skill | +0% to +30% | Based on therapist's baseSkill |
+| Therapist energy | -10% to +10% | Based on energy level vs 50% threshold |
+| Client engagement | +0% to +15% | Based on client's engagement level |
+| Specialization match | +10% | If therapist specialization matches condition |
+| Certification match | +5% | If required certification held |
+| Virtual mismatch | -5% | If virtual but client prefers in-person |
+| High severity | -5% to -15% | Penalty for severity 7+ cases |
+| Early game buffer | +5% to +10% | Days 1-14 bonus |
+| Decision events | ±varies | Applied during session from choices |
+
+### Session Summary Interface
+
+```typescript
+interface SessionSummaryData {
+  session: Session;
+  results: {
+    paymentAmount: number;
+    xpGained: number;
+    satisfactionChange: number;
+    treatmentProgressGained: number;
+    therapist: Therapist;
+    client: Client;
+  };
+}
+```
+
+**Component**: `src/components/game/SessionSummary.tsx`
+
 ## Day Summary Modal
 
 Auto-opens at end of each business day (5 PM) to show daily statistics:

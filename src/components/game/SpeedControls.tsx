@@ -1,5 +1,24 @@
-import { Play, Pause, FastForward, ChevronsRight, SkipForward } from 'lucide-react'
+import { Play, Pause, FastForward, SkipForward } from 'lucide-react'
 import { cn } from '@/lib/utils'
+
+/** Triple forward icon for 3x speed - outlined style matching Lucide icons */
+function TripleForward({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polygon points="1,5 8,12 1,19" />
+      <polygon points="9,5 16,12 9,19" />
+      <polygon points="17,5 24,12 17,19" />
+    </svg>
+  )
+}
 
 export interface SpeedControlsProps {
   /** Current game speed (0-3) */
@@ -24,18 +43,24 @@ export function SpeedControls({
   skipEnabled = true,
   className,
 }: SpeedControlsProps) {
-  const buttonBase = 'p-2 rounded-md transition-colors'
-  const activeStyle = 'bg-primary text-primary-foreground'
-  const inactiveStyle = 'hover:bg-muted-foreground/10'
+  const buttonBase = cn(
+    'relative p-2 rounded-lg transition-all duration-150',
+    'focus-ring'
+  )
+  const activeStyle = cn(
+    'bg-primary/15 text-primary',
+    'before:absolute before:inset-x-1.5 before:bottom-0.5 before:h-0.5 before:bg-primary before:rounded-full'
+  )
+  const inactiveStyle = 'text-muted-foreground hover:text-foreground hover:bg-surface-hover'
 
   return (
-    <div className={cn('flex items-center gap-1 bg-muted rounded-lg p-1', className)}>
+    <div className={cn('flex items-center gap-0.5', className)}>
       {/* Pause */}
       <button
         onClick={() => onSpeedChange(0)}
         className={cn(buttonBase, isPaused ? activeStyle : inactiveStyle)}
         aria-label="Pause"
-        title="Pause (0x)"
+        title="Pause"
       >
         <Pause className="w-4 h-4" />
       </button>
@@ -45,7 +70,7 @@ export function SpeedControls({
         onClick={() => onSpeedChange(1)}
         className={cn(buttonBase, !isPaused && speed === 1 ? activeStyle : inactiveStyle)}
         aria-label="Normal speed"
-        title="Normal (1x)"
+        title="Normal speed"
       >
         <Play className="w-4 h-4" />
       </button>
@@ -55,7 +80,7 @@ export function SpeedControls({
         onClick={() => onSpeedChange(2)}
         className={cn(buttonBase, !isPaused && speed === 2 ? activeStyle : inactiveStyle)}
         aria-label="Fast speed"
-        title="Fast (2x)"
+        title="Fast"
       >
         <FastForward className="w-4 h-4" />
       </button>
@@ -65,29 +90,26 @@ export function SpeedControls({
         onClick={() => onSpeedChange(3)}
         className={cn(buttonBase, !isPaused && speed === 3 ? activeStyle : inactiveStyle)}
         aria-label="Fastest speed"
-        title="Fastest (3x)"
+        title="Fastest"
       >
-        <ChevronsRight className="w-4 h-4" />
+        <TripleForward className="w-4 h-4" />
       </button>
 
-      {/* Skip separator and button */}
+      {/* Skip button */}
       {onSkip && (
-        <>
-          <div className="w-px h-6 bg-border mx-1" />
-          <button
-            onClick={onSkip}
-            disabled={!skipEnabled}
-            className={cn(
-              buttonBase,
-              'disabled:opacity-50 disabled:cursor-not-allowed',
-              inactiveStyle
-            )}
-            aria-label="Skip"
-            title="Skip to next session (or next day)"
-          >
-            <SkipForward className="w-4 h-4" />
-          </button>
-        </>
+        <button
+          onClick={onSkip}
+          disabled={!skipEnabled}
+          className={cn(
+            buttonBase,
+            'ml-1 disabled:opacity-40 disabled:cursor-not-allowed',
+            inactiveStyle
+          )}
+          aria-label="Skip"
+          title="Skip to next event"
+        >
+          <SkipForward className="w-4 h-4" />
+        </button>
       )}
     </div>
   )

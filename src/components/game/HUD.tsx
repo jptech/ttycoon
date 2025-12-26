@@ -1,7 +1,7 @@
-import { Settings, HelpCircle, User, Coffee } from 'lucide-react'
+import { Settings, HelpCircle, Star, Activity } from 'lucide-react'
 import { formatMoney, formatTime } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import { Badge, ProgressBar } from '@/components/ui'
+import { Badge } from '@/components/ui'
 import { SpeedControls } from './SpeedControls'
 import { getReputationDisplay } from '@/core/reputation'
 
@@ -71,113 +71,74 @@ export function HUD({
   onHelpClick,
   onReputationClick,
 }: HUDProps) {
-  const speedLabel = isPaused ? 'Paused' : `${speed}x`
-
   const sessionsInProgress = activeSessions?.filter((s) => s.progress < 1) ?? []
-
-  const getSessionTimeRemaining = (session: ActiveSessionInfo) => {
-    const elapsed = Math.floor(session.progress * session.durationMinutes)
-    const remaining = session.durationMinutes - elapsed
-    return `${remaining}m left`
-  }
+  const hasActiveSessions = sessionsInProgress.length > 0
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-card shadow-sm">
-      <div className="grid grid-cols-3 items-center px-4 py-2">
-        {/* Left: Time */}
-        <div className="flex items-center gap-4">
-          <div className="text-lg font-semibold min-w-[70px] tabular-nums">Day {day}</div>
-          <div className="text-muted-foreground min-w-[90px] tabular-nums">{formatTime(hour, minute)}</div>
-          <Badge 
-            variant={isPaused ? 'warning' : 'success'} 
-            size="sm"
-            className="w-[64px] justify-center"
-          >
-            {speedLabel}
-          </Badge>
+    <header className="sticky top-0 z-40 border-b border-border bg-surface/95 backdrop-blur-sm">
+      <div className="flex items-center justify-between px-5 py-2.5 gap-6">
+        {/* Left: Day/Time Block */}
+        <div className="flex items-center gap-5">
+          {/* Day & Time - unified block */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Day</span>
+              <span className="font-display text-xl font-bold tabular-nums">{day}</span>
+            </div>
+            <span className="text-lg tabular-nums">{formatTime(hour, minute)}</span>
+          </div>
 
-          {/* Session/Break Status Indicator */}
-          <div className="w-px h-6 bg-border" />
-          {sessionsInProgress.length > 0 ? (
-            <div className="flex items-center gap-3 bg-info/10 border border-info/30 rounded-lg px-3 py-1.5">
-              <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-info" />
-                <span className="font-medium text-info">Sessions</span>
-                <Badge variant="info" size="sm">
-                  {sessionsInProgress.length}
-                </Badge>
-              </div>
-              <div className="w-px h-4 bg-info/30" />
-              <div className="flex flex-col gap-2 min-w-[220px]">
-                {sessionsInProgress.slice(0, 2).map((s) => (
-                  <div key={s.sessionId} className="flex flex-col gap-0.5">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className={cn('text-foreground truncate', s.isPlayer && 'font-semibold')}>
-                        {s.therapistName}: {s.clientName}
-                      </span>
-                      <span className="text-muted-foreground tabular-nums">{getSessionTimeRemaining(s)}</span>
-                    </div>
-                    <ProgressBar
-                      value={s.progress * 100}
-                      max={100}
-                      size="sm"
-                      variant={s.isPlayer ? 'info' : 'default'}
-                      className="h-1.5"
-                    />
-                  </div>
-                ))}
-                {sessionsInProgress.length > 2 && (
-                  <div className="text-[10px] text-muted-foreground">+{sessionsInProgress.length - 2} more</div>
-                )}
-              </div>
+          {/* Status indicator - minimal */}
+          {hasActiveSessions ? (
+            <div className="flex items-center gap-2 text-primary">
+              <Activity className="w-4 h-4" />
+              <span className="text-sm font-medium tabular-nums">
+                {sessionsInProgress.length} active
+              </span>
             </div>
           ) : (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Coffee className="w-4 h-4" />
-              <span className="text-sm">Available</span>
-            </div>
+            <span className="text-sm text-muted-foreground">No sessions</span>
           )}
         </div>
 
         {/* Center: Speed Controls */}
-        <div className="flex justify-center">
-          <SpeedControls
-            speed={speed}
-            isPaused={isPaused}
-            onSpeedChange={onSpeedChange}
-            onSkip={onSkip}
-            skipEnabled={skipEnabled}
-          />
-        </div>
+        <SpeedControls
+          speed={speed}
+          isPaused={isPaused}
+          onSpeedChange={onSpeedChange}
+          onSkip={onSkip}
+          skipEnabled={skipEnabled}
+        />
 
-        {/* Right: Resources & Menu */}
-        <div className="flex items-center justify-end gap-4">
-          <div className="text-right min-w-[100px]">
-            <div className="font-semibold text-lg tabular-nums">{formatMoney(balance)}</div>
-            <div className="text-xs text-muted-foreground">Balance</div>
+        {/* Right: Resources & Actions */}
+        <div className="flex items-center gap-5">
+          {/* Balance - clean, prominent */}
+          <span className="text-lg font-semibold tabular-nums">{formatMoney(balance)}</span>
+
+          {/* Reputation - compact */}
+          <ReputationDisplay reputation={reputation} onClick={onReputationClick} />
+
+          {/* Utility buttons */}
+          <div className="flex items-center gap-1 ml-2">
+            {onSettingsClick && (
+              <button
+                onClick={onSettingsClick}
+                className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-hover transition-colors focus-ring"
+                aria-label="Settings"
+              >
+                <Settings className="w-4.5 h-4.5" />
+              </button>
+            )}
+            {onHelpClick && (
+              <button
+                onClick={onHelpClick}
+                className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-hover transition-colors focus-ring"
+                aria-label="Help"
+              >
+                <HelpCircle className="w-4.5 h-4.5" />
+              </button>
+            )}
           </div>
-          <div className="min-w-[160px]">
-            <ReputationDisplay reputation={reputation} onClick={onReputationClick} />
-          </div>
-          <div className="w-px h-8 bg-border" />
-          {onSettingsClick && (
-            <button
-              onClick={onSettingsClick}
-              className="p-2 rounded-md hover:bg-muted transition-colors"
-              aria-label="Settings"
-            >
-              <Settings className="w-5 h-5" />
-            </button>
-          )}
-          {onHelpClick && (
-            <button
-              onClick={onHelpClick}
-              className="p-2 rounded-md hover:bg-muted transition-colors"
-              aria-label="Help"
-            >
-              <HelpCircle className="w-5 h-5" />
-            </button>
-          )}
         </div>
       </div>
     </header>
@@ -185,28 +146,19 @@ export function HUD({
 }
 
 /**
- * Reputation display component for HUD
+ * Compact reputation display for HUD
  */
 function ReputationDisplay({ reputation, onClick }: { reputation: number; onClick?: () => void }) {
   const display = getReputationDisplay(reputation)
-  const progressText = display.nextLevelThreshold
-    ? `${Math.floor(display.progressToNext)}/${display.nextLevelThreshold - display.minForLevel}`
-    : 'Max'
 
   const content = (
-    <>
-      <div className="font-semibold text-lg flex items-center justify-end gap-1.5 tabular-nums">
-        <span className="text-accent">★</span>
-        <span>{Math.floor(display.current)}</span>
-        <span className="text-xs px-1 py-0.5 bg-accent/10 rounded text-accent font-medium">
-          L{display.level}
-        </span>
-        <span className="text-xs text-muted-foreground font-normal">
-          {progressText}
-        </span>
-      </div>
-      <div className="text-xs text-muted-foreground">{display.levelName}</div>
-    </>
+    <div className="flex items-center gap-2">
+      <Star className="w-4 h-4 fill-reputation text-reputation" />
+      <span className="font-semibold tabular-nums">{Math.floor(display.current)}</span>
+      <Badge variant="reputation" size="sm" className="text-xs px-1.5">
+        L{display.level}
+      </Badge>
+    </div>
   )
 
   if (onClick) {
@@ -214,12 +166,17 @@ function ReputationDisplay({ reputation, onClick }: { reputation: number; onClic
       <button
         type="button"
         onClick={onClick}
-        className="w-full text-right rounded-lg px-2 py-1 transition-colors border border-transparent hover:border-accent/40 hover:bg-accent/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+        className={cn(
+          'flex items-center rounded-lg px-2.5 py-1.5 -mx-2.5 -my-1.5',
+          'transition-all duration-150',
+          'hover:bg-reputation/10 focus-ring'
+        )}
+        title={`${display.levelName} - ${Math.floor(display.progressToNext)}/${display.nextLevelThreshold ? display.nextLevelThreshold - display.minForLevel : 'Max'}`}
       >
         {content}
       </button>
     )
   }
 
-  return <div className="text-right">{content}</div>
+  return content
 }

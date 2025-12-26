@@ -163,6 +163,17 @@
   color: var(--color-text-secondary, #a0a0a0);
 }
 
+.capacityInfo {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text, #e0e0e0);
+}
+
+.atCapacity {
+  color: var(--color-error, #ef4444);
+}
+
 .refreshButton {
   padding: 6px 12px;
   background: var(--color-surface, #1a1a2e);

@@ -1,13 +1,15 @@
 import { useEffect, useCallback, useState, useRef } from 'react'
 import { useGameStore, useUIStore } from '@/store'
 import { SaveManager } from '@/core/engine'
-import { EventManager, EventBus, GameEvents } from '@/core/events'
+import { EventManager, EVENT_CONFIG, EventBus, GameEvents } from '@/core/events'
 import { DaySummaryManager, type DaySummary } from '@/core/summary'
+import { SessionManager, type SessionCompleteResult } from '@/core/session'
 import { useGameLoop, useClientSpawning, useTrainingProcessor, useTherapistEnergyProcessor } from '@/hooks'
 import { formatTime } from '@/lib/utils'
-import { GameLayout, GameView, NewGameModal, DaySummaryModal, TutorialOverlay } from '@/components'
+import { GameLayout, GameView, NewGameModal, DaySummaryModal, TutorialOverlay, SessionSummary, AchievementToast, AchievementContainer, ClientSuccessStory, LevelUpToast, LevelUpContainer } from '@/components'
 import { getAllRandomEvents, getEligibleDecisionEvents } from '@/data'
-import type { RandomEvent, DecisionEvent, Session, Therapist } from '@/core/types'
+import type { RandomEvent, DecisionEvent, Session, Therapist, Client, QualityModifier, MilestoneConfig } from '@/core/types'
+import { getMilestoneConfig } from '@/core/types'
 
 declare global {
   interface Window {
@@ -41,6 +43,7 @@ function App() {
   const { addMoney, removeMoney, addReputation, removeReputation } = useGameStore()
   const { setEventCooldown, addModifier, updateSession, updateTherapist, completeSession } =
     useGameStore()
+  const checkAndAwardMilestones = useGameStore((s) => s.checkAndAwardMilestones)
 
   const addNotification = useUIStore((state) => state.addNotification)
 
@@ -49,8 +52,31 @@ function App() {
   const [activeDecisionEvent, setActiveDecisionEvent] = useState<DecisionEvent | null>(null)
   const [decisionEventSession, setDecisionEventSession] = useState<Session | null>(null)
   const [activeDaySummary, setActiveDaySummary] = useState<DaySummary | null>(null)
+  const [activeSessionSummary, setActiveSessionSummary] = useState<{
+    session: Session
+    results: SessionCompleteResult
+  } | null>(null)
   const [showNewGame, setShowNewGame] = useState(true)
   const [hasStartedGame, setHasStartedGame] = useState(false)
+
+  // Achievement celebration state
+  const [activeAchievement, setActiveAchievement] = useState<{
+    milestoneId: string
+    name: string
+    reputationBonus: number
+  } | null>(null)
+
+  // Client success story state
+  const [activeSuccessStory, setActiveSuccessStory] = useState<{
+    client: Client
+    sessions: Session[]
+  } | null>(null)
+
+  // Level-up celebration state
+  const [activeLevelUp, setActiveLevelUp] = useState<{
+    therapistName: string
+    newLevel: number
+  } | null>(null)
 
   // Track last day we checked for events
   const lastEventCheckDay = useRef(0)
@@ -71,20 +97,34 @@ function App() {
         })
       }
 
-      addNotification({
-        type: 'success',
-        title: 'Session Completed',
-        message: `${session.therapistName} finished session with ${session.clientName}`,
-      })
-
       // Emit event for other systems to react
       EventBus.emit(GameEvents.SESSION_COMPLETED, {
         sessionId: session.id,
         quality: completion.session.quality,
         payment: completion.session.payment,
       })
+
+      // Check for milestone achievements after session completion
+      const awarded = checkAndAwardMilestones()
+      awarded.forEach((milestoneId) => {
+        const config = getMilestoneConfig(milestoneId)
+        if (config) {
+          addNotification({
+            type: 'success',
+            title: 'Milestone Achieved!',
+            message: `${config.name}: +${config.reputationBonus} reputation`,
+          })
+        }
+      })
+
+      // Show session summary modal with quality breakdown
+      setActiveSessionSummary({
+        session: completion.session,
+        results: completion,
+      })
+      pause('session_summary')
     },
-    [completeSession, addNotification]
+    [completeSession, addNotification, checkAndAwardMilestones, pause]
   )
 
   // Session callbacks for the game loop
@@ -92,8 +132,8 @@ function App() {
   const handleSessionStart = useCallback(
     (sessionId: string) => {
       // Get fresh state to avoid stale closure issues
-      const freshSessions = useGameStore.getState().sessions
-      const session = freshSessions.find((s) => s.id === sessionId)
+      const state = useGameStore.getState()
+      const session = state.sessions.find((s) => s.id === sessionId)
       if (!session) {
         console.warn(`[handleSessionStart] Session ${sessionId} not found`)
         return
@@ -105,14 +145,45 @@ function App() {
         return
       }
 
+      // Get therapist and client for quality calculation
+      const therapist = state.therapists.find((t) => t.id === session.therapistId)
+      const client = state.clients.find((c) => c.id === session.clientId)
+
+      if (!therapist || !client) {
+        console.warn(`[handleSessionStart] Missing therapist or client for session ${sessionId}`)
+        updateSession(sessionId, { status: 'in_progress' })
+        return
+      }
+
+      // Calculate initial quality modifiers using SessionManager
+      const qualityModifiers = SessionManager.calculateInitialQualityModifiers(therapist, client, session)
+
+      // Add early game buffer (first 14 days get a bonus)
+      const currentDay = state.currentDay
+      if (currentDay <= 14) {
+        const earlyGameBonus = currentDay <= 7 ? 0.1 : 0.05
+        qualityModifiers.push({
+          source: 'early_game_buffer',
+          value: earlyGameBonus,
+          description: currentDay <= 7 ? 'New practice enthusiasm' : 'Building momentum',
+        } as QualityModifier)
+      }
+
+      // Calculate final starting quality
+      const baseQuality = SessionManager.calculateBaseQuality(qualityModifiers)
+
       addNotification({
         type: 'info',
         title: 'Session Started',
         message: `${session.therapistName} is meeting with ${session.clientName}`,
       })
 
-      // Update session status
-      updateSession(sessionId, { status: 'in_progress' })
+      // Update session with calculated quality and modifiers
+      updateSession(sessionId, {
+        status: 'in_progress',
+        quality: baseQuality,
+        qualityModifiers,
+      })
 
       // Update therapist status
       updateTherapist(session.therapistId, { status: 'in_session' })
@@ -157,8 +228,11 @@ function App() {
 
       updateSession(sessionId, { progress: newProgress })
 
-      // Check for decision event trigger (mid-session)
-      if (newProgress > 0.3 && newProgress < 0.7 && !activeDecisionEvent) {
+      // Check for decision event trigger using three-phase guaranteed event system
+      // Phase 1: Random check in 25%-50% window
+      // Phase 2: Guaranteed event at 65% if none occurred
+      // Phase 3: Optional second event at 70%-90%
+      if (!activeDecisionEvent) {
         const client = freshClients.find((c) => c.id === session.clientId)
         if (!client) return
 
@@ -166,22 +240,71 @@ function App() {
           client.severity,
           client.conditionCategory
         )
+        const usedEventIds = session.decisionsMade.map((d) => d.eventId)
+        const sessionContext = {
+          clientConditionCategory: client.conditionCategory,
+          sessionProgress: newProgress,
+          clientSeverity: client.severity,
+          currentMinute: Math.floor(newProgress * session.durationMinutes),
+          gameSpeed: useGameStore.getState().gameSpeed as 1 | 2 | 3,
+        }
+        const seed = Date.now() + sessionId.charCodeAt(0)
+        const eventsOccurred = session.decisionsMade.length
 
-        const check = EventManager.checkDecisionEventTrigger(
-          eligibleEvents,
-          session.decisionsMade.map((d) => d.eventId),
-          {
-            clientConditionCategory: client.conditionCategory,
-            sessionProgress: newProgress,
-            clientSeverity: client.severity,
-            currentMinute: Math.floor(newProgress * session.durationMinutes),
-            gameSpeed: useGameStore.getState().gameSpeed as 1 | 2 | 3,
-          },
-          Date.now() + sessionId.charCodeAt(0)
-        )
+        let eventToTrigger: DecisionEvent | null = null
 
-        if (check.shouldTrigger && check.event) {
-          setActiveDecisionEvent(check.event)
+        // Phase 1: Random event check in early window (25%-50%)
+        if (
+          eventsOccurred === 0 &&
+          newProgress >= EVENT_CONFIG.FIRST_EVENT_WINDOW_START &&
+          newProgress < EVENT_CONFIG.FIRST_EVENT_WINDOW_END
+        ) {
+          const check = EventManager.checkDecisionEventTrigger(
+            eligibleEvents,
+            usedEventIds,
+            sessionContext,
+            seed
+          )
+          if (check.shouldTrigger && check.event) {
+            eventToTrigger = check.event
+          }
+        }
+
+        // Phase 2: Guaranteed event at 65% threshold if none occurred yet
+        if (
+          !eventToTrigger &&
+          eventsOccurred === 0 &&
+          newProgress >= EVENT_CONFIG.GUARANTEED_EVENT_THRESHOLD &&
+          newProgress < EVENT_CONFIG.SECOND_EVENT_WINDOW_START
+        ) {
+          eventToTrigger = EventManager.selectGuaranteedDecisionEvent(
+            eligibleEvents,
+            usedEventIds,
+            sessionContext,
+            seed
+          )
+        }
+
+        // Phase 3: Optional second event in 70%-90% window
+        if (
+          !eventToTrigger &&
+          eventsOccurred === 1 &&
+          newProgress >= EVENT_CONFIG.SECOND_EVENT_WINDOW_START &&
+          newProgress < EVENT_CONFIG.SECOND_EVENT_WINDOW_END
+        ) {
+          const check = EventManager.checkSecondDecisionEventTrigger(
+            eligibleEvents,
+            usedEventIds,
+            sessionContext,
+            seed
+          )
+          if (check.shouldTrigger && check.event) {
+            eventToTrigger = check.event
+          }
+        }
+
+        if (eventToTrigger) {
+          setActiveDecisionEvent(eventToTrigger)
           setDecisionEventSession(session)
           pause('decision_event')
         }
@@ -246,16 +369,35 @@ function App() {
       setTimeout(() => {
         setActiveDaySummary(summary)
         pause('day_summary')
+
+        // Check for milestone achievements (e.g., first_week_completed)
+        const awarded = checkAndAwardMilestones()
+        awarded.forEach((milestoneId) => {
+          const config = getMilestoneConfig(milestoneId)
+          if (config) {
+            addNotification({
+              type: 'success',
+              title: 'Milestone Achieved!',
+              message: `${config.name}: +${config.reputationBonus} reputation`,
+            })
+          }
+        })
       }, 0)
     })
 
     return unsubscribe
-  }, [hasStartedGame, pause])
+  }, [hasStartedGame, pause, checkAndAwardMilestones, addNotification])
 
   // Handle day summary continue
   const handleDaySummaryContinue = useCallback(() => {
     setActiveDaySummary(null)
     resume('day_summary')
+  }, [resume])
+
+  // Handle session summary close
+  const handleSessionSummaryClose = useCallback(() => {
+    setActiveSessionSummary(null)
+    resume('session_summary')
   }, [resume])
 
   // Check for random events at day start
@@ -296,53 +438,60 @@ function App() {
   // Handle random event choice
   const handleRandomEventChoice = useCallback(
     (choiceIndex: number) => {
-      if (!activeRandomEvent) return
-
-      const result = EventManager.applyRandomEventChoice(
-        activeRandomEvent,
-        choiceIndex,
-        currentDay
-      )
-
-      // Apply effects
-      if (result.moneyChange !== 0) {
-        if (result.moneyChange > 0) {
-          addMoney(result.moneyChange, activeRandomEvent.title)
-        } else {
-          removeMoney(-result.moneyChange, activeRandomEvent.title)
-        }
+      if (!activeRandomEvent) {
+        // Safety: if somehow called without an active event, ensure we resume
+        resume('random_event')
+        return
       }
 
-      if (result.reputationChange !== 0) {
-        if (result.reputationChange > 0) {
-          addReputation(result.reputationChange, activeRandomEvent.title)
-        } else {
-          removeReputation(-result.reputationChange, activeRandomEvent.title)
-        }
-      }
+      try {
+        const result = EventManager.applyRandomEventChoice(
+          activeRandomEvent,
+          choiceIndex,
+          currentDay
+        )
 
-      if (result.modifierApplied) {
-        addModifier(result.modifierApplied)
-        addNotification({
-          type: 'info',
-          title: 'Modifier Active',
-          message: `${result.modifierApplied.name} for ${result.modifierApplied.duration} days`,
+        // Apply effects
+        if (result.moneyChange !== 0) {
+          if (result.moneyChange > 0) {
+            addMoney(result.moneyChange, activeRandomEvent.title)
+          } else {
+            removeMoney(-result.moneyChange, activeRandomEvent.title)
+          }
+        }
+
+        if (result.reputationChange !== 0) {
+          if (result.reputationChange > 0) {
+            addReputation(result.reputationChange, activeRandomEvent.title)
+          } else {
+            removeReputation(-result.reputationChange, activeRandomEvent.title)
+          }
+        }
+
+        if (result.modifierApplied) {
+          addModifier(result.modifierApplied)
+          addNotification({
+            type: 'info',
+            title: 'Modifier Active',
+            message: `${result.modifierApplied.name} for ${result.modifierApplied.duration} days`,
+          })
+        }
+
+        // Set cooldown
+        const cooldowns = EventManager.updateCooldowns(
+          eventCooldowns,
+          activeRandomEvent.id,
+          currentDay,
+          activeRandomEvent.cooldownDays
+        )
+        Object.entries(cooldowns).forEach(([eventId, expires]) => {
+          setEventCooldown(eventId, expires)
         })
+      } finally {
+        // Always clear state and resume, even if effects threw an error
+        setActiveRandomEvent(null)
+        resume('random_event')
       }
-
-      // Set cooldown
-      const cooldowns = EventManager.updateCooldowns(
-        eventCooldowns,
-        activeRandomEvent.id,
-        currentDay,
-        activeRandomEvent.cooldownDays
-      )
-      Object.entries(cooldowns).forEach(([eventId, expires]) => {
-        setEventCooldown(eventId, expires)
-      })
-
-      setActiveRandomEvent(null)
-      resume('random_event')
     },
     [
       activeRandomEvent,
@@ -362,47 +511,54 @@ function App() {
   // Handle decision event choice
   const handleDecisionChoice = useCallback(
     (choiceIndex: number) => {
-      if (!activeDecisionEvent || !decisionEventSession) return
-
-      const result = EventManager.applyDecisionEventChoice(activeDecisionEvent, choiceIndex)
-
-      // Apply effects to session
-      const currentQuality = decisionEventSession.quality || 0.5
-      const newQuality = Math.max(0, Math.min(1, currentQuality + (result.qualityChange || 0) / 100))
-
-      updateSession(decisionEventSession.id, {
-        quality: newQuality,
-        decisionsMade: [
-          ...decisionEventSession.decisionsMade,
-          {
-            eventId: activeDecisionEvent.id,
-            choiceIndex,
-            effects: {
-              quality: result.qualityChange,
-              energy: result.energyChange,
-              satisfaction: result.satisfactionChange,
-            },
-          },
-        ],
-      })
-
-      // Apply energy cost to therapist
-      if (result.energyChange) {
-        const therapist = therapists.find((t) => t.id === decisionEventSession.therapistId)
-        if (therapist) {
-          updateTherapist(therapist.id, {
-            // energyChange is a delta (often negative). Apply it directly.
-            energy: Math.max(
-              0,
-              Math.min(therapist.maxEnergy, therapist.energy + result.energyChange)
-            ),
-          })
-        }
+      if (!activeDecisionEvent || !decisionEventSession) {
+        // Safety: if somehow called without active state, ensure we resume
+        resume('decision_event')
+        return
       }
 
-      setActiveDecisionEvent(null)
-      setDecisionEventSession(null)
-      resume('decision_event')
+      try {
+        const result = EventManager.applyDecisionEventChoice(activeDecisionEvent, choiceIndex)
+
+        // Apply effects to session
+        const currentQuality = decisionEventSession.quality || 0.5
+        const newQuality = Math.max(0, Math.min(1, currentQuality + (result.qualityChange || 0) / 100))
+
+        updateSession(decisionEventSession.id, {
+          quality: newQuality,
+          decisionsMade: [
+            ...decisionEventSession.decisionsMade,
+            {
+              eventId: activeDecisionEvent.id,
+              choiceIndex,
+              effects: {
+                quality: result.qualityChange,
+                energy: result.energyChange,
+                satisfaction: result.satisfactionChange,
+              },
+            },
+          ],
+        })
+
+        // Apply energy cost to therapist
+        if (result.energyChange) {
+          const therapist = therapists.find((t) => t.id === decisionEventSession.therapistId)
+          if (therapist) {
+            updateTherapist(therapist.id, {
+              // energyChange is a delta (often negative). Apply it directly.
+              energy: Math.max(
+                0,
+                Math.min(therapist.maxEnergy, therapist.energy + result.energyChange)
+              ),
+            })
+          }
+        }
+      } finally {
+        // Always clear state and resume, even if effects threw an error
+        setActiveDecisionEvent(null)
+        setDecisionEventSession(null)
+        resume('decision_event')
+      }
     },
     [activeDecisionEvent, decisionEventSession, therapists, updateSession, updateTherapist, resume]
   )
@@ -445,6 +601,81 @@ function App() {
     }
   }, [])
 
+  // Listen for milestone achievements to show celebration
+  useEffect(() => {
+    const unsubscribe = EventBus.on(
+      GameEvents.MILESTONE_ACHIEVED,
+      (data: { milestoneId: string; name: string; reputationBonus: number }) => {
+        setActiveAchievement(data)
+      }
+    )
+
+    return unsubscribe
+  }, [])
+
+  // Listen for client cured events to show success story
+  useEffect(() => {
+    if (!hasStartedGame) return
+
+    const unsubscribe = EventBus.on(
+      GameEvents.CLIENT_CURED,
+      (data: { clientId: string }) => {
+        const state = useGameStore.getState()
+        const client = state.clients.find((c) => c.id === data.clientId)
+        if (!client) return
+
+        // Get all sessions for this client
+        const clientSessions = state.sessions.filter((s) => s.clientId === data.clientId)
+
+        // Delay slightly so session summary can close first
+        setTimeout(() => {
+          setActiveSuccessStory({ client, sessions: clientSessions })
+        }, 100)
+      }
+    )
+
+    return unsubscribe
+  }, [hasStartedGame])
+
+  // Listen for therapist level-up events
+  useEffect(() => {
+    if (!hasStartedGame) return
+
+    const unsubscribe = EventBus.on(
+      GameEvents.THERAPIST_LEVELED_UP,
+      (data: { therapistId: string; newLevel: number }) => {
+        const state = useGameStore.getState()
+        const therapist = state.therapists.find((t) => t.id === data.therapistId)
+        if (!therapist) return
+
+        // Delay so it appears after session summary
+        setTimeout(() => {
+          setActiveLevelUp({
+            therapistName: therapist.displayName,
+            newLevel: data.newLevel,
+          })
+        }, 200)
+      }
+    )
+
+    return unsubscribe
+  }, [hasStartedGame])
+
+  // Handle achievement toast dismissal
+  const handleAchievementDismiss = useCallback(() => {
+    setActiveAchievement(null)
+  }, [])
+
+  // Handle success story close
+  const handleSuccessStoryClose = useCallback(() => {
+    setActiveSuccessStory(null)
+  }, [])
+
+  // Handle level-up toast dismissal
+  const handleLevelUpDismiss = useCallback(() => {
+    setActiveLevelUp(null)
+  }, [])
+
   // Speed controls
   const handleSpeedChange = useCallback(
     (speed: 0 | 1 | 2 | 3) => {
@@ -452,10 +683,20 @@ function App() {
         pause('manual')
       } else {
         resume('manual')
+
+        // Safety: If user is trying to unpause but no modals/events are showing,
+        // clear any stuck pause reasons (random_event, decision_event, day_summary, session_summary)
+        if (!activeRandomEvent && !activeDecisionEvent && !activeDaySummary && !activeSessionSummary) {
+          resume('random_event')
+          resume('decision_event')
+          resume('day_summary')
+          resume('session_summary')
+        }
+
         setGameSpeed(speed)
       }
     },
-    [pause, resume, setGameSpeed]
+    [pause, resume, setGameSpeed, activeRandomEvent, activeDecisionEvent, activeDaySummary, activeSessionSummary]
   )
 
   const handleSkipToNext = useCallback(() => {
@@ -539,7 +780,53 @@ function App() {
         />
       )}
 
+      {activeSessionSummary && (
+        <SessionSummary
+          open={true}
+          onClose={handleSessionSummaryClose}
+          session={activeSessionSummary.session}
+          results={activeSessionSummary.results}
+        />
+      )}
+
       <TutorialOverlay onNavigateTab={handleTutorialNavigateTab} />
+
+      {/* Achievement celebration overlay */}
+      {activeAchievement && (
+        <AchievementContainer>
+          <AchievementToast
+            milestone={getMilestoneConfig(activeAchievement.milestoneId as MilestoneConfig['id']) ?? {
+              id: activeAchievement.milestoneId as MilestoneConfig['id'],
+              name: activeAchievement.name,
+              description: '',
+              reputationBonus: activeAchievement.reputationBonus,
+            }}
+            reputationBonus={activeAchievement.reputationBonus}
+            onDismiss={handleAchievementDismiss}
+          />
+        </AchievementContainer>
+      )}
+
+      {/* Client success story modal */}
+      {activeSuccessStory && (
+        <ClientSuccessStory
+          open={true}
+          onClose={handleSuccessStoryClose}
+          client={activeSuccessStory.client}
+          sessions={activeSuccessStory.sessions}
+        />
+      )}
+
+      {/* Level-up celebration toast */}
+      {activeLevelUp && (
+        <LevelUpContainer>
+          <LevelUpToast
+            therapistName={activeLevelUp.therapistName}
+            newLevel={activeLevelUp.newLevel}
+            onDismiss={handleLevelUpDismiss}
+          />
+        </LevelUpContainer>
+      )}
     </>
   )
 }

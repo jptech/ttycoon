@@ -22,6 +22,9 @@ export function useTrainingProcessor(options: UseTrainingProcessorOptions = {}) 
   const removeActiveTraining = useGameStore((state) => state.removeActiveTraining)
   const updateActiveTraining = useGameStore((state) => state.updateActiveTraining)
   const addReputation = useGameStore((state) => state.addReputation)
+  const setInsuranceMultiplier = useGameStore((state) => state.setInsuranceMultiplier)
+  const addHiringCapacityBonus = useGameStore((state) => state.addHiringCapacityBonus)
+  const insuranceMultiplier = useGameStore((state) => state.insuranceMultiplier)
   const addNotification = useUIStore((state) => state.addNotification)
 
   // Store callbacks in ref to avoid recreation
@@ -47,23 +50,25 @@ export function useTrainingProcessor(options: UseTrainingProcessorOptions = {}) 
         })
         break
       case 'insurance_multiplier':
-        // Store this in game state - would need to add to gameStore
+        // Add to current multiplier (e.g., 1.0 + 0.1 = 1.1x)
+        const newMultiplier = insuranceMultiplier + bonus.value
+        setInsuranceMultiplier(newMultiplier)
         addNotification({
-          type: 'info',
+          type: 'success',
           title: 'Insurance Bonus',
-          message: `Insurance payments increased by ${Math.round(bonus.value * 100)}%`,
+          message: `Insurance payments increased to ${Math.round(newMultiplier * 100)}%`,
         })
         break
       case 'hiring_capacity':
-        // Store this in game state - would need to add to gameStore
+        addHiringCapacityBonus(bonus.value)
         addNotification({
-          type: 'info',
+          type: 'success',
           title: 'Hiring Capacity',
           message: `Can now hire ${bonus.value} more therapist(s)`,
         })
         break
     }
-  }, [addReputation, addNotification])
+  }, [addReputation, addNotification, insuranceMultiplier, setInsuranceMultiplier, addHiringCapacityBonus])
 
   /**
    * Process all active trainings for the day

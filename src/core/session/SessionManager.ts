@@ -28,6 +28,24 @@ export const SESSION_CONFIG = {
   DECISION_EVENT_CHANCE: 0.4,
   /** Minimum progress before first decision event can trigger */
   MIN_PROGRESS_FOR_EVENT: 0.2,
+
+  // Non-linear treatment progress configuration
+  /** Quality threshold for breakthrough chance (>=90% quality) */
+  BREAKTHROUGH_QUALITY_THRESHOLD: 0.9,
+  /** Chance of breakthrough when quality meets threshold (20%) */
+  BREAKTHROUGH_CHANCE: 0.2,
+  /** Progress multiplier during breakthrough (2x) */
+  BREAKTHROUGH_MULTIPLIER: 2.0,
+
+  /** Chance of plateau when satisfaction is low (<50%) */
+  PLATEAU_CHANCE: 0.15,
+  /** Plateau reduces progress to this fraction (25%) */
+  PLATEAU_MULTIPLIER: 0.25,
+  /** Satisfaction threshold below which plateau can occur */
+  PLATEAU_SATISFACTION_THRESHOLD: 50,
+
+  /** Regression from crisis decisions (subtract from progress) */
+  REGRESSION_AMOUNT: 0.02,
 } as const
 
 /**
@@ -56,9 +74,25 @@ export interface SessionCompleteResult {
   therapist: Therapist
   client: Client
   xpGained: number
+  leveledUp: boolean
+  newLevel: number
   satisfactionChange: number
   treatmentProgressGained: number
+  progressType: 'normal' | 'breakthrough' | 'plateau' | 'regression'
+  progressDescription: string
   paymentAmount: number
+}
+
+/**
+ * Result of treatment progress calculation with non-linear effects
+ */
+export interface TreatmentProgressResult {
+  /** Final progress gained (after modifiers) */
+  progressGained: number
+  /** Type of progress event that occurred */
+  progressType: 'normal' | 'breakthrough' | 'plateau' | 'regression'
+  /** Description of what happened */
+  description: string
 }
 
 /**
@@ -223,12 +257,78 @@ export const SessionManager = {
   },
 
   /**
+   * Calculate treatment progress with non-linear effects.
+   * Can result in breakthroughs (2x progress), plateaus (minimal progress),
+   * or regression (negative progress from crisis decisions).
+   */
+  calculateTreatmentProgress(
+    quality: number,
+    clientSatisfaction: number,
+    hadCrisisDecision: boolean,
+    seed?: number
+  ): TreatmentProgressResult {
+    // Use seeded random if provided, otherwise use Math.random
+    // Capture seed in local variable for closure (TypeScript narrowing)
+    let seedState = seed ?? 0
+    const random = seed !== undefined
+      ? () => {
+          // Simple seeded random (mulberry32)
+          let t = (seedState += 0x6d2b79f5)
+          t = Math.imul(t ^ (t >>> 15), t | 1)
+          t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+        }
+      : Math.random
+
+    // Base progress calculation
+    const baseProgress = SESSION_CONFIG.PROGRESS_PER_QUALITY * quality
+
+    // Check for regression (crisis decisions can cause setbacks)
+    if (hadCrisisDecision && random() < 0.3) {
+      const progressWithRegression = Math.max(0, baseProgress - SESSION_CONFIG.REGRESSION_AMOUNT)
+      return {
+        progressGained: progressWithRegression,
+        progressType: 'regression',
+        description: 'Processing difficult material caused a temporary setback',
+      }
+    }
+
+    // Check for breakthrough (high quality sessions can accelerate progress)
+    if (quality >= SESSION_CONFIG.BREAKTHROUGH_QUALITY_THRESHOLD && random() < SESSION_CONFIG.BREAKTHROUGH_CHANCE) {
+      return {
+        progressGained: baseProgress * SESSION_CONFIG.BREAKTHROUGH_MULTIPLIER,
+        progressType: 'breakthrough',
+        description: 'A major breakthrough! Client made exceptional progress',
+      }
+    }
+
+    // Check for plateau (low satisfaction can stall progress)
+    if (clientSatisfaction < SESSION_CONFIG.PLATEAU_SATISFACTION_THRESHOLD && random() < SESSION_CONFIG.PLATEAU_CHANCE) {
+      return {
+        progressGained: baseProgress * SESSION_CONFIG.PLATEAU_MULTIPLIER,
+        progressType: 'plateau',
+        description: 'Client is struggling to engage - progress has plateaued',
+      }
+    }
+
+    // Normal progress
+    return {
+      progressGained: baseProgress,
+      progressType: 'normal',
+      description: 'Steady progress in treatment',
+    }
+  },
+
+  /**
    * Progress a session by a time delta
+   * Note: In production, session progression happens in App.tsx with EventManager.
+   * This method is used for testing and provides consistent behavior.
    */
   progressSession(
     session: Session,
     deltaMinutes: number,
-    decisionEvents: DecisionEvent[]
+    decisionEvents: DecisionEvent[],
+    clientContext?: { severity: number; conditionCategory: Client['conditionCategory'] }
   ): SessionProgressResult {
     if (session.status !== 'in_progress') {
       return { session, progressDelta: 0 }
@@ -249,7 +349,20 @@ export const SessionManager = {
       session.decisionsMade.length === 0 &&
       Math.random() < SESSION_CONFIG.DECISION_EVENT_CHANCE * progressDelta * 10
     ) {
-      decisionEvent = this.selectDecisionEvent(decisionEvents)
+      // Apply trigger condition filtering if client context provided
+      if (clientContext) {
+        decisionEvent = this.selectDecisionEvent(
+          decisionEvents,
+          clientContext.severity,
+          clientContext.conditionCategory
+        )
+      } else {
+        // Fallback: filter out events with trigger conditions if no context
+        const generalEvents = decisionEvents.filter(e => !e.triggerConditions)
+        if (generalEvents.length > 0) {
+          decisionEvent = generalEvents[Math.floor(Math.random() * generalEvents.length)]
+        }
+      }
     }
 
     return {
@@ -261,15 +374,33 @@ export const SessionManager = {
 
   /**
    * Select a random applicable decision event
+   * Filters events based on client severity and condition category
    */
   selectDecisionEvent(
-    events: DecisionEvent[]
+    events: DecisionEvent[],
+    clientSeverity: number,
+    clientConditionCategory: Client['conditionCategory']
   ): DecisionEvent | undefined {
     if (events.length === 0) return undefined
 
-    // Filter applicable events (could add more conditions based on session/client)
-    const applicable = events.filter(() => {
-      // Could check e.triggerConditions here
+    // Filter applicable events based on trigger conditions
+    const applicable = events.filter((event) => {
+      if (!event.triggerConditions) return true
+
+      // Check severity requirement
+      if (event.triggerConditions.minSeverity !== undefined) {
+        if (clientSeverity < event.triggerConditions.minSeverity) {
+          return false
+        }
+      }
+
+      // Check condition category requirement
+      if (event.triggerConditions.conditionCategories !== undefined) {
+        if (!event.triggerConditions.conditionCategories.includes(clientConditionCategory)) {
+          return false
+        }
+      }
+
       return true
     })
 
@@ -369,8 +500,19 @@ export const SessionManager = {
       SESSION_CONFIG.BASE_SATISFACTION_CHANGE * (finalQuality * 2 - 0.5)
     )
 
-    // Calculate treatment progress
-    const treatmentProgressGained = SESSION_CONFIG.PROGRESS_PER_QUALITY * finalQuality
+    // Check if session had a crisis-related decision (can cause regression)
+    const hadCrisisDecision = session.decisionsMade.some((d) =>
+      d.eventId.includes('crisis') || d.eventId.includes('trauma')
+    )
+
+    // Calculate treatment progress with non-linear effects
+    const progressResult = this.calculateTreatmentProgress(
+      finalQuality,
+      client.satisfaction,
+      hadCrisisDecision,
+      Date.now() + session.id.charCodeAt(0)
+    )
+    const treatmentProgressGained = progressResult.progressGained
 
     // Update session
     const completedSession: Session = {
@@ -385,6 +527,7 @@ export const SessionManager = {
     // Update therapist
     const newXP = therapist.xp + xpGained
     const newLevel = this.calculateLevel(newXP)
+    const leveledUp = newLevel > therapist.level
     const newEnergy = Math.max(0, therapist.energy - session.energyCost)
 
     const updatedTherapist: Therapist = {
@@ -414,8 +557,12 @@ export const SessionManager = {
       therapist: updatedTherapist,
       client: updatedClient,
       xpGained,
+      leveledUp,
+      newLevel,
       satisfactionChange,
       treatmentProgressGained,
+      progressType: progressResult.progressType,
+      progressDescription: progressResult.description,
       paymentAmount: session.payment,
     }
   },

@@ -20,7 +20,7 @@ describe('Card', () => {
 
   it('applies elevated variant', () => {
     render(<Card variant="elevated">Elevated</Card>)
-    expect(screen.getByText('Elevated')).toHaveClass('shadow-lg')
+    expect(screen.getByText('Elevated')).toHaveClass('shadow-md')
   })
 
   it('applies custom className', () => {

@@ -38,6 +38,14 @@ export const EVENT_CONFIG = {
   SPEED_MULTIPLIER_2X: 0.75, // Slightly reduced at higher speeds
   SPEED_MULTIPLIER_3X: 0.5,
 
+  // Guaranteed decision event thresholds
+  FIRST_EVENT_WINDOW_START: 0.25, // First event can trigger from 25%
+  FIRST_EVENT_WINDOW_END: 0.50, // First event random check ends at 50%
+  GUARANTEED_EVENT_THRESHOLD: 0.65, // Force first event by 65% if none occurred
+  SECOND_EVENT_WINDOW_START: 0.70, // Second event can trigger from 70%
+  SECOND_EVENT_WINDOW_END: 0.90, // Second event window ends at 90%
+  SECOND_EVENT_CHANCE: 0.35, // 35% chance for a second event
+
   // Cooldowns
   DEFAULT_COOLDOWN_DAYS: 7,
   MIN_COOLDOWN_DAYS: 3,
@@ -248,6 +256,89 @@ export const EventManager = {
     return {
       shouldTrigger: true,
       event: eligibleEvents[selectedIndex],
+    }
+  },
+
+  /**
+   * Select a guaranteed decision event (bypasses random chance).
+   * Used to ensure at least one decision event per session.
+   */
+  selectGuaranteedDecisionEvent(
+    availableEvents: DecisionEvent[],
+    usedEventIds: string[],
+    sessionContext: SessionContext,
+    seed?: number
+  ): DecisionEvent | null {
+    // Get eligible events (not already used in this session and conditions met)
+    const eligibleEvents = availableEvents.filter((event) => {
+      // Don't repeat events in same session
+      if (usedEventIds.includes(event.id)) {
+        return false
+      }
+
+      // Check trigger conditions
+      if (event.triggerConditions) {
+        if (event.triggerConditions.minSeverity !== undefined) {
+          if (sessionContext.clientSeverity < event.triggerConditions.minSeverity) {
+            return false
+          }
+        }
+        if (event.triggerConditions.conditionCategories !== undefined) {
+          if (
+            !event.triggerConditions.conditionCategories.includes(
+              sessionContext.clientConditionCategory
+            )
+          ) {
+            return false
+          }
+        }
+      }
+
+      return true
+    })
+
+    if (eligibleEvents.length === 0) {
+      return null
+    }
+
+    // Randomly select one eligible event
+    const random = seededRandom(seed ?? Date.now())
+    const selectedIndex = Math.floor(random() * eligibleEvents.length)
+    return eligibleEvents[selectedIndex]
+  },
+
+  /**
+   * Check if a second decision event should trigger (optional, lower chance).
+   * Only triggers if one event has already occurred.
+   */
+  checkSecondDecisionEventTrigger(
+    availableEvents: DecisionEvent[],
+    usedEventIds: string[],
+    sessionContext: SessionContext,
+    seed?: number
+  ): DecisionEventCheck {
+    // Must have at least one event already
+    if (usedEventIds.length === 0) {
+      return { shouldTrigger: false, event: null }
+    }
+
+    // Check if random roll passes
+    const random = seededRandom(seed ?? Date.now())
+    if (random() > EVENT_CONFIG.SECOND_EVENT_CHANCE) {
+      return { shouldTrigger: false, event: null }
+    }
+
+    // Select an event
+    const event = this.selectGuaranteedDecisionEvent(
+      availableEvents,
+      usedEventIds,
+      sessionContext,
+      seed ? seed + 1 : undefined
+    )
+
+    return {
+      shouldTrigger: event !== null,
+      event,
     }
   },
 

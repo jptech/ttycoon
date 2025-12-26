@@ -1,4 +1,4 @@
-import type { InsurancePanel, InsurerId, PendingClaim, Session } from '@/core/types'
+import type { InsurancePanel, InsurerId, PendingClaim, Session, DenialReason } from '@/core/types'
 import { generateId } from '@/lib/utils'
 
 /**
@@ -25,7 +25,68 @@ export const INSURANCE_CONFIG = {
 
   /** Multiplier increase per business training completion */
   MULTIPLIER_INCREASE_PER_TRAINING: 0.1,
+
+  /** Days allowed to appeal a denied claim */
+  APPEAL_WINDOW_DAYS: 14,
+
+  /** Additional delay days when appeal is processed */
+  APPEAL_PROCESSING_DAYS: 7,
+
+  /** Base success rate for appeals */
+  APPEAL_SUCCESS_RATE: 0.5,
 } as const
+
+/**
+ * Denial reason details with descriptions and appeal success rates
+ */
+export const DENIAL_REASONS: Record<DenialReason, {
+  label: string
+  description: string
+  appealSuccessRate: number
+}> = {
+  insufficient_documentation: {
+    label: 'Insufficient Documentation',
+    description: 'Session notes did not meet documentation requirements',
+    appealSuccessRate: 0.7, // High success - can provide more docs
+  },
+  medical_necessity: {
+    label: 'Medical Necessity Not Established',
+    description: 'Treatment was not deemed medically necessary',
+    appealSuccessRate: 0.4, // Medium - subjective
+  },
+  session_limit_exceeded: {
+    label: 'Session Limit Exceeded',
+    description: 'Client has reached annual session limit',
+    appealSuccessRate: 0.2, // Low - policy limit
+  },
+  coding_error: {
+    label: 'Coding Error',
+    description: 'Incorrect billing code submitted',
+    appealSuccessRate: 0.85, // Very high - easy fix
+  },
+  prior_auth_required: {
+    label: 'Prior Authorization Required',
+    description: 'Session required pre-approval that was not obtained',
+    appealSuccessRate: 0.3, // Low - missed requirement
+  },
+  out_of_network: {
+    label: 'Out of Network',
+    description: 'Provider not in network for this service',
+    appealSuccessRate: 0.1, // Very low - contract issue
+  },
+}
+
+/**
+ * Weighted denial reasons (determines likelihood of each reason)
+ */
+const DENIAL_REASON_WEIGHTS: { reason: DenialReason; weight: number }[] = [
+  { reason: 'insufficient_documentation', weight: 30 },
+  { reason: 'medical_necessity', weight: 25 },
+  { reason: 'coding_error', weight: 20 },
+  { reason: 'session_limit_exceeded', weight: 10 },
+  { reason: 'prior_auth_required', weight: 10 },
+  { reason: 'out_of_network', weight: 5 },
+]
 
 /**
  * Insurance state tracking
@@ -68,7 +129,19 @@ export interface ClaimResolution {
   paid: boolean
   amount: number
   denied: boolean
-  denialReason?: string
+  denialReason?: DenialReason
+  appealDeadlineDay?: number
+}
+
+/**
+ * Appeal result
+ */
+export interface AppealResult {
+  success: boolean
+  claimId: string
+  approved: boolean
+  newPaymentDay?: number
+  reason?: string
 }
 
 /**
@@ -208,6 +281,32 @@ export const InsuranceManager = {
   },
 
   /**
+   * Select a random denial reason using weighted probabilities
+   */
+  selectDenialReason(seed?: number): DenialReason {
+    const totalWeight = DENIAL_REASON_WEIGHTS.reduce((sum, w) => sum + w.weight, 0)
+    const roll = (seed !== undefined ? seededRandom(seed)() : Math.random()) * totalWeight
+
+    let cumulative = 0
+    for (const { reason, weight } of DENIAL_REASON_WEIGHTS) {
+      cumulative += weight
+      if (roll < cumulative) {
+        return reason
+      }
+    }
+
+    // Fallback (should never reach)
+    return 'insufficient_documentation'
+  },
+
+  /**
+   * Get denial reason details (label and description)
+   */
+  getDenialReasonDetails(reason: DenialReason): { label: string; description: string; appealSuccessRate: number } {
+    return DENIAL_REASONS[reason]
+  },
+
+  /**
    * Process claims that are due for payment
    */
   processDueClaims(
@@ -233,12 +332,17 @@ export const InsuranceManager = {
         seedOffset++
 
         if (roll < denialRate) {
+          // Select a specific denial reason
+          const denialReason = this.selectDenialReason(seed !== undefined ? seed + seedOffset + 1000 : undefined)
+          const appealDeadlineDay = currentDay + INSURANCE_CONFIG.APPEAL_WINDOW_DAYS
+
           deniedClaims.push({
             claimId: claim.id,
             paid: false,
             amount: 0,
             denied: true,
-            denialReason: 'Claim denied by insurance company',
+            denialReason,
+            appealDeadlineDay,
           })
         } else {
           paidClaims.push({
@@ -443,6 +547,134 @@ export const InsuranceManager = {
     }
 
     return { shouldConsider: false }
+  },
+
+  /**
+   * Check if a denied claim can be appealed
+   */
+  canAppealClaim(
+    claim: PendingClaim,
+    currentDay: number
+  ): { canAppeal: boolean; reason?: string } {
+    if (claim.status !== 'denied') {
+      return { canAppeal: false, reason: 'Only denied claims can be appealed' }
+    }
+
+    if (!claim.denialReason) {
+      return { canAppeal: false, reason: 'Claim has no denial reason' }
+    }
+
+    if (!claim.appealDeadlineDay) {
+      return { canAppeal: false, reason: 'No appeal deadline set' }
+    }
+
+    if (currentDay > claim.appealDeadlineDay) {
+      return { canAppeal: false, reason: 'Appeal deadline has passed' }
+    }
+
+    if (claim.appealSubmittedDay !== undefined) {
+      return { canAppeal: false, reason: 'Appeal already submitted' }
+    }
+
+    return { canAppeal: true }
+  },
+
+  /**
+   * Submit an appeal for a denied claim
+   */
+  submitAppeal(
+    claim: PendingClaim,
+    currentDay: number
+  ): AppealResult {
+    const check = this.canAppealClaim(claim, currentDay)
+
+    if (!check.canAppeal) {
+      return {
+        success: false,
+        claimId: claim.id,
+        approved: false,
+        reason: check.reason,
+      }
+    }
+
+    return {
+      success: true,
+      claimId: claim.id,
+      approved: false, // Not yet determined
+      newPaymentDay: currentDay + INSURANCE_CONFIG.APPEAL_PROCESSING_DAYS,
+    }
+  },
+
+  /**
+   * Process appeals that are due for resolution
+   */
+  processAppeals(
+    claims: PendingClaim[],
+    currentDay: number,
+    seed?: number
+  ): { approvedAppeals: ClaimResolution[]; rejectedAppeals: ClaimResolution[]; remainingClaims: PendingClaim[] } {
+    const approvedAppeals: ClaimResolution[] = []
+    const rejectedAppeals: ClaimResolution[] = []
+    const remainingClaims: PendingClaim[] = []
+
+    let seedOffset = 0
+    for (const claim of claims) {
+      if (claim.status !== 'appealed' || !claim.appealSubmittedDay) {
+        remainingClaims.push(claim)
+        continue
+      }
+
+      const appealResolutionDay = claim.appealSubmittedDay + INSURANCE_CONFIG.APPEAL_PROCESSING_DAYS
+
+      if (appealResolutionDay <= currentDay && claim.denialReason) {
+        // Roll for appeal success based on denial reason
+        const reasonDetails = DENIAL_REASONS[claim.denialReason]
+        const successRate = reasonDetails?.appealSuccessRate ?? INSURANCE_CONFIG.APPEAL_SUCCESS_RATE
+        const roll = seed !== undefined ? seededRandom(seed + seedOffset)() : Math.random()
+        seedOffset++
+
+        if (roll < successRate) {
+          approvedAppeals.push({
+            claimId: claim.id,
+            paid: true,
+            amount: claim.amount,
+            denied: false,
+          })
+        } else {
+          rejectedAppeals.push({
+            claimId: claim.id,
+            paid: false,
+            amount: 0,
+            denied: true,
+            denialReason: claim.denialReason,
+          })
+        }
+      } else {
+        remainingClaims.push(claim)
+      }
+    }
+
+    return { approvedAppeals, rejectedAppeals, remainingClaims }
+  },
+
+  /**
+   * Get appealable claims
+   */
+  getAppealableClaims(
+    claims: PendingClaim[],
+    currentDay: number
+  ): PendingClaim[] {
+    return claims.filter((claim) => {
+      const check = this.canAppealClaim(claim, currentDay)
+      return check.canAppeal
+    })
+  },
+
+  /**
+   * Get claims with pending appeals
+   */
+  getClaimsWithPendingAppeals(claims: PendingClaim[]): PendingClaim[] {
+    return claims.filter((claim) => claim.status === 'appealed')
   },
 }
 

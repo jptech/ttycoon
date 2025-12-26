@@ -431,8 +431,8 @@ bun run build            # Build for production
 bun run preview          # Preview production build
 
 # Testing
-bun test                 # Run all unit tests
-bun test:watch          # Watch mode
+bun test                 # Run all unit tests (watch mode)
+bun run test --run --silent  # Run tests once and exit (recommended for AI agents)
 bun run test:e2e        # Run E2E tests
 bun run test:coverage   # Coverage report
 
@@ -443,6 +443,8 @@ bun run lint:fix        # Fix issues
 # Type Checking
 bun run typecheck       # Run TypeScript check
 ```
+
+**Note for AI agents**: Use `bun run test --run --silent` instead of `bun test` to avoid watch mode. This runs tests once and exits, returning results immediately - essential for automated workflows and agent loops.
 
 ## Common Patterns
 

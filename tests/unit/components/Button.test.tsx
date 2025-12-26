@@ -23,7 +23,7 @@ describe('Button', () => {
   it('applies ghost variant', () => {
     render(<Button variant="ghost">Ghost</Button>)
     const button = screen.getByRole('button')
-    expect(button).toHaveClass('hover:bg-muted')
+    expect(button).toHaveClass('hover:bg-surface-hover')
   })
 
   it('applies danger variant', () => {

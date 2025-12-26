@@ -1,87 +1,115 @@
 @import 'tailwindcss';
 
-/* Design tokens for Therapy Tycoon - Dark Theme */
+/* Design tokens for Therapy Tycoon - Cozy Dark Theme */
 @theme {
-  /* Core colors - Dark theme */
-  --color-bg: #0f0f1a;
-  --color-surface: #1a1a2e;
-  --color-surface-hover: #2a2a4e;
-  --color-border: #3a3a5a;
-  --color-text: #e0e0e0;
-  --color-text-secondary: #a0a0a0;
-  --color-disabled: #666666;
+  /* Core colors - Warmer dark theme */
+  --color-bg: #12121a;
+  --color-surface: #1e1e2a;
+  --color-surface-hover: #2a2a3a;
+  --color-surface-elevated: #252535;
+  --color-border: #3d3d52;
+  --color-border-subtle: #2d2d42;
+  --color-text: #f0ebe3;
+  --color-text-secondary: #a8a29e;
+  --color-text-muted: #78716c;
+  --color-disabled: #525252;
 
-  /* Primary colors */
-  --color-primary: #6366f1;
-  --color-primary-hover: #4f46e5;
-  --color-primary-bg: rgba(99, 102, 241, 0.15);
+  /* Primary colors - Therapeutic sage green */
+  --color-primary: #5eaa8d;
+  --color-primary-hover: #4d9278;
+  --color-primary-bg: rgba(94, 170, 141, 0.12);
   --color-primary-foreground: #ffffff;
 
-  /* Secondary/Accent colors */
-  --color-secondary: #2a2a4e;
-  --color-secondary-foreground: #e0e0e0;
-  --color-accent: #f59e0b;
+  /* Secondary/Accent colors - Warm gold */
+  --color-secondary: #2d2d3f;
+  --color-secondary-foreground: #f0ebe3;
+  --color-accent: #d4a373;
+  --color-accent-hover: #c4936c;
+  --color-accent-bg: rgba(212, 163, 115, 0.12);
   --color-accent-foreground: #ffffff;
-  --color-muted: #2a2a4a;
-  --color-muted-foreground: #a0a0a0;
+  --color-muted: #2a2a3a;
+  --color-muted-foreground: #a8a29e;
 
   /* Mapped aliases for compatibility */
-  --color-background: #0f0f1a;
-  --color-foreground: #e0e0e0;
-  --color-card: #1a1a2e;
-  --color-card-foreground: #e0e0e0;
-  --color-ring: #6366f1;
+  --color-background: #12121a;
+  --color-foreground: #f0ebe3;
+  --color-card: #1e1e2a;
+  --color-card-foreground: #f0ebe3;
+  --color-ring: #5eaa8d;
 
-  /* Status colors */
-  --color-success: #22c55e;
-  --color-success-bg: rgba(34, 197, 94, 0.15);
-  --color-warning: #f59e0b;
-  --color-warning-bg: rgba(245, 158, 11, 0.15);
-  --color-error: #ef4444;
-  --color-error-bg: rgba(239, 68, 68, 0.15);
-  --color-info: #3b82f6;
-  --color-info-bg: rgba(59, 130, 246, 0.15);
+  /* Status colors - Softer, organic */
+  --color-success: #6bc77c;
+  --color-success-bg: rgba(107, 199, 124, 0.12);
+  --color-warning: #e9a857;
+  --color-warning-bg: rgba(233, 168, 87, 0.12);
+  --color-error: #e87070;
+  --color-error-bg: rgba(232, 112, 112, 0.12);
+  --color-info: #6ba3e8;
+  --color-info-bg: rgba(107, 163, 232, 0.12);
 
   /* Progress bar */
-  --color-progress-bg: #2a2a4e;
+  --color-progress-bg: #2a2a3a;
 
   /* Modal overlay */
-  --color-overlay: rgba(0, 0, 0, 0.8);
+  --color-overlay: rgba(0, 0, 0, 0.7);
 
   /* Session status colors */
-  --color-session-scheduled: #94a3b8;
-  --color-session-in-progress: #3b82f6;
-  --color-session-completed: #22c55e;
-  --color-session-cancelled: #ef4444;
+  --color-session-scheduled: #a8a29e;
+  --color-session-in-progress: #6ba3e8;
+  --color-session-completed: #6bc77c;
+  --color-session-cancelled: #e87070;
 
-  /* Spacing */
+  /* Game-specific colors */
+  --color-xp: #c4a7e7;
+  --color-xp-bg: rgba(196, 167, 231, 0.12);
+  --color-reputation: #f4d35e;
+  --color-reputation-bg: rgba(244, 211, 94, 0.12);
+  --color-energy-low: #e87070;
+  --color-energy-mid: #e9a857;
+  --color-energy-high: #6bc77c;
+
+  /* Spacing - generous for cozy feel */
   --spacing-xs: 0.25rem;
   --spacing-sm: 0.5rem;
   --spacing-md: 1rem;
   --spacing-lg: 1.5rem;
   --spacing-xl: 2rem;
+  --spacing-2xl: 3rem;
 
-  /* Border radius */
-  --radius-sm: 0.25rem;
-  --radius-md: 0.375rem;
-  --radius-lg: 0.5rem;
-  --radius-xl: 0.75rem;
+  /* Border radius - softer corners */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
   --radius-full: 9999px;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  /* Shadows - warmer, softer */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.15);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.25);
+  --shadow-glow-primary: 0 0 20px rgba(94, 170, 141, 0.3);
+  --shadow-glow-accent: 0 0 20px rgba(212, 163, 115, 0.3);
+  --shadow-glow-xp: 0 0 16px rgba(196, 167, 231, 0.4);
+  --shadow-glow-reputation: 0 0 16px rgba(244, 211, 94, 0.4);
 
-  /* Animation */
-  --animate-duration-fast: 150ms;
-  --animate-duration-normal: 300ms;
-  --animate-duration-slow: 500ms;
+  /* Animation timing */
+  --duration-instant: 100ms;
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
+  --duration-slower: 600ms;
+
+  /* Easing curves */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in-out-smooth: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Base styles */
 html {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-feature-settings: 'ss01' on, 'ss02' on;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -100,6 +128,22 @@ body {
   flex-direction: column;
 }
 
+/* Typography utilities */
+.font-display {
+  font-family: 'Fraunces', Georgia, serif;
+  font-optical-sizing: auto;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-feature-settings: 'tnum' on;
+}
+
+.tabular-nums {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-feature-settings: 'tnum' on;
+}
+
 /* Focus ring utility */
 .focus-ring {
   outline: none;
@@ -108,6 +152,19 @@ body {
 .focus-ring:focus-visible {
   outline: 2px solid var(--color-ring);
   outline-offset: 2px;
+}
+
+/* Transition utilities */
+.transition-spring {
+  transition-timing-function: var(--ease-out-back);
+}
+
+.transition-smooth {
+  transition-timing-function: var(--ease-in-out-smooth);
+}
+
+.transition-expo {
+  transition-timing-function: var(--ease-out-expo);
 }
 
 /* Animation utilities */
@@ -142,6 +199,123 @@ body {
   }
 }
 
+/* Enhanced modal animation */
+@keyframes modal-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Tab content transition */
+@keyframes tab-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Session pulse animation */
+@keyframes session-pulse {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.01);
+  }
+}
+
+/* Progress bar shimmer */
+@keyframes progress-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Skeleton loader shimmer */
+@keyframes skeleton-shimmer {
+  0% { background-position: -100% 0; }
+  100% { background-position: 100% 0; }
+}
+
+/* Reputation star glow pulse */
+@keyframes pulse-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 4px var(--color-reputation));
+  }
+  50% {
+    filter: drop-shadow(0 0 12px var(--color-reputation)) drop-shadow(0 0 20px var(--color-reputation));
+  }
+}
+
+/* Balance change flash */
+@keyframes balance-flash-up {
+  0% { color: var(--color-text); }
+  30% { color: var(--color-success); }
+  100% { color: var(--color-text); }
+}
+
+@keyframes balance-flash-down {
+  0% { color: var(--color-text); }
+  30% { color: var(--color-error); }
+  100% { color: var(--color-text); }
+}
+
+/* Level up celebration */
+@keyframes level-up {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 var(--color-xp);
+  }
+  50% {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 8px transparent;
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+/* Check pop for completed sessions */
+@keyframes check-pop {
+  0% { transform: scale(0); }
+  60% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+/* Burnout warning shake */
+@keyframes burnout-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-2px); }
+  40%, 80% { transform: translateX(2px); }
+}
+
+/* Toast entrance with bounce */
+@keyframes toast-enter {
+  0% {
+    opacity: 0;
+    transform: translateX(100%) scale(0.9);
+  }
+  60% {
+    transform: translateX(-10px) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+/* Utility animation classes */
 .animate-in {
   animation-fill-mode: both;
 }
@@ -170,6 +344,18 @@ body {
   animation-name: zoom-in-95;
 }
 
+.modal-enter {
+  animation: modal-enter var(--duration-normal) var(--ease-out-expo);
+}
+
+.tab-enter {
+  animation: tab-enter var(--duration-normal) var(--ease-out-expo);
+}
+
+.duration-100 {
+  animation-duration: 100ms;
+}
+
 .duration-150 {
   animation-duration: 150ms;
 }
@@ -178,6 +364,141 @@ body {
   animation-duration: 200ms;
 }
 
+.duration-250 {
+  animation-duration: 250ms;
+}
+
 .duration-300 {
   animation-duration: 300ms;
+}
+
+.duration-400 {
+  animation-duration: 400ms;
+}
+
+/* Interactive card hover effect */
+.card-interactive {
+  transition: transform var(--duration-fast) var(--ease-out-expo),
+              box-shadow var(--duration-fast) ease;
+}
+
+.card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.card-interactive:active {
+  transform: translateY(0);
+}
+
+/* Progress shimmer effect */
+.progress-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-primary) 0%,
+    var(--color-primary) 40%,
+    rgba(255, 255, 255, 0.2) 50%,
+    var(--color-primary) 60%,
+    var(--color-primary) 100%
+  );
+  background-size: 200% 100%;
+  animation: progress-shimmer 2s ease-in-out infinite;
+}
+
+/* Skeleton loader */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface) 0%,
+    var(--color-surface-hover) 50%,
+    var(--color-surface) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-md);
+}
+
+/* Session active pulse */
+.session-active::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2px solid var(--color-info);
+  opacity: 0.5;
+  animation: session-pulse 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Reputation star styling */
+.reputation-star {
+  color: var(--color-reputation);
+  animation: pulse-glow 2.5s ease-in-out infinite;
+}
+
+/* Balance change animations */
+.balance-increase {
+  animation: balance-flash-up 0.6s ease-out;
+}
+
+.balance-decrease {
+  animation: balance-flash-down 0.6s ease-out;
+}
+
+/* Level up badge animation */
+.level-up {
+  animation: level-up 0.6s var(--ease-out-back);
+}
+
+/* Completed check animation */
+.check-pop {
+  animation: check-pop 0.4s var(--ease-out-back);
+}
+
+/* Burnout warning */
+.burnout-warning {
+  animation: burnout-shake 0.5s ease-in-out;
+}
+
+/* Toast achievement with glow */
+.toast-achievement {
+  animation: toast-enter 0.5s var(--ease-out-back);
+}
+
+.toast-achievement::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background: linear-gradient(45deg, var(--color-accent), var(--color-primary));
+  border-radius: inherit;
+  z-index: -1;
+  opacity: 0.4;
+  filter: blur(8px);
+}
+
+/* Energy bar gradient utility */
+.energy-gradient {
+  background: linear-gradient(90deg,
+    var(--color-energy-low) 0%,
+    var(--color-energy-mid) 50%,
+    var(--color-energy-high) 100%
+  );
+}
+
+/* Card with accent header line */
+.card-accent-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+/* Modal backdrop blur */
+.modal-backdrop {
+  backdrop-filter: blur(4px);
+  background: var(--color-overlay);
 }

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import type { Building, Session, Therapist, Schedule } from '@/core/types'
 import { ScheduleManager, SCHEDULE_CONFIG } from '@/core/schedule'
@@ -6,7 +6,7 @@ import { OfficeManager } from '@/core/office'
 import { TimeSlot } from './TimeSlot'
 import { SessionCard } from './SessionCard'
 import { Card, Button, Badge } from '@/components/ui'
-import { ChevronLeft, ChevronRight, Calendar, User, Video, Building as BuildingIcon } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Calendar, User, Video, Building as BuildingIcon, CalendarCheck } from 'lucide-react'
 
 export interface ScheduleViewProps {
   /** Current game day */
@@ -57,6 +57,11 @@ export function ScheduleView(props: ScheduleViewProps) {
   const [viewMode, setViewMode] = useState<'therapist' | 'grid'>(
     therapists.length > 1 ? 'grid' : 'therapist'
   )
+
+  // Auto-advance to current day when the game day changes (e.g., after Day Summary)
+  useEffect(() => {
+    setViewDay(currentDay)
+  }, [currentDay])
 
   const sessionById = useMemo(() => {
     return new Map(sessions.map((s) => [s.id, s]))
@@ -157,13 +162,19 @@ export function ScheduleView(props: ScheduleViewProps) {
     )
   }
 
+  const isViewingToday = viewDay === currentDay
+  const isViewingPast = viewDay < currentDay
+
   return (
     <div className={cn('flex flex-col', className)}>
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Calendar className="w-5 h-5 text-muted-foreground" />
           <h2 className="text-lg font-semibold">Schedule</h2>
+          {isViewingPast && (
+            <Badge variant="secondary" size="sm">Past</Badge>
+          )}
         </div>
 
         {/* Day navigation */}
@@ -172,22 +183,29 @@ export function ScheduleView(props: ScheduleViewProps) {
             <ChevronLeft className="w-4 h-4" />
           </Button>
 
-          <button
-            onClick={goToToday}
-            className={cn(
-              'px-3 py-1 rounded-lg text-sm font-medium transition-colors',
-              viewDay === currentDay
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted hover:bg-muted-foreground/10'
-            )}
-          >
+          <span className={cn(
+            'min-w-[80px] text-center px-3 py-1.5 rounded-lg text-sm font-medium tabular-nums',
+            isViewingToday ? 'bg-primary/15 text-primary' : 'bg-muted'
+          )}>
             Day {viewDay}
-            {viewDay === currentDay && ' (Today)'}
-          </button>
+          </span>
 
           <Button variant="ghost" size="sm" onClick={goToNextDay}>
             <ChevronRight className="w-4 h-4" />
           </Button>
+
+          {/* Go to Today button - shown when not viewing today */}
+          {!isViewingToday && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={goToToday}
+              className="ml-2"
+            >
+              <CalendarCheck className="w-4 h-4 mr-1.5" />
+              Today
+            </Button>
+          )}
         </div>
       </div>
 

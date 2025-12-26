@@ -124,6 +124,62 @@ function calculateMaxWait(reputation: number): number {
 
 Clients arrive at practice and must be scheduled:
 
+### At-Risk Clients
+
+Clients are considered **at-risk** based on their satisfaction and engagement levels:
+
+| Risk Level | Condition | Description |
+|------------|-----------|-------------|
+| **High** | satisfaction < 40 AND engagement < 40 | Very low satisfaction and engagement |
+| **Medium** | satisfaction < 50 OR engagement < 50 | Low satisfaction or engagement |
+| **Low** | satisfaction < 60 OR engagement < 60 | Below average satisfaction or engagement |
+
+At-risk clients are highlighted in the UI and can be filtered using the clickable "At Risk" badge in WaitingListPanel.
+
+```typescript
+// ClientManager.checkDropoutRisk(client)
+function checkDropoutRisk(client: Client): { atRisk: boolean; riskLevel: 'low' | 'medium' | 'high'; reason: string } {
+  if (client.satisfaction < 40 && client.engagement < 40) {
+    return { atRisk: true, riskLevel: 'high', reason: 'Very low satisfaction and engagement' }
+  }
+  if (client.satisfaction < 50) {
+    return { atRisk: true, riskLevel: 'medium', reason: 'Low satisfaction' }
+  }
+  if (client.engagement < 50) {
+    return { atRisk: true, riskLevel: 'medium', reason: 'Low engagement' }
+  }
+  if (client.satisfaction < 60 || client.engagement < 60) {
+    return { atRisk: true, riskLevel: 'low', reason: 'Below average satisfaction or engagement' }
+  }
+  return { atRisk: false, riskLevel: 'low', reason: '' }
+}
+```
+
+### Dropout Warning Notifications
+
+The game proactively alerts players when clients are at risk of dropping out:
+
+1. **At-Risk Warning**: When a client's satisfaction/engagement falls below thresholds, a notification is shown:
+   - "Client At Risk: [Name] may leave soon. Schedule a session!"
+
+2. **Max Wait Warning**: When a client is 2 days or less from their max wait limit:
+   - "Urgent: Client Wait Limit: [Name] will leave in X days!"
+
+3. **Dropout Notification**: When a client actually leaves:
+   - "Client Left: [Name] left after waiting too long"
+
+Warnings are shown once per client (tracked internally) to avoid notification spam.
+
+**Implementation**: `src/hooks/useClientSpawning.ts` - `processWaitingList()` function
+
+### Filter UI
+
+The WaitingListPanel includes a clickable "At Risk" stat badge:
+- Shows count of at-risk clients
+- Click to toggle filter (shows only at-risk clients)
+- Click again to return to normal view
+- At-risk clients can be assigned directly from the filter view
+
 ```typescript
 interface WaitingList {
   clients: Client[];  // Sorted by arrival (FIFO)
@@ -236,6 +292,36 @@ function cureClient(client: Client) {
   showNotification(`${client.display_name} completed treatment!`);
 }
 ```
+
+### Client Success Story Celebration
+
+When a client completes treatment, a success story modal is displayed celebrating the achievement:
+
+**Display Elements**:
+- Treatment duration (first session day to last)
+- Total sessions completed
+- Average session quality with rating (Excellent/Good/Fair/Needs Improvement)
+- Final client satisfaction score
+- Condition display (formatted from category)
+- Dynamic testimonial quote based on quality and session count
+
+**Testimonial Generation**:
+- Quality descriptors: "life-changing" (≥85%), "incredibly helpful" (≥70%), "valuable" (≥55%), "helpful" (<55%)
+- Length descriptors: "focused and efficient" (≤6 sessions), "thorough" (≤10), "comprehensive" (>10)
+- Testimonial is deterministically selected using client ID character code
+
+**Quality Ratings**:
+| Average Quality | Rating | Badge Variant |
+|-----------------|--------|---------------|
+| ≥ 80% | Excellent | success |
+| ≥ 65% | Good | accent |
+| ≥ 50% | Fair | warning |
+| < 50% | Needs Improvement | error |
+
+**Implementation**:
+- Component: `src/components/game/ClientSuccessStory.tsx`
+- Trigger: `GameEvents.CLIENT_CURED` event in `src/App.tsx`
+- Animation: Sparkle effects on modal open (2 second duration)
 
 ## Client Dropout
 

@@ -109,6 +109,73 @@
   color: var(--color-text, #e0e0e0);
 }
 
+/* XP Progress Section */
+.xpSection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.xpHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.xpLabel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-text-secondary, #a0a0a0);
+}
+
+.xpValue {
+  color: var(--color-accent, #a855f7);
+  font-weight: 500;
+}
+
+.xpBar {
+  height: 8px;
+  background: var(--color-progress-bg, #2a2a4e);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.xpFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-accent, #a855f7), var(--color-primary, #6366f1));
+  border-radius: 4px;
+  transition: width 0.5s ease-out;
+  position: relative;
+}
+
+.xpFill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.2), transparent);
+  border-radius: 4px 4px 0 0;
+}
+
+.levelBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 22px;
+  background: linear-gradient(135deg, var(--color-accent, #a855f7), var(--color-primary, #6366f1));
+  color: white;
+  font-weight: 700;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  padding: 0 6px;
+}
+
 .energySection {
   display: flex;
   flex-direction: column;

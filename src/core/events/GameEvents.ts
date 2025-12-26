@@ -43,6 +43,7 @@ export const GameEvents = {
   // ==================== Reputation Events ====================
   REPUTATION_CHANGED: 'reputation_changed',
   PRACTICE_LEVEL_CHANGED: 'practice_level_changed',
+  MILESTONE_ACHIEVED: 'milestone_achieved',
 
   // ==================== Training Events ====================
   TRAINING_STARTED: 'training_started',
@@ -120,6 +121,7 @@ export interface GameEventPayloads {
   // Reputation Events
   [GameEvents.REPUTATION_CHANGED]: { oldValue: number; newValue: number; reason: string }
   [GameEvents.PRACTICE_LEVEL_CHANGED]: { oldLevel: number; newLevel: number }
+  [GameEvents.MILESTONE_ACHIEVED]: { milestoneId: string; name: string; reputationBonus: number }
 
   // Training Events
   [GameEvents.TRAINING_STARTED]: { therapistId: string; programId: string }

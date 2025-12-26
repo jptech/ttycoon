@@ -12,9 +12,9 @@ import type {
   PendingClaim,
   GameModifier,
   ActiveTraining,
-  ReputationLogEntry,
+  MilestoneId,
 } from '@/core/types'
-import { getPracticeLevelFromReputation } from '@/core/types'
+import { getPracticeLevelFromReputation, getMilestoneConfig, MILESTONES } from '@/core/types'
 import { EventBus, GameEvents } from '@/core/events'
 import { ClientManager } from '@/core/clients'
 import { SessionManager } from '@/core/session/SessionManager'
@@ -66,7 +66,14 @@ interface GameActions {
         therapist: Therapist
         client: Client
         xpGained: number
+        leveledUp: boolean
+        newLevel: number
         reputationDelta: number
+        satisfactionChange: number
+        treatmentProgressGained: number
+        progressType: 'normal' | 'breakthrough' | 'plateau' | 'regression'
+        progressDescription: string
+        paymentAmount: number
       }
     | null
 
@@ -90,12 +97,17 @@ interface GameActions {
   updatePendingClaim: (claimId: string, updates: Partial<PendingClaim>) => void
   removePendingClaim: (claimId: string) => void
   setInsuranceMultiplier: (multiplier: number) => void
+  addHiringCapacityBonus: (bonus: number) => void
 
   // Events
   addModifier: (modifier: GameModifier) => void
   removeModifier: (modifierId: string) => void
   setEventCooldown: (eventId: string, expiresDay: number) => void
   rememberDecision: (eventId: string, choiceIndex: number) => void
+
+  // Milestones
+  awardMilestone: (milestoneId: MilestoneId) => boolean
+  checkAndAwardMilestones: () => MilestoneId[]
 
   // Training
   addActiveTraining: (training: ActiveTraining) => void
@@ -156,10 +168,16 @@ const createInitialState = (practiceName: string): GameState => ({
   // Insurance
   activePanels: [],
 
+  // Clinic bonuses (from business training)
+  hiringCapacityBonus: 0,
+
   // Events
   eventCooldowns: {},
   activeModifiers: [],
   rememberedDecisions: {},
+
+  // Milestones
+  achievedMilestones: [],
 
   // Settings
   autoResolveSessions: false,
@@ -523,12 +541,27 @@ export const useGameStore = create<GameStore>()(
           })
         }
 
+        // Emit therapist level-up event if applicable
+        if (result.leveledUp) {
+          EventBus.emit(GameEvents.THERAPIST_LEVELED_UP, {
+            therapistId: result.therapist.id,
+            newLevel: result.newLevel,
+          })
+        }
+
         return {
           session: result.session,
           therapist: result.therapist,
           client: result.client,
           xpGained: result.xpGained,
+          leveledUp: result.leveledUp,
+          newLevel: result.newLevel,
           reputationDelta,
+          satisfactionChange: result.satisfactionChange,
+          treatmentProgressGained: result.treatmentProgressGained,
+          progressType: result.progressType,
+          progressDescription: result.progressDescription,
+          paymentAmount: result.paymentAmount,
         }
       },
 
@@ -783,6 +816,12 @@ export const useGameStore = create<GameStore>()(
         })
       },
 
+      addHiringCapacityBonus: (bonus) => {
+        set((state) => {
+          state.hiringCapacityBonus += bonus
+        })
+      },
+
       // ==================== Events ====================
       addModifier: (modifier) => {
         set((state) => {
@@ -806,6 +845,99 @@ export const useGameStore = create<GameStore>()(
         set((state) => {
           state.rememberedDecisions[eventId] = choiceIndex
         })
+      },
+
+      // ==================== Milestones ====================
+      awardMilestone: (milestoneId) => {
+        const snapshot = get()
+        if (snapshot.achievedMilestones.includes(milestoneId)) {
+          return false // Already achieved
+        }
+
+        const config = getMilestoneConfig(milestoneId)
+        if (!config) return false
+
+        set((state) => {
+          state.achievedMilestones.push(milestoneId)
+        })
+
+        // Award reputation bonus
+        get().addReputation(config.reputationBonus, `Milestone: ${config.name}`)
+
+        EventBus.emit(GameEvents.MILESTONE_ACHIEVED, {
+          milestoneId,
+          name: config.name,
+          reputationBonus: config.reputationBonus,
+        })
+
+        return true
+      },
+
+      checkAndAwardMilestones: () => {
+        const snapshot = get()
+        const awarded: MilestoneId[] = []
+        const completed = snapshot.sessions.filter((s) => s.status === 'completed').length
+        const curedClients = snapshot.clients.filter((c) => c.status === 'completed').length
+        const employees = snapshot.therapists.filter((t) => !t.isPlayer).length
+
+        // Check each milestone
+        for (const milestone of MILESTONES) {
+          if (snapshot.achievedMilestones.includes(milestone.id)) continue
+
+          let shouldAward = false
+
+          switch (milestone.id) {
+            case 'first_session_completed':
+              shouldAward = completed >= 1
+              break
+            case 'first_week_completed':
+              shouldAward = snapshot.currentDay >= 8
+              break
+            case 'first_client_cured':
+              shouldAward = curedClients >= 1
+              break
+            case 'first_employee_hired':
+              shouldAward = employees >= 1
+              break
+            case 'sessions_10_completed':
+              shouldAward = completed >= 10
+              break
+            case 'sessions_25_completed':
+              shouldAward = completed >= 25
+              break
+            case 'sessions_50_completed':
+              shouldAward = completed >= 50
+              break
+            case 'sessions_100_completed':
+              shouldAward = completed >= 100
+              break
+            case 'clients_5_cured':
+              shouldAward = curedClients >= 5
+              break
+            case 'clients_10_cured':
+              shouldAward = curedClients >= 10
+              break
+            case 'practice_level_2':
+              shouldAward = snapshot.practiceLevel >= 2
+              break
+            case 'practice_level_3':
+              shouldAward = snapshot.practiceLevel >= 3
+              break
+            case 'practice_level_4':
+              shouldAward = snapshot.practiceLevel >= 4
+              break
+            case 'practice_level_5':
+              shouldAward = snapshot.practiceLevel >= 5
+              break
+          }
+
+          if (shouldAward) {
+            const didAward = get().awardMilestone(milestone.id)
+            if (didAward) awarded.push(milestone.id)
+          }
+        }
+
+        return awarded
       },
 
       // ==================== Training ====================
@@ -901,6 +1033,7 @@ export const useGameStore = create<GameStore>()(
           // Reputation
           reputation,
           practiceLevel,
+          reputationLog,
           // Entities
           therapists,
           clients,
@@ -915,10 +1048,14 @@ export const useGameStore = create<GameStore>()(
           telehealthUnlocked,
           // Insurance
           activePanels,
+          // Clinic bonuses
+          hiringCapacityBonus,
           // Events
           eventCooldowns,
           activeModifiers,
           rememberedDecisions,
+          // Milestones
+          achievedMilestones,
           // Settings
           autoResolveSessions,
           soundEnabled,
@@ -939,6 +1076,7 @@ export const useGameStore = create<GameStore>()(
           transactionHistory,
           reputation,
           practiceLevel,
+          reputationLog,
           therapists,
           clients,
           sessions,
@@ -948,9 +1086,11 @@ export const useGameStore = create<GameStore>()(
           currentBuildingId,
           telehealthUnlocked,
           activePanels,
+          hiringCapacityBonus,
           eventCooldowns,
           activeModifiers,
           rememberedDecisions,
+          achievedMilestones,
           autoResolveSessions,
           soundEnabled,
           musicEnabled,

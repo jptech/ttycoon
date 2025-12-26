@@ -3,37 +3,33 @@ import { useGameStore, useUIStore } from '@/store'
 import { useTrainingProcessor } from '@/hooks'
 import { cn } from '@/lib/utils'
 import { ScheduleView } from './ScheduleView'
-import { WaitingListPanel } from './WaitingListPanel'
 import { BookingDashboard } from './BookingDashboard'
-import { TherapistPanel } from './TherapistPanel'
-import { EconomyPanel } from './EconomyPanel'
+import { PeoplePanel } from './PeoplePanel'
+import { PracticePanel } from './PracticePanel'
 import { OfficePanel } from './OfficePanel'
-import { InsurancePanelView } from './InsurancePanelView'
-import { SessionHistoryPanel } from './SessionHistoryPanel'
 import { RandomEventModal } from './RandomEventModal'
 import { DecisionEventModal } from './DecisionEventModal'
 import { BookingModal } from './BookingModal'
 import { ManageBookingModal } from './ManageBookingModal'
 import { TrainingModal } from './TrainingModal'
-import { BUILDINGS, getBuilding, INSURANCE_PANELS } from '@/data'
+import { BUILDINGS, getBuilding } from '@/data'
 import { InsuranceManager } from '@/core/insurance'
+import { INSURANCE_PANELS } from '@/data'
 import { OfficeManager, OFFICE_CONFIG } from '@/core/office'
 import { ScheduleManager } from '@/core/schedule'
 import { canBookSessionType } from '@/core/schedule/BookingConstraints'
 import type { Session, RandomEvent, DecisionEvent } from '@/core/types'
+import { getMilestoneConfig, getPracticeLevelConfig } from '@/core/types'
 import {
   Calendar,
   CalendarPlus,
   Users,
-  UserCheck,
-  DollarSign,
+  Briefcase,
   Building2,
-  Shield,
-  History,
 } from 'lucide-react'
 import styles from './GameView.module.css'
 
-type TabId = 'schedule' | 'history' | 'booking' | 'clients' | 'team' | 'finances' | 'office' | 'insurance'
+type TabId = 'today' | 'booking' | 'people' | 'practice' | 'office'
 
 interface Tab {
   id: TabId
@@ -42,14 +38,11 @@ interface Tab {
 }
 
 const TABS: Tab[] = [
-  { id: 'schedule', label: 'Schedule', icon: <Calendar className="w-4 h-4" /> },
-  { id: 'history', label: 'Sessions', icon: <History className="w-4 h-4" /> },
-  { id: 'booking', label: 'Booking', icon: <CalendarPlus className="w-4 h-4" /> },
-  { id: 'clients', label: 'Clients', icon: <Users className="w-4 h-4" /> },
-  { id: 'team', label: 'Team', icon: <UserCheck className="w-4 h-4" /> },
-  { id: 'finances', label: 'Finances', icon: <DollarSign className="w-4 h-4" /> },
+  { id: 'today', label: 'Today', icon: <Calendar className="w-4 h-4" /> },
+  { id: 'booking', label: 'Book', icon: <CalendarPlus className="w-4 h-4" /> },
+  { id: 'people', label: 'People', icon: <Users className="w-4 h-4" /> },
+  { id: 'practice', label: 'Practice', icon: <Briefcase className="w-4 h-4" /> },
   { id: 'office', label: 'Office', icon: <Building2 className="w-4 h-4" /> },
-  { id: 'insurance', label: 'Insurance', icon: <Shield className="w-4 h-4" /> },
 ]
 
 export interface GameViewProps {
@@ -75,7 +68,7 @@ export function GameView({
   onDecisionChoice,
   className,
 }: GameViewProps) {
-  const [activeTab, setActiveTab] = useState<TabId>('schedule')
+  const [activeTab, setActiveTab] = useState<TabId>('today')
   const [selectedTherapistId, setSelectedTherapistId] = useState<string | null>(null)
   const [bookingSlot, setBookingSlot] = useState<{ day: number; hour: number; therapistId: string } | null>(null)
   const [trainingTherapistId, setTrainingTherapistId] = useState<string | null>(null)
@@ -101,6 +94,7 @@ export function GameView({
     telehealthUnlocked,
     activePanels,
     insuranceMultiplier,
+    hiringCapacityBonus,
   } = useGameStore()
 
   // Store actions
@@ -117,6 +111,7 @@ export function GameView({
     unlockTelehealth,
     addInsurancePanel,
     removeInsurancePanel,
+    checkAndAwardMilestones,
   } = useGameStore()
 
   const { addNotification } = useUIStore()
@@ -333,6 +328,19 @@ export function GameView({
   // Handle therapist hire
   const handleHire = useCallback(
     (therapist: typeof therapists[0], cost: number) => {
+      // Check hiring capacity
+      const levelConfig = getPracticeLevelConfig(practiceLevel)
+      const maxTherapists = levelConfig.staffCap + hiringCapacityBonus
+
+      if (therapists.length >= maxTherapists) {
+        addNotification({
+          type: 'error',
+          title: 'Cannot Hire',
+          message: `Staff capacity reached (${therapists.length}/${maxTherapists}). Increase reputation or complete Leadership training.`,
+        })
+        return
+      }
+
       if (removeMoney(cost, 'Hiring bonus')) {
         addTherapist(therapist)
         addNotification({
@@ -340,9 +348,22 @@ export function GameView({
           title: 'Therapist Hired',
           message: `${therapist.displayName} has joined your practice!`,
         })
+
+        // Check for milestone achievements (e.g., first_employee_hired)
+        const awarded = checkAndAwardMilestones()
+        awarded.forEach((milestoneId) => {
+          const config = getMilestoneConfig(milestoneId)
+          if (config) {
+            addNotification({
+              type: 'success',
+              title: 'Milestone Achieved!',
+              message: `${config.name}: +${config.reputationBonus} reputation`,
+            })
+          }
+        })
       }
     },
-    [removeMoney, addTherapist, addNotification]
+    [removeMoney, addTherapist, addNotification, checkAndAwardMilestones, practiceLevel, hiringCapacityBonus, therapists.length]
   )
 
   // Handle building upgrade
@@ -463,7 +484,7 @@ export function GameView({
   // Render active tab content
   const renderContent = () => {
     switch (activeTab) {
-      case 'schedule':
+      case 'today':
         return (
           <ScheduleView
             currentDay={currentDay}
@@ -477,15 +498,6 @@ export function GameView({
             onTherapistSelect={setSelectedTherapistId}
             onSlotClick={handleSlotClick}
             onSessionClick={handleSessionClick}
-          />
-        )
-
-      case 'history':
-        return (
-          <SessionHistoryPanel
-            sessions={sessions}
-            therapists={therapists}
-            currentDay={currentDay}
           />
         )
 
@@ -505,35 +517,37 @@ export function GameView({
           />
         )
 
-      case 'clients':
+      case 'people': {
+        const levelConfig = getPracticeLevelConfig(practiceLevel)
+        const maxTherapists = levelConfig.staffCap + hiringCapacityBonus
         return (
-          <WaitingListPanel
+          <PeoplePanel
             clients={clients}
-            therapists={therapists}
-          />
-        )
-
-      case 'team':
-        return (
-          <TherapistPanel
             therapists={therapists}
             activeTrainings={activeTrainings}
             currentBalance={balance}
             practiceLevel={practiceLevel}
+            maxTherapists={maxTherapists}
             onHire={handleHire}
             onStartTraining={(therapistId) => setTrainingTherapistId(therapistId)}
           />
         )
+      }
 
-      case 'finances':
+      case 'practice':
         return (
-          <EconomyPanel
+          <PracticePanel
             balance={balance}
             pendingClaims={pendingClaims}
             therapists={therapists}
             transactions={transactionHistory.slice(-20)}
             currentBuildingId={currentBuildingId}
             currentDay={currentDay}
+            activePanels={activePanels}
+            reputation={reputation}
+            insuranceMultiplier={insuranceMultiplier}
+            onApplyToPanel={handleApplyToPanel}
+            onDropPanel={handleDropPanel}
           />
         )
 
@@ -549,22 +563,6 @@ export function GameView({
             telehealthUnlocked={telehealthUnlocked}
             onUpgrade={handleUpgradeBuilding}
             onUnlockTelehealth={handleUnlockTelehealth}
-          />
-        )
-
-      case 'insurance':
-        return (
-          <InsurancePanelView
-            panels={INSURANCE_PANELS}
-            activePanels={activePanels}
-            pendingApplications={[]}
-            pendingClaims={pendingClaims}
-            reputation={reputation}
-            currentBalance={balance}
-            insuranceMultiplier={insuranceMultiplier}
-            currentDay={currentDay}
-            onApply={handleApplyToPanel}
-            onDrop={handleDropPanel}
           />
         )
 

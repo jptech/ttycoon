@@ -16,11 +16,11 @@ Levels unlock features and staff capacity:
 
 | Level | Name | Rep Required | Staff Cap | Key Unlocks |
 |-------|------|--------------|-----------|-------------|
-| 1 | Starting Practice | 0 | 1 | Base gameplay (solo only) |
-| 2 | Established | 50 | 2+ | Hiring, Training programs |
-| 3 | Growing | 125 | 3+ | Better hiring pool, Advanced training |
-| 4 | Respected | 250 | 4+ | Large office access, Premium insurance |
-| 5 | Premier | 400 | 5+ | All features unlocked, highest prestige |
+| 1 | Starting Practice | 0 | 1 | Solo practice, Basic scheduling |
+| 2 | Established | 50 | 2 | Hire 1st employee, Basic training programs |
+| 3 | Growing | 125 | 3 | Hire 2nd employee, Advanced training, Telehealth |
+| 4 | Respected | 250 | 4 | Premium insurance panels, Large office, Hire 3rd+ staff |
+| 5 | Premier | 400 | 5 | All features unlocked, Prestige bonuses |
 
 **Implementation**: `src/core/types/state.ts` - `PRACTICE_LEVELS`
 
@@ -43,6 +43,20 @@ const REPUTATION_BY_QUALITY = {
 **Implementation**: `src/core/reputation/ReputationManager.ts` - `getSessionReputationDelta(quality)`
 
 Awarded directly in `src/store/gameStore.ts` when `completeSession()` resolves.
+
+### Early Game Quality Buffer
+
+New practices get a quality bonus to ensure more dependable early progression:
+
+| Days | Quality Bonus | Description |
+|------|---------------|-------------|
+| 1-7  | +0.10 | "New practice enthusiasm" |
+| 8-14 | +0.05 | "Building momentum" |
+| 15+  | 0 | Normal gameplay |
+
+This shifts typical early-game sessions from "fair" (0.65) to "good" (0.75+), ensuring +2 rep minimum.
+
+**Implementation**: `src/App.tsx` - `handleSessionStart()` adds `early_game_buffer` modifier
 
 ### Client Treatment Completion
 
@@ -76,6 +90,44 @@ Awarded in `src/hooks/useTrainingProcessor.ts` when training completes.
 Random events can award or penalize reputation (-3 to +8 per event, ~30% daily chance).
 
 **Implementation**: `src/data/randomEvents.ts` - event `effects.reputation`
+
+### Milestone Bonuses
+
+One-time reputation bonuses awarded for key achievements:
+
+| Milestone | Bonus | Trigger |
+|-----------|-------|---------|
+| First Session | +5 | Complete your first therapy session |
+| First Week | +10 | Reach Day 8 |
+| First Cure | +10 | Complete treatment for a client (on top of standard +5) |
+| First Hire | +15 | Hire your first employee therapist |
+| 10 Sessions | +10 | Complete 10 therapy sessions |
+| 25 Sessions | +15 | Complete 25 therapy sessions |
+| 50 Sessions | +20 | Complete 50 therapy sessions |
+| Century Club | +30 | Complete 100 therapy sessions |
+| 5 Success Stories | +15 | Complete treatment for 5 clients |
+| 10 Success Stories | +25 | Complete treatment for 10 clients |
+| Growing Practice | +10 | Reach practice level 2 |
+| Established Practice | +15 | Reach practice level 3 |
+| Thriving Practice | +20 | Reach practice level 4 |
+| Premier Practice | +30 | Reach the highest practice level (5) |
+
+Milestones provide dependable reputation boosts during early game progression and reward key achievements.
+
+### Milestone Celebration
+
+When a milestone is achieved, a celebration toast appears:
+- Centered modal with trophy icon and glowing effect
+- Shows milestone name, description, and reputation bonus
+- Auto-dismisses after 6 seconds or can be clicked to dismiss
+- Sparkle and star animations for visual polish
+
+**Implementation**:
+- `src/core/types/state.ts` - `MILESTONES`, `MilestoneId`, `getMilestoneConfig()`
+- `src/store/gameStore.ts` - `awardMilestone()`, `checkAndAwardMilestones()`
+- `src/core/events/GameEvents.ts` - `MILESTONE_ACHIEVED` event
+- `src/components/game/AchievementToast.tsx` - Celebration UI component
+- `src/App.tsx` - Milestone event listener and celebration display
 
 ## Reputation Losses
 
@@ -163,6 +215,12 @@ EventBus.emit(GameEvents.REPUTATION_CHANGED, {
 EventBus.emit(GameEvents.PRACTICE_LEVEL_CHANGED, {
   oldLevel: PracticeLevel,
   newLevel: PracticeLevel,
+})
+
+EventBus.emit(GameEvents.MILESTONE_ACHIEVED, {
+  milestoneId: string,
+  name: string,
+  reputationBonus: number,
 })
 ```
 

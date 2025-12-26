@@ -14,6 +14,7 @@ export interface TherapistPanelProps {
   onTakeBreak?: (therapistId: string) => void
   onViewDetails?: (therapistId: string) => void
   practiceLevel?: number
+  maxTherapists?: number
 }
 
 type ViewMode = 'roster' | 'hiring'
@@ -27,6 +28,7 @@ export function TherapistPanel({
   onTakeBreak,
   onViewDetails,
   practiceLevel = 1,
+  maxTherapists,
 }: TherapistPanelProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('roster')
   const [hiringCandidates, setHiringCandidates] = useState<ReturnType<typeof TherapistManager.generateTherapist>[]>([])
@@ -138,6 +140,14 @@ export function TherapistPanel({
       {viewMode === 'hiring' && (
         <div className={styles.hiringSection}>
           <div className={styles.hiringHeader}>
+            {maxTherapists !== undefined && (
+              <p className={styles.capacityInfo}>
+                Staff: {therapists.length}/{maxTherapists}
+                {therapists.length >= maxTherapists && (
+                  <span className={styles.atCapacity}> (At capacity)</span>
+                )}
+              </p>
+            )}
             <p className={styles.hiringInfo}>
               Available candidates (refresh to see new options):
             </p>

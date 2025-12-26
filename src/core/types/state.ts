@@ -56,10 +56,16 @@ export interface GameState {
   // Insurance
   activePanels: InsurerId[]
 
+  // Clinic bonuses (from business training)
+  hiringCapacityBonus: number // Extra therapists that can be hired beyond base level cap
+
   // Events
   eventCooldowns: Record<string, number> // eventId -> day when cooldown expires
   activeModifiers: GameModifier[]
   rememberedDecisions: Record<string, number> // eventId -> choiceIndex
+
+  // Milestones
+  achievedMilestones: MilestoneId[]
 
   // Settings
   autoResolveSessions: boolean
@@ -83,6 +89,132 @@ export interface ReputationLogEntry {
 }
 
 /**
+ * Milestone types for one-time reputation bonuses
+ */
+export type MilestoneId =
+  | 'first_session_completed'
+  | 'first_week_completed'
+  | 'first_client_cured'
+  | 'first_employee_hired'
+  | 'sessions_10_completed'
+  | 'sessions_25_completed'
+  | 'sessions_50_completed'
+  | 'sessions_100_completed'
+  | 'clients_5_cured'
+  | 'clients_10_cured'
+  | 'practice_level_2'
+  | 'practice_level_3'
+  | 'practice_level_4'
+  | 'practice_level_5'
+
+/**
+ * Milestone configuration
+ */
+export interface MilestoneConfig {
+  id: MilestoneId
+  name: string
+  description: string
+  reputationBonus: number
+}
+
+/**
+ * All available milestones
+ */
+export const MILESTONES: MilestoneConfig[] = [
+  {
+    id: 'first_session_completed',
+    name: 'First Session',
+    description: 'Complete your first therapy session',
+    reputationBonus: 5,
+  },
+  {
+    id: 'first_week_completed',
+    name: 'First Week',
+    description: 'Complete your first week of practice',
+    reputationBonus: 10,
+  },
+  {
+    id: 'first_client_cured',
+    name: 'First Cure',
+    description: 'Successfully complete treatment for a client',
+    reputationBonus: 10,
+  },
+  {
+    id: 'first_employee_hired',
+    name: 'First Hire',
+    description: 'Hire your first employee therapist',
+    reputationBonus: 15,
+  },
+  {
+    id: 'sessions_10_completed',
+    name: '10 Sessions',
+    description: 'Complete 10 therapy sessions',
+    reputationBonus: 10,
+  },
+  {
+    id: 'sessions_25_completed',
+    name: '25 Sessions',
+    description: 'Complete 25 therapy sessions',
+    reputationBonus: 15,
+  },
+  {
+    id: 'sessions_50_completed',
+    name: '50 Sessions',
+    description: 'Complete 50 therapy sessions',
+    reputationBonus: 20,
+  },
+  {
+    id: 'sessions_100_completed',
+    name: 'Century Club',
+    description: 'Complete 100 therapy sessions',
+    reputationBonus: 30,
+  },
+  {
+    id: 'clients_5_cured',
+    name: '5 Success Stories',
+    description: 'Successfully complete treatment for 5 clients',
+    reputationBonus: 15,
+  },
+  {
+    id: 'clients_10_cured',
+    name: '10 Success Stories',
+    description: 'Successfully complete treatment for 10 clients',
+    reputationBonus: 25,
+  },
+  {
+    id: 'practice_level_2',
+    name: 'Growing Practice',
+    description: 'Reach practice level 2',
+    reputationBonus: 10,
+  },
+  {
+    id: 'practice_level_3',
+    name: 'Established Practice',
+    description: 'Reach practice level 3',
+    reputationBonus: 15,
+  },
+  {
+    id: 'practice_level_4',
+    name: 'Thriving Practice',
+    description: 'Reach practice level 4',
+    reputationBonus: 20,
+  },
+  {
+    id: 'practice_level_5',
+    name: 'Premier Practice',
+    description: 'Reach the highest practice level',
+    reputationBonus: 30,
+  },
+]
+
+/**
+ * Get milestone config by ID
+ */
+export function getMilestoneConfig(id: MilestoneId): MilestoneConfig | undefined {
+  return MILESTONES.find((m) => m.id === id)
+}
+
+/**
  * Practice level configuration
  */
 export interface PracticeLevelConfig {
@@ -99,35 +231,35 @@ export const PRACTICE_LEVELS: PracticeLevelConfig[] = [
     name: 'Starting Practice',
     minReputation: 0,
     staffCap: 1,
-    unlocks: ['Base gameplay (solo only)'],
+    unlocks: ['Solo practice', 'Basic scheduling'],
   },
   {
     level: 2,
     name: 'Established',
     minReputation: 50,
     staffCap: 2,
-    unlocks: ['Hiring', 'Training'],
+    unlocks: ['Hire 1st employee', 'Basic training programs'],
   },
   {
     level: 3,
     name: 'Growing',
     minReputation: 125,
     staffCap: 3,
-    unlocks: ['Better hiring pool', 'More training options'],
+    unlocks: ['Hire 2nd employee', 'Advanced training', 'Telehealth'],
   },
   {
     level: 4,
     name: 'Respected',
     minReputation: 250,
     staffCap: 4,
-    unlocks: ['Large office access', 'Premium insurance panels'],
+    unlocks: ['Premium insurance panels', 'Large office', 'Hire 3rd+ staff'],
   },
   {
     level: 5,
     name: 'Premier',
     minReputation: 400,
     staffCap: 5,
-    unlocks: ['All features unlocked', 'Unlimited staff'],
+    unlocks: ['All features unlocked', 'Prestige bonuses'],
   },
 ]
 

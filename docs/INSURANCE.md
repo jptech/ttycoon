@@ -174,6 +174,106 @@ function processInsuranceSession(session: Session): void {
 }
 ```
 
+## Denial Reasons
+
+When a claim is denied, a specific reason is provided. Each reason has different appeal success rates:
+
+| Reason | Description | Appeal Success Rate |
+|--------|-------------|---------------------|
+| **Coding Error** | Incorrect billing code submitted | 85% |
+| **Insufficient Documentation** | Session notes didn't meet requirements | 70% |
+| **Medical Necessity** | Treatment not deemed necessary | 40% |
+| **Prior Auth Required** | Pre-approval was not obtained | 30% |
+| **Session Limit Exceeded** | Client reached annual limit | 20% |
+| **Out of Network** | Provider not in network | 10% |
+
+### Denial Reason Distribution
+
+Reasons are weighted by likelihood:
+- Insufficient Documentation: 30%
+- Medical Necessity: 25%
+- Coding Error: 20%
+- Session Limit Exceeded: 10%
+- Prior Authorization Required: 10%
+- Out of Network: 5%
+
+### Implementation
+
+```typescript
+// Get denial reason details
+const details = InsuranceManager.getDenialReasonDetails('coding_error')
+// Returns: { label: 'Coding Error', description: '...', appealSuccessRate: 0.85 }
+
+// When a claim is denied, it includes:
+interface ClaimResolution {
+  claimId: string
+  paid: boolean
+  amount: number
+  denied: boolean
+  denialReason?: DenialReason    // Specific reason
+  appealDeadlineDay?: number     // Days to appeal
+}
+```
+
+## Appeal System
+
+Denied claims can be appealed within a limited window:
+
+### Configuration
+
+```typescript
+// INSURANCE_CONFIG
+APPEAL_WINDOW_DAYS: 14,       // Days to submit appeal
+APPEAL_PROCESSING_DAYS: 7,    // Days to process appeal
+APPEAL_SUCCESS_RATE: 0.5,     // Base success rate (overridden by reason)
+```
+
+### Appeal Flow
+
+1. **Denial Occurs**: Claim is denied with specific reason, appeal deadline set
+2. **Player Reviews**: Can see denial reason and appeal success chance
+3. **Submit Appeal**: If within deadline, player can appeal
+4. **Processing**: Appeal takes 7 days to process
+5. **Resolution**: Appeal approved (payment issued) or rejected (final denial)
+
+### Implementation
+
+```typescript
+// Check if claim can be appealed
+const check = InsuranceManager.canAppealClaim(claim, currentDay)
+if (check.canAppeal) {
+  const result = InsuranceManager.submitAppeal(claim, currentDay)
+  if (result.success) {
+    // Update claim status to 'appealed'
+    // Payment will be processed on result.newPaymentDay if approved
+  }
+}
+
+// Process appeals at day start
+const { approvedAppeals, rejectedAppeals, remainingClaims } =
+  InsuranceManager.processAppeals(claims, currentDay)
+
+// Handle results
+for (const approved of approvedAppeals) {
+  addMoney(approved.amount, 'Appeal approved')
+}
+```
+
+### Appeal Success Factors
+
+Appeal success is primarily determined by denial reason:
+
+- **Easy to Fix** (high success): Coding errors, documentation issues
+- **Subjective** (medium): Medical necessity disputes
+- **Policy Limits** (low): Session limits, network restrictions
+
+### Player Strategy
+
+- **Coding Errors**: Almost always appeal - 85% success rate
+- **Documentation Issues**: Worth appealing - 70% success rate
+- **Medical Necessity**: Consider based on amount - 40% success rate
+- **Policy Limits**: Rarely worth the wait - 20% or less
+
 ## Pending Payments
 
 Track insurance claims awaiting payment:

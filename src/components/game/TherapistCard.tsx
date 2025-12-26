@@ -108,17 +108,29 @@ export function TherapistCard({
       <div className={styles.stats}>
         <div className={styles.stat}>
           <span className={styles.statLabel}>Level</span>
-          <span className={styles.statValue}>{therapist.level}</span>
+          <span className={styles.levelBadge}>{therapist.level}</span>
         </div>
         <div className={styles.stat}>
           <span className={styles.statLabel}>Skill</span>
           <span className={styles.statValue}>{therapist.baseSkill}</span>
         </div>
-        <div className={styles.stat}>
-          <span className={styles.statLabel}>XP</span>
-          <span className={styles.statValue}>
-            {therapist.xp}/{TherapistManager.getXpForLevel(therapist.level + 1)}
+      </div>
+
+      {/* XP Progress Bar */}
+      <div className={styles.xpSection}>
+        <div className={styles.xpHeader}>
+          <span className={styles.xpLabel}>XP Progress</span>
+          <span className={styles.xpValue}>
+            {therapist.xp} / {TherapistManager.getXpForLevel(therapist.level + 1)}
           </span>
+        </div>
+        <div className={styles.xpBar}>
+          <div
+            className={styles.xpFill}
+            style={{
+              width: `${(therapist.xp / TherapistManager.getXpForLevel(therapist.level + 1)) * 100}%`,
+            }}
+          />
         </div>
       </div>
 

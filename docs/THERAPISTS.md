@@ -243,6 +243,43 @@ function getTrainingXP(training: TrainingProgram): number {
 }
 ```
 
+### XP Progress Visualization
+
+The TherapistCard displays a visual XP progress bar:
+
+**Display Elements**:
+- Level badge with gradient background
+- XP progress bar (current XP / XP needed for next level)
+- Smooth animated fill on XP gain
+
+**Level Calculation**:
+```typescript
+// Level formula: floor(sqrt(xp / 10)) + 1
+// Level 1: 0 XP, Level 2: 10 XP, Level 3: 40 XP, Level 4: 90 XP...
+calculateLevel(xp: number): number {
+  return Math.floor(Math.sqrt(xp / 10)) + 1;
+}
+```
+
+### Level-Up Celebration
+
+When a therapist levels up, a celebratory toast appears:
+
+**Toast Elements**:
+- Animated entrance from bottom
+- Gradient purple/indigo background
+- Bounce animation on level icon
+- Sparkle decorations
+- Shows therapist name and new level
+- "+1 Skill Bonus" note
+
+**Trigger**: `GameEvents.THERAPIST_LEVELED_UP` event emitted on session completion when XP crosses level threshold.
+
+**Implementation**:
+- Component: `src/components/game/LevelUpToast.tsx`
+- Event listener in: `src/App.tsx`
+- Auto-dismisses after 5 seconds
+
 ## Specializations
 
 Therapists can develop expertise in specific areas:
@@ -406,28 +443,48 @@ interface TherapistPanel {
 
 ## Staff Capacity
 
-Limited by practice level + training bonuses:
+Limited by practice level + training bonuses. **Hiring is blocked when capacity is reached.**
+
+### Base Caps by Practice Level
+
+| Level | Base Staff Cap |
+|-------|---------------|
+| 1 | 1 |
+| 2 | 2 |
+| 3 | 3 |
+| 4 | 4 |
+| 5 | 5 |
+
+### Implementation
 
 ```typescript
-function getStaffCap(): number {
-  const baseCapByLevel = {
-    1: 1,
-    2: 5,
-    3: 5,
-    4: 5,
-    5: 8
-  };
+function getMaxTherapists(): number {
+  const levelConfig = getPracticeLevelConfig(practiceLevel)
+  return levelConfig.staffCap + hiringCapacityBonus
+}
 
-  let cap = baseCapByLevel[practiceLevel];
+// Hiring enforcement (in GameView.tsx handleHire)
+const maxTherapists = levelConfig.staffCap + hiringCapacityBonus
 
-  // Training bonuses
-  const trainingBonus = completedTrainingPrograms
-    .filter(t => t.grants_clinic_bonus?.hiring_capacity)
-    .reduce((sum, t) => sum + (t.grants_clinic_bonus?.hiring_capacity || 0), 0);
-
-  return cap + trainingBonus;
+if (therapists.length >= maxTherapists) {
+  addNotification({
+    type: 'error',
+    title: 'Cannot Hire',
+    message: `Staff capacity reached (${therapists.length}/${maxTherapists}). Increase reputation or complete Leadership training.`,
+  })
+  return
 }
 ```
+
+### State
+
+- `hiringCapacityBonus: number` — Stored in `GameState`, increased by Leadership training
+- Displayed in UI: "Staff: 3/5 (At capacity)" in TherapistPanel hiring view
+
+### Increasing Capacity
+
+1. **Level up practice** — Reach higher reputation milestones (Level 2 unlocks hiring, Level 5 increases cap to 8)
+2. **Complete Leadership training** — Business track training grants `hiring_capacity` bonus
 
 ## Events Emitted
 

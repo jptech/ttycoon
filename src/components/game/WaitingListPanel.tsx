@@ -11,7 +11,7 @@ export interface WaitingListPanelProps {
   onViewClient?: (clientId: string) => void
 }
 
-type ViewMode = 'waiting' | 'active' | 'history'
+type ViewMode = 'waiting' | 'active' | 'history' | 'at_risk'
 type SortBy = 'priority' | 'arrival' | 'severity' | 'name'
 
 export function WaitingListPanel({
@@ -40,12 +40,15 @@ export function WaitingListPanel({
       case 'history':
         filtered = clients.filter((c) => c.status === 'completed' || c.status === 'dropped')
         break
+      case 'at_risk':
+        filtered = atRiskClients
+        break
     }
 
     // Sort
     switch (sortBy) {
       case 'priority':
-        if (viewMode === 'waiting') {
+        if (viewMode === 'waiting' || viewMode === 'at_risk') {
           return ClientManager.getWaitingClientsPrioritized(filtered)
         }
         return filtered.sort((a, b) => b.satisfaction - a.satisfaction)
@@ -91,10 +94,14 @@ export function WaitingListPanel({
           <span className={styles.statLabel}>Dropped</span>
         </div>
         {atRiskClients.length > 0 && (
-          <div className={`${styles.stat} ${styles.statWarning}`}>
+          <button
+            className={`${styles.stat} ${styles.statWarning} ${styles.statClickable} ${viewMode === 'at_risk' ? styles.statActive : ''}`}
+            onClick={() => setViewMode(viewMode === 'at_risk' ? 'waiting' : 'at_risk')}
+            title="Click to filter at-risk clients"
+          >
             <span className={styles.statValue}>{atRiskClients.length}</span>
             <span className={styles.statLabel}>At Risk</span>
-          </div>
+          </button>
         )}
       </div>
 
@@ -142,14 +149,15 @@ export function WaitingListPanel({
             {viewMode === 'waiting' && 'No clients waiting'}
             {viewMode === 'active' && 'No active clients'}
             {viewMode === 'history' && 'No client history'}
+            {viewMode === 'at_risk' && 'No at-risk clients'}
           </div>
         ) : (
           filteredClients.map((client) => (
             <ClientCard
               key={client.id}
               client={client}
-              therapists={viewMode === 'waiting' ? therapists : []}
-              onAssign={viewMode === 'waiting' ? onAssignClient : undefined}
+              therapists={(viewMode === 'waiting' || viewMode === 'at_risk') ? therapists : []}
+              onAssign={(viewMode === 'waiting' || viewMode === 'at_risk') ? onAssignClient : undefined}
               onViewDetails={onViewClient}
               compact={showCompact}
             />

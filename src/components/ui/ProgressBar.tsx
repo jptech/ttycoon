@@ -7,13 +7,15 @@ export interface ProgressBarProps extends HTMLAttributes<HTMLDivElement> {
   /** Optional max value (default 100) */
   max?: number
   /** Color variant */
-  variant?: 'default' | 'success' | 'warning' | 'error' | 'info'
+  variant?: 'default' | 'success' | 'warning' | 'error' | 'info' | 'energy'
   /** Size variant */
   size?: 'sm' | 'md' | 'lg'
   /** Show percentage label */
   showLabel?: boolean
   /** Animate the progress */
   animated?: boolean
+  /** Show shimmer effect for active progress */
+  shimmer?: boolean
 }
 
 export const ProgressBar = forwardRef<HTMLDivElement, ProgressBarProps>(
@@ -26,6 +28,7 @@ export const ProgressBar = forwardRef<HTMLDivElement, ProgressBarProps>(
       size = 'md',
       showLabel = false,
       animated = true,
+      shimmer = false,
       ...props
     },
     ref
@@ -38,6 +41,7 @@ export const ProgressBar = forwardRef<HTMLDivElement, ProgressBarProps>(
       warning: 'bg-warning',
       error: 'bg-error',
       info: 'bg-info',
+      energy: 'energy-gradient',
     }
 
     const sizes = {
@@ -60,13 +64,14 @@ export const ProgressBar = forwardRef<HTMLDivElement, ProgressBarProps>(
             className={cn(
               'h-full rounded-full',
               variants[variant],
-              animated && 'transition-all duration-300 ease-out'
+              animated && 'transition-all duration-300 ease-out',
+              shimmer && 'progress-shimmer'
             )}
             style={{ width: `${percentage}%` }}
           />
         </div>
         {showLabel && (
-          <div className="mt-1 text-xs text-muted-foreground text-right">
+          <div className="mt-1 text-xs text-muted-foreground text-right tabular-nums">
             {Math.round(percentage)}%
           </div>
         )}

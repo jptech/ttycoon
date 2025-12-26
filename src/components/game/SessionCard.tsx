@@ -2,7 +2,7 @@ import { cn, formatMoney } from '@/lib/utils'
 import type { Session } from '@/core/types'
 import { ScheduleManager } from '@/core/schedule'
 import { Badge, ProgressBar } from '@/components/ui'
-import { Clock, Video, Building, DollarSign } from 'lucide-react'
+import { Clock, Video, Building, DollarSign, CheckCircle } from 'lucide-react'
 
 export interface SessionCardProps {
   session: Session
@@ -32,15 +32,18 @@ const statusBadgeVariants = {
 
 export function SessionCard({ session, compact = false, onClick, className }: SessionCardProps) {
   const timeRange = ScheduleManager.getSessionTimeRange(session)
+  const isActive = session.status === 'in_progress'
+  const isCompleted = session.status === 'completed'
 
   if (compact) {
     return (
       <button
         onClick={onClick}
         className={cn(
-          'w-full text-left p-2 rounded-lg border-l-4 bg-card hover:bg-muted/50 transition-colors',
+          'w-full text-left p-2 rounded-lg border-l-4 bg-card hover:bg-surface-hover transition-all duration-150',
           statusColors[session.status],
           onClick && 'cursor-pointer',
+          isActive && 'relative session-active',
           className
         )}
       >
@@ -52,15 +55,15 @@ export function SessionCard({ session, compact = false, onClick, className }: Se
               Virtual
             </span>
           ) : (
-            <span className="flex items-center gap-1 shrink-0 px-1.5 py-0.5 rounded text-xs font-medium bg-warning/15 text-warning">
+            <span className="flex items-center gap-1 shrink-0 px-1.5 py-0.5 rounded text-xs font-medium bg-accent/15 text-accent">
               <Building className="w-3 h-3" />
               Office
             </span>
           )}
         </div>
-        <div className="text-xs text-muted-foreground">{timeRange}</div>
-        {session.status === 'in_progress' && (
-          <ProgressBar value={session.progress * 100} size="sm" variant="info" className="mt-1" />
+        <div className="text-xs text-muted-foreground tabular-nums">{timeRange}</div>
+        {isActive && (
+          <ProgressBar value={session.progress * 100} size="sm" variant="info" shimmer className="mt-1" />
         )}
       </button>
     )
@@ -70,9 +73,10 @@ export function SessionCard({ session, compact = false, onClick, className }: Se
     <div
       onClick={onClick}
       className={cn(
-        'p-4 rounded-xl border-l-4 bg-card border border-border shadow-sm',
+        'p-4 rounded-xl border-l-4 bg-card border border-border shadow-sm transition-all duration-150',
         statusColors[session.status],
-        onClick && 'cursor-pointer hover:shadow-md transition-shadow',
+        onClick && 'cursor-pointer hover:shadow-md hover:border-border-subtle',
+        isActive && 'relative session-active',
         className
       )}
     >
@@ -83,6 +87,7 @@ export function SessionCard({ session, compact = false, onClick, className }: Se
           <p className="text-sm text-muted-foreground">with {session.therapistName}</p>
         </div>
         <Badge variant={statusBadgeVariants[session.status] as 'default' | 'success' | 'error' | 'info'}>
+          {isActive && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse mr-1.5" />}
           {session.status.replace('_', ' ')}
         </Badge>
       </div>
@@ -91,7 +96,7 @@ export function SessionCard({ session, compact = false, onClick, className }: Se
       <div className="space-y-2 text-sm">
         <div className="flex items-center gap-2 text-muted-foreground">
           <Clock className="w-4 h-4" />
-          <span>{timeRange}</span>
+          <span className="tabular-nums">{timeRange}</span>
           <span className="text-xs">({session.durationMinutes} min)</span>
         </div>
 
@@ -102,7 +107,7 @@ export function SessionCard({ session, compact = false, onClick, className }: Se
               Virtual Session
             </span>
           ) : (
-            <span className="flex items-center gap-1.5 px-2 py-1 rounded-md text-sm font-medium bg-warning/15 text-warning">
+            <span className="flex items-center gap-1.5 px-2 py-1 rounded-md text-sm font-medium bg-accent/15 text-accent">
               <Building className="w-4 h-4" />
               In-Office
             </span>
@@ -111,7 +116,7 @@ export function SessionCard({ session, compact = false, onClick, className }: Se
 
         <div className="flex items-center gap-2 text-muted-foreground">
           <DollarSign className="w-4 h-4" />
-          <span>{formatMoney(session.payment)}</span>
+          <span className="tabular-nums">{formatMoney(session.payment)}</span>
           {session.isInsurance && (
             <Badge variant="outline" size="sm">
               Insurance
@@ -121,22 +126,25 @@ export function SessionCard({ session, compact = false, onClick, className }: Se
       </div>
 
       {/* Progress for in-progress sessions */}
-      {session.status === 'in_progress' && (
+      {isActive && (
         <div className="mt-3">
           <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
             <span>Session Progress</span>
-            <span>{Math.round(session.progress * 100)}%</span>
+            <span className="tabular-nums">{Math.round(session.progress * 100)}%</span>
           </div>
-          <ProgressBar value={session.progress * 100} variant="info" />
+          <ProgressBar value={session.progress * 100} variant="info" shimmer />
         </div>
       )}
 
       {/* Quality indicator for completed sessions */}
-      {session.status === 'completed' && (
+      {isCompleted && (
         <div className="mt-3">
           <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-            <span>Session Quality</span>
-            <span>{Math.round(session.quality * 100)}%</span>
+            <span className="flex items-center gap-1">
+              <CheckCircle className="w-3 h-3 text-success check-pop" />
+              Session Quality
+            </span>
+            <span className="tabular-nums">{Math.round(session.quality * 100)}%</span>
           </div>
           <ProgressBar
             value={session.quality * 100}

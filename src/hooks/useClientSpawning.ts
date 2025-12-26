@@ -81,6 +81,10 @@ export function useClientSpawning(options: UseClientSpawningOptions = {}) {
     }
   }, [addClient, addNotification])
 
+  // Track clients we've already warned about to avoid duplicate notifications
+  const warnedAtRiskClientsRef = useRef<Set<string>>(new Set())
+  const warnedMaxWaitClientsRef = useRef<Set<string>>(new Set())
+
   /**
    * Process waiting list - update satisfaction and handle dropouts
    */
@@ -107,10 +111,59 @@ export function useClientSpawning(options: UseClientSpawningOptions = {}) {
       }
     }
 
+    // Check for newly at-risk clients and warn the player
+    const newAtRiskClients: typeof result.remainingClients = []
+    const nearMaxWaitClients: typeof result.remainingClients = []
+
+    for (const client of result.remainingClients) {
+      const riskInfo = ClientManager.checkDropoutRisk(client)
+
+      // Check for at-risk (satisfaction/engagement)
+      if (riskInfo.atRisk && !warnedAtRiskClientsRef.current.has(client.id)) {
+        newAtRiskClients.push(client)
+        warnedAtRiskClientsRef.current.add(client.id)
+      }
+
+      // Check for approaching max wait (2 days warning)
+      const daysRemaining = client.maxWaitDays - client.daysWaiting
+      if (daysRemaining <= 2 && daysRemaining > 0 && !warnedMaxWaitClientsRef.current.has(client.id)) {
+        nearMaxWaitClients.push(client)
+        warnedMaxWaitClientsRef.current.add(client.id)
+      }
+    }
+
+    // Notify about at-risk clients
+    if (newAtRiskClients.length > 0) {
+      addNotification({
+        type: 'warning',
+        title: 'Client At Risk',
+        message:
+          newAtRiskClients.length === 1
+            ? `${newAtRiskClients[0].displayName} may leave soon. Schedule a session!`
+            : `${newAtRiskClients.length} clients are at risk of dropping out!`,
+      })
+    }
+
+    // Notify about clients near max wait
+    if (nearMaxWaitClients.length > 0) {
+      addNotification({
+        type: 'warning',
+        title: 'Urgent: Client Wait Limit',
+        message:
+          nearMaxWaitClients.length === 1
+            ? `${nearMaxWaitClients[0].displayName} will leave in ${nearMaxWaitClients[0].maxWaitDays - nearMaxWaitClients[0].daysWaiting} days!`
+            : `${nearMaxWaitClients.length} clients will leave soon if not scheduled!`,
+      })
+    }
+
     // Handle dropped clients
     for (const droppedClient of result.droppedClients) {
       updateClient(droppedClient.id, { status: 'dropped' })
       removeFromWaitingList(droppedClient.id)
+
+      // Clean up warning tracking for dropped clients
+      warnedAtRiskClientsRef.current.delete(droppedClient.id)
+      warnedMaxWaitClientsRef.current.delete(droppedClient.id)
 
       const dropoutReason =
         droppedClient.daysWaiting >= droppedClient.maxWaitDays
@@ -135,14 +188,14 @@ export function useClientSpawning(options: UseClientSpawningOptions = {}) {
 
     if (result.droppedClients.length > 0) {
       addNotification({
-        type: 'warning',
+        type: 'error',
         title:
           result.droppedClients.length === 1
             ? 'Client Left'
             : 'Clients Left',
         message:
           result.droppedClients.length === 1
-            ? 'A client left after waiting too long'
+            ? `${result.droppedClients[0].displayName} left after waiting too long`
             : `${result.droppedClients.length} clients left after waiting too long`,
       })
     }

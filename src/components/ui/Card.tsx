@@ -2,21 +2,30 @@ import { forwardRef, type HTMLAttributes } from 'react'
 import { cn } from '@/lib/utils'
 
 export interface CardProps extends HTMLAttributes<HTMLDivElement> {
-  variant?: 'default' | 'outlined' | 'elevated'
+  variant?: 'default' | 'outlined' | 'elevated' | 'accent' | 'warm' | 'interactive'
+  hasAccentHeader?: boolean
 }
 
 export const Card = forwardRef<HTMLDivElement, CardProps>(
-  ({ className, variant = 'default', ...props }, ref) => {
+  ({ className, variant = 'default', hasAccentHeader = false, ...props }, ref) => {
     const variants = {
       default: 'bg-card border border-border',
       outlined: 'bg-transparent border-2 border-border',
-      elevated: 'bg-card shadow-lg',
+      elevated: 'bg-surface-elevated shadow-md border border-border-subtle',
+      accent: 'bg-card border border-primary/30 shadow-glow-primary',
+      warm: 'bg-gradient-to-br from-surface to-surface-hover border border-border',
+      interactive: 'bg-card border border-border card-interactive cursor-pointer',
     }
 
     return (
       <div
         ref={ref}
-        className={cn('rounded-xl p-4', variants[variant], className)}
+        className={cn(
+          'rounded-xl p-4 relative',
+          variants[variant],
+          hasAccentHeader && 'card-accent-header overflow-hidden pt-5',
+          className
+        )}
         {...props}
       />
     )
@@ -35,11 +44,21 @@ export const CardHeader = forwardRef<HTMLDivElement, CardHeaderProps>(
 
 CardHeader.displayName = 'CardHeader'
 
-export type CardTitleProps = HTMLAttributes<HTMLHeadingElement>
+export type CardTitleProps = HTMLAttributes<HTMLHeadingElement> & {
+  useDisplayFont?: boolean
+}
 
 export const CardTitle = forwardRef<HTMLHeadingElement, CardTitleProps>(
-  ({ className, ...props }, ref) => (
-    <h3 ref={ref} className={cn('font-semibold text-lg', className)} {...props} />
+  ({ className, useDisplayFont = false, ...props }, ref) => (
+    <h3
+      ref={ref}
+      className={cn(
+        'font-semibold text-lg',
+        useDisplayFont && 'font-display',
+        className
+      )}
+      {...props}
+    />
   )
 )
 

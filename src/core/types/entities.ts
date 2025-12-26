@@ -220,13 +220,27 @@ export interface InsurancePanel {
   minReputation: number
 }
 
+/**
+ * Reasons why an insurance claim may be denied
+ */
+export type DenialReason =
+  | 'insufficient_documentation'
+  | 'medical_necessity'
+  | 'session_limit_exceeded'
+  | 'coding_error'
+  | 'prior_auth_required'
+  | 'out_of_network'
+
 export interface PendingClaim {
   id: string
   sessionId: string
   insurerId: InsurerId
   amount: number
   scheduledPaymentDay: number
-  status: 'pending' | 'paid' | 'denied'
+  status: 'pending' | 'paid' | 'denied' | 'appealed'
+  denialReason?: DenialReason
+  appealDeadlineDay?: number
+  appealSubmittedDay?: number
 }
 
 // ================== TRAINING ==================
