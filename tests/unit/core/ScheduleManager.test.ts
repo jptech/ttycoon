@@ -200,7 +200,7 @@ describe('ScheduleManager', () => {
     it('returns false for slots outside business hours', () => {
       const schedule: Schedule = {}
       expect(ScheduleManager.isSlotAvailable(schedule, 'therapist-1', 1, 7)).toBe(false)
-      expect(ScheduleManager.isSlotAvailable(schedule, 'therapist-1', 1, 17)).toBe(false)
+      expect(ScheduleManager.isSlotAvailable(schedule, 'therapist-1', 1, 18)).toBe(false)
     })
 
     it('checks multiple slots for longer sessions', () => {
@@ -217,8 +217,8 @@ describe('ScheduleManager', () => {
 
     it('returns false if session would extend past business hours', () => {
       const schedule: Schedule = {}
-      // 80 min session at 16:00 would end at 17:20, past business end
-      expect(ScheduleManager.isSlotAvailable(schedule, 'therapist-1', 1, 16, 80)).toBe(false)
+      // 80 min session starting at 17:00 occupies two hour slots (17 and 18) and exceeds business end
+      expect(ScheduleManager.isSlotAvailable(schedule, 'therapist-1', 1, 17, 80)).toBe(false)
     })
   })
 
@@ -227,7 +227,7 @@ describe('ScheduleManager', () => {
       const schedule: Schedule = {}
       const slots = ScheduleManager.getAvailableSlotsForDay(schedule, 'therapist-1', 1)
 
-      expect(slots).toEqual([8, 9, 10, 11, 12, 13, 14, 15, 16])
+      expect(slots).toEqual([8, 9, 10, 11, 12, 13, 14, 15, 16, 17])
     })
 
     it('excludes occupied slots', () => {

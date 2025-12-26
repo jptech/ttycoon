@@ -224,7 +224,7 @@ class TimeController {
     // Advance minute based on speed
     // Emit hour_changed when hour increments
     // Emit day_started at start of new day
-    // Business hours: 8 AM (8) - 5 PM (17)
+    // Business hours: 8 AM (8) - 6 PM (18)
   }
 }
 ```

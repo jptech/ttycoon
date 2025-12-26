@@ -41,7 +41,7 @@ This directory contains comprehensive documentation for all systems and subsyste
 ```
 START OF DAY
     ↓
-BUSINESS HOURS (8 AM - 5 PM)
+BUSINESS HOURS (8 AM - 6 PM)
   • Schedule and run therapy sessions
   • Make decisions during sessions
   • Manage therapist energy

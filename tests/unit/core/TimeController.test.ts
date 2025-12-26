@@ -71,8 +71,8 @@ describe('TimeController', () => {
       expect(result.hourChanged).toBe(true)
     })
 
-    it('ends day at business end (5 PM) and starts next day at 8 AM', () => {
-      const currentTime: GameTime = { day: 1, hour: 16, minute: 50 }
+    it('ends day at business end (6 PM) and starts next day at 8 AM', () => {
+      const currentTime: GameTime = { day: 1, hour: 17, minute: 50 }
       const result = TimeController.advanceMinutes(currentTime, 15)
 
       // Should roll to next day at 8 AM
@@ -184,12 +184,12 @@ describe('TimeController', () => {
     it('returns true for times within business hours', () => {
       expect(TimeController.isBusinessHours({ day: 1, hour: 8, minute: 0 })).toBe(true)
       expect(TimeController.isBusinessHours({ day: 1, hour: 12, minute: 30 })).toBe(true)
-      expect(TimeController.isBusinessHours({ day: 1, hour: 16, minute: 59 })).toBe(true)
+      expect(TimeController.isBusinessHours({ day: 1, hour: 17, minute: 59 })).toBe(true)
     })
 
     it('returns false for times outside business hours', () => {
       expect(TimeController.isBusinessHours({ day: 1, hour: 7, minute: 59 })).toBe(false)
-      expect(TimeController.isBusinessHours({ day: 1, hour: 17, minute: 0 })).toBe(false)
+      expect(TimeController.isBusinessHours({ day: 1, hour: 18, minute: 0 })).toBe(false)
       expect(TimeController.isBusinessHours({ day: 1, hour: 20, minute: 0 })).toBe(false)
     })
   })
@@ -197,19 +197,19 @@ describe('TimeController', () => {
   describe('minutesUntilDayEnd', () => {
     it('calculates minutes correctly from start of day', () => {
       const time: GameTime = { day: 1, hour: 8, minute: 0 }
-      // 5 PM = 17:00, 8 AM = 8:00, difference = 9 hours = 540 minutes
-      expect(TimeController.minutesUntilDayEnd(time)).toBe(540)
+      // 6 PM = 18:00, 8 AM = 8:00, difference = 10 hours = 600 minutes
+      expect(TimeController.minutesUntilDayEnd(time)).toBe(600)
     })
 
     it('calculates minutes correctly from mid-day', () => {
       const time: GameTime = { day: 1, hour: 12, minute: 30 }
-      // 5 PM = 17:00, 12:30 PM, difference = 4.5 hours = 270 minutes
-      expect(TimeController.minutesUntilDayEnd(time)).toBe(270)
+      // 6 PM = 18:00, 12:30 PM, difference = 5.5 hours = 330 minutes
+      expect(TimeController.minutesUntilDayEnd(time)).toBe(330)
     })
 
     it('returns 0 when at or past end of business day', () => {
-      expect(TimeController.minutesUntilDayEnd({ day: 1, hour: 17, minute: 0 })).toBe(0)
       expect(TimeController.minutesUntilDayEnd({ day: 1, hour: 18, minute: 0 })).toBe(0)
+      expect(TimeController.minutesUntilDayEnd({ day: 1, hour: 19, minute: 0 })).toBe(0)
     })
   })
 

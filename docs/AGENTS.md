@@ -396,7 +396,7 @@ test('new game flow', async ({ page }) => {
 ## New Features (Recent)
 
 ### Day Summary Modal
-- Auto-opens at 5 PM (day end) showing daily statistics
+- Auto-opens at 6 PM (day end) showing daily statistics
 - Sections: Financials, Sessions, Clients, Team, Claims
 - Rating: Excellent/Good/Average/Poor based on metrics
 - **Manager**: `src/core/summary/DaySummaryManager.ts`
@@ -428,7 +428,7 @@ Player-configurable settings to reduce modal fatigue and improve game flow:
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `showSessionSummaryModal` | `true` | Show detailed modal after each session; when off, shows brief toast instead |
-| `showDaySummaryModal` | `true` | Show end-of-day summary at 5 PM; when off, shows brief notification |
+| `showDaySummaryModal` | `true` | Show end-of-day summary at 6 PM; when off, shows brief notification |
 | `autoApplyDecisions` | `false` | Auto-repeat remembered decision choices without showing modal |
 
 **Implementation**:

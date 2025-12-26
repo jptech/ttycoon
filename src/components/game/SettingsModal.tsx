@@ -94,7 +94,7 @@ export function SettingsModal({ open, onClose, onNewGame }: SettingsModalProps) 
 
         <div className={styles.section}>
           <h3 className={styles.sectionTitle}>Day Summary</h3>
-          <p className={styles.hint}>Show end-of-day summary at 5 PM</p>
+          <p className={styles.hint}>Show end-of-day summary at 6 PM</p>
           <div className={styles.toggleButtons}>
             <button
               className={`${styles.toggleButton} ${showDaySummaryModal ? styles.active : styles.activeOff}`}

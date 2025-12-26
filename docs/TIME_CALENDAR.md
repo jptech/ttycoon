@@ -7,7 +7,7 @@ Manages the progression of game time from minutes through days, with speed contr
 ### Basic Units
 
 - **Minute**: Smallest simulation unit
-- **Hour**: 60 minutes (business hours: 8 AM - 5 PM = 10 hours)
+- **Hour**: 60 minutes (business hours: 8 AM - 6 PM = 10 hours)
 - **Day**: 10 business hours + overnight rest
 - **Game Progression**: Day-based (no real-world time limits)
 
@@ -15,8 +15,8 @@ Manages the progression of game time from minutes through days, with speed contr
 
 ```typescript
 const BUSINESS_START_HOUR = 8;      // 8 AM
-const BUSINESS_END_HOUR = 17;       // 5 PM (exclusive)
-const BUSINESS_HOURS_PER_DAY = 10;  // 8 AM to 5 PM
+const BUSINESS_END_HOUR = 18;       // 6 PM (exclusive)
+const BUSINESS_HOURS_PER_DAY = 10;  // 8 AM to 6 PM
 
 const SESSION_DURATION_STANDARD = 50;    // minutes
 const SESSION_DURATION_EXTENDED = 80;    // minutes
@@ -210,7 +210,7 @@ private onDayStart() {
 }
 ```
 
-### Business Hours (8 AM - 5 PM)
+### Business Hours (8 AM - 6 PM)
 
 ```typescript
 // Sessions run according to schedule
@@ -222,9 +222,9 @@ private onDayStart() {
 // - Monitor time, money, reputation in HUD
 ```
 
-### End of Day (5 PM)
+### End of Day (6 PM)
 
-When time reaches 17:00 (5 PM), no new sessions start:
+When time reaches 18:00 (6 PM), no new sessions start:
 
 ```typescript
 // Last sessions conclude

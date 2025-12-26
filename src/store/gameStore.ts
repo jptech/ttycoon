@@ -223,7 +223,7 @@ export const useGameStore = create<GameStore>()(
               isInitial: false,
             })
 
-            // End of business day (5 PM)
+            // End of business day (6 PM)
             if (state.currentHour >= 17) {
               EventBus.emit(GameEvents.DAY_ENDED, { dayNumber: state.currentDay })
               state.currentDay += 1

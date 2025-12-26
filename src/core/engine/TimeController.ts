@@ -5,7 +5,7 @@ import type { GameTime } from '@/core/types'
  */
 export const TIME_CONFIG = {
   BUSINESS_START: 8, // 8 AM
-  BUSINESS_END: 17, // 5 PM
+  BUSINESS_END: 18, // 6 PM
   MINUTES_PER_REAL_SECOND: 2, // At 1x speed, 2 game minutes pass per real second
   SESSION_DURATION_STANDARD: 50,
   SESSION_DURATION_EXTENDED: 80,

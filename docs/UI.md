@@ -740,7 +740,7 @@ interface SessionSummaryData {
 
 ## Day Summary Modal
 
-Auto-opens at end of each business day (5 PM) to show daily statistics:
+Auto-opens at end of each business day (6 PM) to show daily statistics:
 
 ```
 ┌────────────────────────────────────────┐
