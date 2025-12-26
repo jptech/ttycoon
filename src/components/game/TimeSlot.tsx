@@ -13,6 +13,8 @@ export interface TimeSlotProps {
   isAvailable?: boolean
   /** Whether this is the current hour */
   isCurrent?: boolean
+  /** Whether this slot is in the past */
+  isPast?: boolean
   /** Whether this slot is selected */
   isSelected?: boolean
   /** Click handler for empty slots */
@@ -28,6 +30,7 @@ export function TimeSlot({
   session,
   isAvailable = true,
   isCurrent = false,
+  isPast = false,
   isSelected = false,
   onSlotClick,
   onSessionClick,
@@ -40,6 +43,7 @@ export function TimeSlot({
       className={cn(
         'relative flex gap-3 py-2 px-3 min-h-[72px] border-b border-border',
         isCurrent && 'bg-primary/5',
+        isPast && !session && 'opacity-50',
         // Left border color for session type
         session && 'border-l-3',
         session?.isVirtual && 'border-l-info',
@@ -72,6 +76,10 @@ export function TimeSlot({
             <Plus className="w-4 h-4" />
             <span>Book session</span>
           </button>
+        ) : isPast ? (
+          <div className="w-full h-full min-h-[56px] rounded-lg bg-muted/20 flex items-center justify-center text-sm text-muted-foreground/50">
+            {/* Empty for past slots */}
+          </div>
         ) : (
           <div className="w-full h-full min-h-[56px] rounded-lg bg-muted/30 flex items-center justify-center text-sm text-muted-foreground">
             Unavailable

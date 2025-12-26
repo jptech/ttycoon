@@ -504,6 +504,7 @@ export function GameView({
           <ScheduleView
             currentDay={currentDay}
             currentHour={currentHour}
+            currentMinute={currentMinute}
             schedule={schedule}
             sessions={sessions}
             therapists={therapists}

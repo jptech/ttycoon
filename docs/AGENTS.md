@@ -422,6 +422,58 @@ test('new game flow', async ({ page }) => {
 - **Directory**: `src/game/`
 - **Layouts**: `src/game/config/roomLayouts.ts` (5 building types)
 
+### QoL Settings (Quality of Life)
+Player-configurable settings to reduce modal fatigue and improve game flow:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `showSessionSummaryModal` | `true` | Show detailed modal after each session; when off, shows brief toast instead |
+| `showDaySummaryModal` | `true` | Show end-of-day summary at 5 PM; when off, shows brief notification |
+| `autoApplyDecisions` | `false` | Auto-repeat remembered decision choices without showing modal |
+
+**Implementation**:
+- **Settings UI**: `src/components/game/SettingsModal.tsx` - Toggle switches in Settings
+- **State**: `src/core/types/state.ts` - Added to `GameState` interface
+- **Actions**: `src/store/gameStore.ts` - Setter actions for each setting
+- **Migration**: `src/core/engine/SaveManager.ts` - Migrates v1 saves to v2
+
+**Decision Memory**:
+- Decisions made during sessions are stored in `rememberedDecisions: Record<string, number>`
+- When `autoApplyDecisions` is enabled, previously-made decisions are auto-applied
+- Effects are applied silently with a brief "Auto-Applied" notification
+
+**Notification Batching**:
+- `uiStore.queueNotification()` batches similar notifications within 300ms window
+- Used for training completions and other rapid-fire events
+- Shows count when multiple: "3 trainings completed"
+
+**Files modified**:
+- `src/core/types/state.ts` - GameState settings
+- `src/store/gameStore.ts` - Actions and defaults
+- `src/store/uiStore.ts` - Notification batching
+- `src/App.tsx` - Auto-apply, session toast, day summary toggle logic
+- `src/components/game/SettingsModal.tsx` - UI toggles
+- `src/hooks/useTrainingProcessor.ts` - Uses notification batching
+
+### Booking Auto-Population
+When selecting a client for booking, the system automatically populates recurring session settings:
+
+**Behavior**:
+- **Auto-enable recurring**: If client has >1 remaining sessions, recurring is auto-enabled
+- **Auto-set count**: Recurring count is set to `min(remainingSessions, 12)`
+- **Auto-set interval**: Interval is based on client's `preferredFrequency` (weekly=7, biweekly=14, monthly=30)
+- **Display remaining**: Client cards show "X remaining" instead of "X/Y sessions"
+
+**Components**:
+- `src/components/game/BookingModal.tsx` - Standalone booking modal with auto-population
+- `src/components/game/BookingDashboard.tsx` - Full booking dashboard with auto-population
+
+**Helper functions**:
+- `getIntervalFromFrequency()` - Maps client frequency preference to interval days
+
+**Tests**:
+- `tests/unit/components/BookingAutoPopulation.test.tsx` - 10 tests for auto-population behavior
+
 ## Commands
 
 ```bash
@@ -439,9 +491,6 @@ bun run test:coverage   # Coverage report
 # Linting
 bun run lint            # Run ESLint
 bun run lint:fix        # Fix issues
-
-# Type Checking
-bun run typecheck       # Run TypeScript check
 ```
 
 **Note for AI agents**: Use `bun run test --run --silent` instead of `bun test` to avoid watch mode. This runs tests once and exits, returning results immediately - essential for automated workflows and agent loops.

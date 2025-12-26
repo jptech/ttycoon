@@ -141,6 +141,9 @@ export interface Client {
 
   // Assignment
   assignedTherapistId: string | null
+
+  // Source tracking
+  referralSource?: 'organic' | 'colleague' | 'marketing' | 'insurance'
 }
 
 export type ClientStatus = 'waiting' | 'in_treatment' | 'completed' | 'dropped'

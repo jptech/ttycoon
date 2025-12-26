@@ -36,56 +36,13 @@ const schedule: Schedule = {
 A time slot is available if all conditions are met:
 
 ```typescript
-function isSlotAvailable(
-  therapist: Therapist,
-  day: number,
-  hour: number,
-  durationMinutes: number = 50
-): boolean {
-  // 1. No existing session at that time
-  if (schedule[day]?.[hour]?.[therapist.id]) {
-    return false;
-  }
+// Core availability (pure occupancy + business hours)
+ScheduleManager.isSlotAvailable(schedule, therapistId, day, hour, durationMinutes)
 
-  // 2. Session fits within business hours (8 AM - 5 PM)
-  const endHour = hour + Math.ceil(durationMinutes / 60);
-  if (endHour > BUSINESS_END_HOUR) {
-    return false;  // Extends past 5 PM
-  }
-
-  // 3. No scheduled break at that time
-  if (hasBreakAtTime(therapist, day, hour)) {
-    return false;
-  }
-
-  // 4. Therapist not in offline training
-  if (therapist.current_training?.track === 'clinical') {
-    return false;  // Offline training makes therapist unavailable
-  }
-
-  // 5. Therapist not burned out
-  if (therapist.is_burned_out) {
-    return false;
-  }
-
-  // 6. Check consecutive hour conflicts for multi-hour sessions
-  for (let h = hour; h < endHour; h++) {
-    if (schedule[day]?.[h]?.[therapist.id]) {
-      return false;  // Conflict in middle of session
-    }
-  }
-
-  // 7. Room available for in-person (if applicable)
-  // (depends on client preference)
-
-  return true;
-}
-
-function hasBreakAtTime(therapist: Therapist, day: number, hour: number): boolean {
-  return therapist.breaks.some(
-    b => b.start_day === day && b.start_hour <= hour && hour < b.start_hour + b.duration_hours
-  );
-}
+// Additional constraints are enforced at booking time, not inside isSlotAvailable:
+// - Not-in-past validation: ScheduleManager.validateNotInPast(currentTime, day, hour)
+// - Client conflict checks: ScheduleManager.clientHasConflictingSession(...)
+// - Room/telehealth constraints: canBookSessionType(...)
 ```
 
 ## Booking a Session
@@ -99,219 +56,109 @@ interface BookingResult {
   session?: Session
 }
 
-function bookSession(
-  client: Client,
-  therapist: Therapist,
-  day: number,
-  hour: number,
-  options?: {
-    recurring?: 'weekly' | 'biweekly' | 'monthly';
-    count?: number;  // How many recurring sessions
-  }
-): BookingResult {
-  // CRITICAL: Use getState() to get fresh data, avoiding stale closures
-  const { sessions: freshSessions, schedule: freshSchedule } = useGameStore.getState()
+function bookSession(params: {
+  clientId: string
+  therapistId: string
+  day: number
+  hour: number
+  durationMinutes: SessionDuration
+  isVirtual: boolean
+}): BookingResult {
+  // IMPORTANT: Use getState() for fresh, non-stale data
+  const snapshot = useGameStore.getState()
 
-  // 0. Validate time is not in the past relative to the current game time
-  // Sessions start at the top of the hour, so scheduling for the current hour
-  // is only valid if currentMinute === 0.
+  const client = snapshot.clients.find((c) => c.id === params.clientId)
+  const therapist = snapshot.therapists.find((t) => t.id === params.therapistId)
+  if (!client) return { success: false, error: 'Client not found' }
+  if (!therapist) return { success: false, error: 'Therapist not found' }
+
+  // 0) Not-in-past validation
+  // Sessions start on the hour; booking the current hour is only allowed if currentMinute === 0.
   const currentTime = {
-    day: useGameStore.getState().currentDay,
-    hour: useGameStore.getState().currentHour,
-  durationMinutes: SessionDuration,
-  isVirtual: boolean,
-    minute: useGameStore.getState().currentMinute,
-    recurring?: boolean;
-    count?: number;  // How many sessions in the series (including the first)
-    intervalDays?: number; // e.g. 7 weekly, 14 biweekly
-  if (!timeCheck.valid) {
-    return { success: false, error: timeCheck.reason }
+    day: snapshot.currentDay,
+    hour: snapshot.currentHour,
+    minute: snapshot.currentMinute,
   }
 
-  // 1. Validate client exists
-  if (!client) {
-    return { success: false, error: 'Client not found' }
+  const timeCheck = ScheduleManager.validateNotInPast(currentTime, params.day, params.hour)
+  if (!timeCheck.valid) return { success: false, error: timeCheck.reason }
+
+  // 1) Therapist availability (occupancy + business hours)
+  if (!ScheduleManager.isSlotAvailable(snapshot.schedule, params.therapistId, params.day, params.hour, params.durationMinutes)) {
+    return { success: false, error: 'This time slot is already booked.' }
   }
 
-  // 2. Validate therapist exists
-  if (!therapist) {
-    return { success: false, error: 'Therapist not found' }
+  // 2) Client overlap prevention
+  if (ScheduleManager.clientHasConflictingSession(snapshot.sessions, params.clientId, params.day, params.hour, params.durationMinutes)) {
+    return { success: false, error: 'Client already has an overlapping session.' }
   }
 
-  // 3. Check slot already booked (prevent double-booking)
-  const existingSessionInSlot = freshSessions.find(
-    s => s.scheduledDay === day &&
-         s.scheduledHour === hour &&
-         s.therapistId === therapist.id &&
-         s.status === 'scheduled'
+  // 3) Room/telehealth constraints (in-person requires room capacity; virtual requires telehealthUnlocked)
+  const building = getBuilding(snapshot.currentBuildingId) || BUILDINGS.starter_suite
+  const typeCheck = canBookSessionType({
+    building,
+    sessions: snapshot.sessions,
+    telehealthUnlocked: snapshot.telehealthUnlocked,
+    isVirtual: params.isVirtual,
+    day: params.day,
+    hour: params.hour,
+    durationMinutes: params.durationMinutes,
+  })
+  if (!typeCheck.canBook) return { success: false, error: typeCheck.reason }
+
+  // 4) Create + add session (schedule is rebuilt from sessions)
+  const session = ScheduleManager.createSession(
+    {
+      therapistId: params.therapistId,
+      clientId: params.clientId,
+      day: params.day,
+      hour: params.hour,
+      duration: params.durationMinutes,
+      isVirtual: params.isVirtual,
+    },
+    therapist,
+    client
   )
-  if (existingSessionInSlot) {
-    return { success: false, error: 'Slot already booked' }
-  }
 
-  // 4. Check client has no conflicting session
-  const clientConflict = freshSessions.find(
-    s => s.clientId === client.id &&
-         s.scheduledDay === day &&
-         s.scheduledHour === hour &&
-         s.status === 'scheduled'
-  )
-  if (clientConflict) {
-    return { success: false, error: 'Client has conflicting session' }
-  }
-
-  // 4b. Validate session type constraints (rooms / telehealth)
-  // - Virtual sessions require telehealthUnlocked.
-  // - In-office sessions require an available room for every occupied hour slot.
-  //   (e.g. an 80-min session consumes 2 room-hours).
-  //
-  // Implementation uses:
-  // - OfficeManager.canBookInPersonSession(building, sessions, day, hour, durationMinutes)
-  // - canBookSessionType({ building, sessions, telehealthUnlocked, isVirtual, day, hour, durationMinutes })
-
-  // 5. Validate therapist has required certification
-  if (client.required_certification) {
-    if (!therapist.certifications.includes(client.required_certification)) {
-      return { success: false, error: 'Missing certification' }
-    }
-  }
-
-  // 6. Create session
-  const session = createSession(therapist, client, day, hour, {
-    is_virtual: client.prefers_virtual,
-    is_insurance: !client.is_private_pay
-  });
-
-  if (!session) {
-    return { success: false, error: 'Failed to create session' }
-  }
-
-  // 7. Update client status
-  if (client.status === 'waiting') {
-    client.status = 'in_treatment';
-    client.assigned_therapist = therapist;
-    EventBus.emit('client_scheduled', client.id, session.id);
-  }
-
-  // 8. Handle recurring sessions
-  if (options?.recurring) {
-    const recurringResults = scheduleRecurringSessions(
-      client,
-      therapist,
-      options.recurring,
-      options.count || 4
-    );
-    return {
-      success: true,
-      session,
-      recurring_scheduled: recurringResults.sessions.length,
-      recurring_skipped: recurringResults.skipped
-    };
-  }
-
-  EventBus.emit('session_scheduled', session.id);
-  return { success: true, session };
-}
-
-function clientAvailableAtTime(client: Client, day: number, hour: number): boolean {
-  // Check client's availability dict
-  const dayOfWeek = day % 7;  // Assuming week cycle
-  const availableHours = client.availability[dayOfWeek];
-
-  if (!availableHours || !availableHours.includes(hour)) {
-    return false;
-  }
-
-  // Also check for existing sessions (client can't have two sessions at once)
-  for (const session of client.sessions) {
-    if (session.scheduled_day === day && session.scheduled_hour === hour) {
-      return false;
-    }
-  }
-
-  return true;
+  useGameStore.getState().addSession(session)
+  return { success: true, session }
 }
 ```
 
-## Smart Slot Recommendation
+## Finding Matching Slots
 
-Suggest best available slots for booking based on various factors:
+The booking UI uses `ScheduleManager.findMatchingSlots(...)` to generate candidate slots.
+
+- It searches forward starting at `startDay` for `daysToCheck` days.
+- It marks each slot as `isPreferred` when it matches the client’s availability + preferred time.
+- It sorts with preferred slots first, then earlier days/hours.
+
+The UI then applies additional filters:
+- **Not-in-past**: excludes any slot where `validateNotInPast(currentTime, slot.day, slot.hour)` is invalid.
+  - This includes the **current hour once `currentMinute > 0`**.
+- **Session type constraints**:
+  - Virtual sessions require `telehealthUnlocked`.
+  - In-person sessions require available room capacity for every occupied hour slot.
 
 ```typescript
-interface SlotRecommendation {
-  therapist: Therapist;
-  day: number;
-  hour: number;
-  score: number;  // 0.0-5.0
-}
+const base = ScheduleManager.findMatchingSlots(schedule, therapist, client, startDay, 7, duration)
 
-function findBestSlots(
-  client: Client,
-  limit: number = 5
-): SlotRecommendation[] {
-  const recommendations: SlotRecommendation[] = [];
+const futureOnly = base.filter((slot) =>
+  ScheduleManager.validateNotInPast(currentTime, slot.day, slot.hour).valid
+)
 
-  // Search forward up to 30 days
-  for (let day = currentDay; day < currentDay + 30; day++) {
-    for (let hour = BUSINESS_START_HOUR; hour < BUSINESS_END_HOUR; hour++) {
-      for (const therapist of therapists) {
-        if (!isSlotAvailable(therapist, day, hour)) continue;
-        if (!clientAvailableAtTime(client, day, hour)) continue;
-
-        const score = scoreSlot(therapist, client, day, hour);
-        recommendations.push({ therapist, day, hour, score });
-      }
-    }
-  }
-
-  // Sort by score (highest first)
-  recommendations.sort((a, b) => b.score - a.score);
-
-  return recommendations.slice(0, limit);
-}
-
-function scoreSlot(
-  therapist: Therapist,
-  client: Client,
-  day: number,
-  hour: number
-): number {
-  let score = 1.0;
-
-  // 1. Time Preference Match (+0.5)
-  if (client.preferred_time === 'morning' && hour < 12) score += 0.5;
-  if (client.preferred_time === 'afternoon' && hour >= 12) score += 0.5;
-
-  // 2. Therapist-Client Match (+0.0 to +1.0)
-  const matchScore = calculateTherapistClientMatch(therapist, client);
-  score += matchScore;
-
-  // 3. Workload Penalty (-0.8 to -2.0)
-  const daySessionCount = countSessionsOnDay(therapist, day);
-  if (daySessionCount >= 6) score -= 2.0;
-  if (daySessionCount >= 5) score -= 0.8;
-
-  // 4. Back-to-Back Penalty (-0.6 to -1.2)
-  const nextSlotHasSession = schedule[day]?.[hour + 1]?.[therapist.id];
-  const prevSlotHasSession = schedule[day]?.[hour - 1]?.[therapist.id];
-  if (nextSlotHasSession || prevSlotHasSession) {
-    score -= 0.6 + (therapist.energy / 100) * 0.6;  // More penalty if tired
-  }
-
-  // 5. Proximity Bonus (+0.0 to +1.0)
-  const daysFromNow = day - currentDay;
-  if (daysFromNow === 1) score += 1.0;    // Next day
-  else if (daysFromNow === 2) score += 0.75;
-  else if (daysFromNow <= 7) score += 0.5;
-  else if (daysFromNow <= 14) score += 0.25;
-
-  // 6. Virtual preference match
-  if (therapist.can_do_telehealth && client.prefers_virtual) {
-    score += 0.3;
-  }
-
-  return score;
-}
+const allowedByType = futureOnly.filter((slot) => {
+  if (isVirtual) return telehealthUnlocked
+  return canBookSessionType({
+    building: currentBuilding,
+    sessions,
+    telehealthUnlocked,
+    isVirtual: false,
+    day: slot.day,
+    hour: slot.hour,
+    durationMinutes: duration,
+  }).canBook
+})
 ```
 
 ## Recurring Sessions
@@ -319,173 +166,27 @@ function scoreSlot(
 Schedule multiple sessions at regular intervals:
 
 ```typescript
-function scheduleRecurringSessions(
-  client: Client,
-  therapist: Therapist,
-  frequency: 'weekly' | 'biweekly' | 'monthly',
-  count: number
-): { sessions: Session[], skipped: TimeSlot[] } {
-  const results = [];
-  const skipped = [];
-
-  const daysPerFrequency = {
-    weekly: 7,
-    biweekly: 14,
-    monthly: 30
-  };
-
-  const daysToAdd = daysPerFrequency[frequency];
-
-  for (let i = 0; i < count; i++) {
-    const targetDay = currentDay + (i * daysToAdd);
-
-    // Try to find a slot at same time as first session (preferred)
-    let slot = findSlotNearTime(therapist, client, targetDay, firstSessionHour);
-
-    // If not available, find any available slot
-    if (!slot) {
-      slot = findBestSlot(therapist, client, targetDay);
-    }
-
-    if (slot) {
-      const session = createSession(therapist, client, slot.day, slot.hour, {
-        is_virtual: client.prefers_virtual
-      });
-      results.push(session);
-    } else {
-      skipped.push({ day: targetDay, reason: 'no_available_slot' });
-    }
-  }
-
-  EventBus.emit('recurring_sessions_scheduled', client.id, results.length, skipped.length);
-  return { sessions: results, skipped };
-}
+// Recurring series are planned via the pure helper `planRecurringBookings(...)`.
+// It applies the same constraints as single-booking, including:
+// - Not-in-past validation (including the “current hour only if minute === 0” rule)
+// - Therapist slot availability (multi-hour sessions occupy multiple hour slots)
+// - Client overlap prevention
+// - Daily per-therapist session cap
+// - Room/telehealth constraints
+//
+// Policy note: for occurrences after the first, the planner will try the preferred hour,
+// then fall back to the closest available hour on the same day.
 ```
-
-## Break Management
-
-Therapists can schedule breaks for energy recovery:
-
-```typescript
-function scheduleBreak(
-  therapist: Therapist,
-  day: number,
-  hour: number,
-  durationHours: number,
-  reason: 'lunch' | 'recovery' | 'conference' | 'personal' = 'lunch'
-): boolean {
-  // Validation
-  const endHour = hour + durationHours;
-  if (endHour > BUSINESS_END_HOUR) {
-    return false;  // Extends past business hours
-  }
-
-  // Check for session conflicts
-  for (let h = hour; h < endHour; h++) {
-    if (schedule[day]?.[h]?.[therapist.id]) {
-      return false;  // Session conflict
-    }
-  }
-
-  // Create break
-  const breakRecord: TherapistBreak = {
-    id: `break-${Date.now()}`,
-    therapist_id: therapist.id,
-    start_day: day,
-    start_hour: hour,
-    duration_hours: durationHours,
-    reason
-  };
-
-  therapist.breaks.push(breakRecord);
-
-  EventBus.emit('break_scheduled', therapist.id, day, hour, durationHours);
-  return true;
-}
-
-// Energy recovery during breaks
-function updateTherapistEnergyDuringBreak(therapist: Therapist, deltaTime: number) {
-  const currentBreak = therapist.breaks.find(
-    b => b.start_day === currentDay &&
-         b.start_hour <= currentHour &&
-         currentHour < b.start_hour + b.duration_hours
-  );
-
-  if (currentBreak) {
-    therapist.energy += 8 * (deltaTime / 3600);  // 8 energy per hour
-    therapist.energy = Math.min(therapist.energy, therapist.max_energy);
-  }
-}
-
-// Auto-end breaks
-function endExpiredBreaks() {
-  for (const therapist of therapists) {
-    therapist.breaks = therapist.breaks.filter(
-      b => !(b.start_day === currentDay && currentHour >= b.start_hour + b.duration_hours)
-    );
-  }
-}
-```
-
 ## Viewing the Schedule
 
-```typescript
-interface ScheduleView {
-  // Time period
-  start_day: number;
-  end_day: number;  // Usually current_day + 7
+The main schedule UI is implemented in `src/components/game/ScheduleView.tsx`.
 
-  // Grid structure
-  therapists: Therapist[];
-  slots: Record<number, Record<number, ScheduleCell>>;
-}
+Key behaviors:
 
-interface ScheduleCell {
-  day: number;
-  hour: number;
-  therapist_id: string;
-  session_id: string | null;
-  is_break: boolean;
-  availability: 'available' | 'occupied' | 'unavailable';
-}
-
-function getScheduleView(
-  startDay: number,
-  endDay: number
-): ScheduleView {
-  const view: ScheduleView = {
-    start_day: startDay,
-    end_day: endDay,
-    therapists: therapists,
-    slots: {}
-  };
-
-  for (let day = startDay; day <= endDay; day++) {
-    view.slots[day] = {};
-
-    for (let hour = BUSINESS_START_HOUR; hour < BUSINESS_END_HOUR; hour++) {
-      view.slots[day][hour] = {};
-
-      for (const therapist of therapists) {
-        const sessionId = schedule[day]?.[hour]?.[therapist.id];
-        const hasBreak = hasBreakAtTime(therapist, day, hour);
-        const isAvailable = isSlotAvailable(therapist, day, hour);
-
-        view.slots[day][hour][therapist.id] = {
-          day,
-          hour,
-          therapist_id: therapist.id,
-          session_id: sessionId,
-          is_break: hasBreak,
-          availability: sessionId ? 'occupied' : hasBreak ? 'unavailable' : isAvailable ? 'available' : 'unavailable'
-        };
-      }
-    }
-  }
-
-  return view;
-}
-```
+- **Past slots are not bookable**: slots before the current game time are dimmed and cannot be clicked.
+  - The **current hour becomes “past” once `currentMinute > 0`** (an hour already in progress).
+- **Availability counts and slot lists** apply the same not-in-past rule via `ScheduleManager.validateNotInPast(...)`.
+- **Room capacity messaging** (e.g., “Rooms full”) is shown only for future slots; past slots are simply treated as unavailable.
 
 ## Navigation
 

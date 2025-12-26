@@ -114,6 +114,11 @@ interface GameActions {
   updateActiveTraining: (therapistId: string, programId: string, updates: Partial<ActiveTraining>) => void
   removeActiveTraining: (therapistId: string, programId: string) => void
 
+  // QoL Settings
+  setShowSessionSummaryModal: (show: boolean) => void
+  setShowDaySummaryModal: (show: boolean) => void
+  setAutoApplyDecisions: (autoApply: boolean) => void
+
   // Game management
   newGame: (practiceName: string, playerTherapist: Therapist) => void
   loadState: (state: GameState) => void
@@ -183,6 +188,9 @@ const createInitialState = (practiceName: string): GameState => ({
   autoResolveSessions: false,
   soundEnabled: true,
   musicEnabled: true,
+  showSessionSummaryModal: true,
+  showDaySummaryModal: true,
+  autoApplyDecisions: false,
 })
 
 /**
@@ -986,6 +994,25 @@ export const useGameStore = create<GameStore>()(
         })
       },
 
+      // ==================== QoL Settings ====================
+      setShowSessionSummaryModal: (show) => {
+        set((state) => {
+          state.showSessionSummaryModal = show
+        })
+      },
+
+      setShowDaySummaryModal: (show) => {
+        set((state) => {
+          state.showDaySummaryModal = show
+        })
+      },
+
+      setAutoApplyDecisions: (autoApply) => {
+        set((state) => {
+          state.autoApplyDecisions = autoApply
+        })
+      },
+
       // ==================== Game Management ====================
       newGame: (practiceName, playerTherapist) => {
         const initialState = createInitialState(practiceName)
@@ -1091,6 +1118,9 @@ export const useGameStore = create<GameStore>()(
           autoResolveSessions,
           soundEnabled,
           musicEnabled,
+          showSessionSummaryModal,
+          showDaySummaryModal,
+          autoApplyDecisions,
         } = fullState
         return {
           practiceName,
@@ -1125,6 +1155,9 @@ export const useGameStore = create<GameStore>()(
           autoResolveSessions,
           soundEnabled,
           musicEnabled,
+          showSessionSummaryModal,
+          showDaySummaryModal,
+          autoApplyDecisions,
         }
       },
     }))

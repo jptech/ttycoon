@@ -13,6 +13,8 @@ export interface ScheduleViewProps {
   currentDay: number
   /** Current game hour */
   currentHour: number
+  /** Current game minute */
+  currentMinute: number
   /** Schedule data */
   schedule: Schedule
   /** All sessions */
@@ -41,6 +43,7 @@ export function ScheduleView(props: ScheduleViewProps) {
   const {
     currentDay,
     currentHour,
+    currentMinute,
     schedule,
     sessions,
     therapists,
@@ -110,9 +113,14 @@ export function ScheduleView(props: ScheduleViewProps) {
   }, [viewMode, allDaySessions, activeTherapistSessions])
 
   const availableSlotsCount = useMemo(() => {
+    const currentTime = { day: currentDay, hour: currentHour, minute: currentMinute }
+
     if (viewMode === 'grid') {
       let count = 0
       for (const hour of timeSlots) {
+        // Skip past slots
+        if (!ScheduleManager.validateNotInPast(currentTime, viewDay, hour).valid) continue
+
         const hourHasAnyBookableCell = therapists.some((t) => {
           const sessionId = schedule[viewDay]?.[hour]?.[t.id]
           if (sessionId) return false
@@ -134,15 +142,22 @@ export function ScheduleView(props: ScheduleViewProps) {
 
     if (!activeTherapist) return 0
     const baseSlots = ScheduleManager.getAvailableSlotsForDay(schedule, activeTherapist.id, viewDay)
-    if (telehealthUnlocked || !currentBuilding) return baseSlots.length
+    // Filter out past slots
+    const futureSlots = baseSlots.filter((hour) =>
+      ScheduleManager.validateNotInPast(currentTime, viewDay, hour).valid
+    )
+    if (telehealthUnlocked || !currentBuilding) return futureSlots.length
 
-    return baseSlots.filter((hour) => (roomAvailabilityByHour.get(hour)?.roomsAvailable ?? 1) > 0).length
+    return futureSlots.filter((hour) => (roomAvailabilityByHour.get(hour)?.roomsAvailable ?? 1) > 0).length
   }, [
     viewMode,
     timeSlots,
     therapists,
     schedule,
     viewDay,
+    currentDay,
+    currentHour,
+    currentMinute,
     telehealthUnlocked,
     currentBuilding,
     roomAvailabilityByHour,
@@ -317,13 +332,19 @@ export function ScheduleView(props: ScheduleViewProps) {
                 const isCurrentHour = viewDay === currentDay && hour === currentHour
                 const roomAvailability = roomAvailabilityByHour.get(hour)
                 const roomOk = telehealthUnlocked || !currentBuilding || (roomAvailability?.roomsAvailable ?? 1) > 0
+                const isPastSlot = !ScheduleManager.validateNotInPast(
+                  { day: currentDay, hour: currentHour, minute: currentMinute },
+                  viewDay,
+                  hour
+                ).valid
 
                 return (
                   <div key={hour} className={cn('contents', isCurrentHour && 'bg-primary/5')}>
                     <div
                       className={cn(
                         'px-3 py-2 text-sm text-muted-foreground border-b border-border',
-                        isCurrentHour && 'bg-primary/5'
+                        isCurrentHour && 'bg-primary/5',
+                        isPastSlot && 'opacity-50'
                       )}
                     >
                       <div className="flex items-center justify-between">
@@ -334,7 +355,7 @@ export function ScheduleView(props: ScheduleViewProps) {
                           </span>
                         )}
                       </div>
-                      {!roomOk && (
+                      {!roomOk && !isPastSlot && (
                         <div className="text-[10px] text-warning mt-0.5">Rooms full</div>
                       )}
                     </div>
@@ -344,14 +365,15 @@ export function ScheduleView(props: ScheduleViewProps) {
                       const session = sessionId ? sessionById.get(sessionId) : undefined
 
                       const therapistFree = !session && ScheduleManager.isSlotAvailable(schedule, t.id, viewDay, hour)
-                      const canClick = therapistFree && roomOk && !!onSlotClick
+                      const canClick = therapistFree && roomOk && !isPastSlot && !!onSlotClick
 
                       return (
                         <div
                           key={`${t.id}-${hour}`}
                           className={cn(
                             'px-3 py-2 border-b border-border',
-                            isCurrentHour && 'bg-primary/5'
+                            isCurrentHour && 'bg-primary/5',
+                            isPastSlot && !session && 'opacity-50'
                           )}
                         >
                           {session ? (
@@ -360,7 +382,7 @@ export function ScheduleView(props: ScheduleViewProps) {
                               compact
                               onClick={onSessionClick ? () => onSessionClick(session) : undefined}
                             />
-                          ) : therapistFree ? (
+                          ) : therapistFree && !isPastSlot ? (
                             <button
                               onClick={canClick ? () => onSlotClick(viewDay, hour, t.id) : undefined}
                               disabled={!roomOk || !onSlotClick}
@@ -376,7 +398,7 @@ export function ScheduleView(props: ScheduleViewProps) {
                             </button>
                           ) : (
                             <div className="w-full min-h-[56px] rounded-lg bg-muted/30 flex items-center justify-center text-sm text-muted-foreground">
-                              Unavailable
+                              {isPastSlot && !session ? '' : 'Unavailable'}
                             </div>
                           )}
                         </div>
@@ -398,7 +420,12 @@ export function ScheduleView(props: ScheduleViewProps) {
                 telehealthUnlocked ||
                 !currentBuilding ||
                 (roomAvailabilityByHour.get(hour)?.roomsAvailable ?? 1) > 0
-              const isAvailable = !session && therapistFree && roomOk
+              const isPastSlot = !ScheduleManager.validateNotInPast(
+                { day: currentDay, hour: currentHour, minute: currentMinute },
+                viewDay,
+                hour
+              ).valid
+              const isAvailable = !session && therapistFree && roomOk && !isPastSlot
               const isCurrent = viewDay === currentDay && hour === currentHour
 
               return (
@@ -408,6 +435,7 @@ export function ScheduleView(props: ScheduleViewProps) {
                   session={session}
                   isAvailable={isAvailable}
                   isCurrent={isCurrent}
+                  isPast={isPastSlot}
                   onSlotClick={isAvailable && onSlotClick ? () => onSlotClick(viewDay, hour, activeTherapist.id) : undefined}
                   onSessionClick={onSessionClick}
                 />

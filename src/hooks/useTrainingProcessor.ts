@@ -26,6 +26,7 @@ export function useTrainingProcessor(options: UseTrainingProcessorOptions = {}) 
   const addHiringCapacityBonus = useGameStore((state) => state.addHiringCapacityBonus)
   const insuranceMultiplier = useGameStore((state) => state.insuranceMultiplier)
   const addNotification = useUIStore((state) => state.addNotification)
+  const queueNotification = useUIStore((state) => state.queueNotification)
 
   // Store callbacks in ref to avoid recreation
   const callbacksRef = useRef({ onTrainingCompleted })
@@ -128,21 +129,25 @@ export function useTrainingProcessor(options: UseTrainingProcessorOptions = {}) 
         })
       }
 
-      // Show notification
+      // Show notification (batched for multiple completions)
       const message = completed.certificationsGained.length > 0
         ? `${completed.therapistName} earned ${formatCertification(completed.certificationsGained[0])}!`
         : `${completed.therapistName} completed ${completed.programName}`
 
-      addNotification({
-        type: 'success',
-        title: 'Training Complete',
-        message,
-      })
+      queueNotification(
+        'training_complete',
+        {
+          type: 'success',
+          title: 'Training Complete',
+          message: 'trainings completed',
+        },
+        message // singular message for single notification
+      )
 
       // Call optional callback
       callbacksRef.current.onTrainingCompleted?.(completed)
     }
-  }, [updateTherapist, removeActiveTraining, updateActiveTraining, addNotification, applyClinicBonus])
+  }, [updateTherapist, removeActiveTraining, updateActiveTraining, queueNotification, applyClinicBonus])
 
   /**
    * Handle day start - process all trainings

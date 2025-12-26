@@ -7,7 +7,8 @@ import { SessionManager, type SessionCompleteResult } from '@/core/session'
 import { useGameLoop, useClientSpawning, useTrainingProcessor, useTherapistEnergyProcessor } from '@/hooks'
 import { formatTime } from '@/lib/utils'
 import { GameLayout, GameView, NewGameModal, DaySummaryModal, TutorialOverlay, SessionSummary, AchievementToast, AchievementContainer, ClientSuccessStory, LevelUpToast, LevelUpContainer } from '@/components'
-import { getAllRandomEvents, getEligibleDecisionEvents } from '@/data'
+import { getAllRandomEvents, getEligibleDecisionEvents, getSessionRate } from '@/data'
+import { ClientManager } from '@/core/clients'
 import type { RandomEvent, DecisionEvent, Session, Therapist, Client, QualityModifier, MilestoneConfig } from '@/core/types'
 import { getMilestoneConfig } from '@/core/types'
 
@@ -41,7 +42,7 @@ function App() {
   // Store actions
   const { setGameSpeed, pause, resume, newGame } = useGameStore()
   const { addMoney, removeMoney, addReputation, removeReputation } = useGameStore()
-  const { setEventCooldown, addModifier, updateSession, updateTherapist, completeSession } =
+  const { setEventCooldown, addModifier, updateSession, updateTherapist, completeSession, rememberDecision, addClient } =
     useGameStore()
   const checkAndAwardMilestones = useGameStore((s) => s.checkAndAwardMilestones)
 
@@ -120,12 +121,28 @@ function App() {
         }
       })
 
-      // Show session summary modal with quality breakdown
-      setActiveSessionSummary({
-        session: completion.session,
-        results: completion,
-      })
-      pause('session_summary')
+      // Check setting for modal vs toast
+      const showModal = useGameStore.getState().showSessionSummaryModal
+
+      if (showModal) {
+        // Show session summary modal with quality breakdown
+        setActiveSessionSummary({
+          session: completion.session,
+          results: completion,
+        })
+        pause('session_summary')
+      } else {
+        // Show compact toast instead
+        const qualityPercent = Math.round(completion.session.quality * 100)
+        const toastType = qualityPercent >= 75 ? 'success' : qualityPercent >= 50 ? 'info' : 'warning'
+        addNotification({
+          type: toastType,
+          title: 'Session Complete',
+          message: `${completion.session.clientName}: ${qualityPercent}% quality, +$${completion.paymentAmount}, +${completion.xpGained} XP`,
+          duration: 5000,
+        })
+        // Don't pause game, it continues
+      }
     },
     [completeSession, addNotification, checkAndAwardMilestones, pause]
   )
@@ -307,9 +324,57 @@ function App() {
         }
 
         if (eventToTrigger) {
-          setActiveDecisionEvent(eventToTrigger)
-          setDecisionEventSession(session)
-          pause('decision_event')
+          // Check for auto-apply setting
+          const gameState = useGameStore.getState()
+          const rememberedChoice = gameState.rememberedDecisions[eventToTrigger.id]
+
+          if (gameState.autoApplyDecisions && rememberedChoice !== undefined) {
+            // Auto-apply the remembered decision without showing modal
+            const result = EventManager.applyDecisionEventChoice(eventToTrigger, rememberedChoice)
+
+            // Apply effects to session
+            const currentQuality = session.quality || 0.5
+            const newQuality = Math.max(0, Math.min(1, currentQuality + (result.qualityChange || 0) / 100))
+
+            updateSession(session.id, {
+              quality: newQuality,
+              decisionsMade: [
+                ...session.decisionsMade,
+                {
+                  eventId: eventToTrigger.id,
+                  choiceIndex: rememberedChoice,
+                  effects: {
+                    quality: result.qualityChange,
+                    energy: result.energyChange,
+                    satisfaction: result.satisfactionChange,
+                  },
+                },
+              ],
+            })
+
+            // Apply energy cost to therapist
+            if (result.energyChange) {
+              const therapist = gameState.therapists.find((t) => t.id === session.therapistId)
+              if (therapist) {
+                updateTherapist(therapist.id, {
+                  energy: Math.max(0, Math.min(therapist.maxEnergy, therapist.energy + result.energyChange)),
+                })
+              }
+            }
+
+            // Show brief notification
+            addNotification({
+              type: 'info',
+              title: 'Auto-Applied',
+              message: `Repeated previous choice for "${eventToTrigger.title}"`,
+              duration: 3000,
+            })
+          } else {
+            // Show modal as normal
+            setActiveDecisionEvent(eventToTrigger)
+            setDecisionEventSession(session)
+            pause('decision_event')
+          }
         }
       }
 
@@ -356,6 +421,31 @@ function App() {
     const unsubscribe = EventBus.on(GameEvents.DAY_ENDED, (data: { dayNumber: number }) => {
       // Get current state for summary calculation
       const state = useGameStore.getState()
+
+      // Check if day summary modal is enabled
+      if (!state.showDaySummaryModal) {
+        // Show brief notification instead
+        addNotification({
+          type: 'info',
+          title: `Day ${data.dayNumber} Complete`,
+          message: 'A new day begins tomorrow.',
+          duration: 3000,
+        })
+
+        // Still check for milestone achievements
+        const awarded = checkAndAwardMilestones()
+        awarded.forEach((milestoneId) => {
+          const config = getMilestoneConfig(milestoneId)
+          if (config) {
+            addNotification({
+              type: 'success',
+              title: 'Milestone Achieved!',
+              message: `${config.name}: +${config.reputationBonus} reputation`,
+            })
+          }
+        })
+        return
+      }
 
       const summary = DaySummaryManager.calculateDaySummary(
         data.dayNumber,
@@ -487,6 +577,42 @@ function App() {
           })
         }
 
+        // Spawn a new referral client if the event grants one
+        if (result.newClientSpawned) {
+          const state = useGameStore.getState()
+          const { activePanels, practiceLevel, clients } = state
+
+          // Referral clients are slightly better - higher engagement, reasonable severity
+          const isPrivatePay = Math.random() < 0.4 // 40% chance of private pay (slightly higher than normal)
+          const sessionRate = getSessionRate(isPrivatePay)
+
+          const { client: newClient } = ClientManager.generateClient(
+            currentDay,
+            isPrivatePay ? [] : activePanels,
+            sessionRate,
+            Date.now() + clients.length,
+            {
+              practiceLevel,
+              // Referral clients start with higher engagement since they were specifically referred
+              minEngagement: 0.7,
+              // Cap severity for referrals - colleagues typically refer clients they think you can help
+              maxSeverity: 7,
+            }
+          )
+
+          // Mark the client as a referral
+          addClient({
+            ...newClient,
+            referralSource: 'colleague',
+          })
+
+          addNotification({
+            type: 'success',
+            title: 'Referral Arrived',
+            message: `${newClient.displayName} has joined your waiting list`,
+          })
+        }
+
         // Set cooldown
         const cooldowns = EventManager.updateCooldowns(
           eventCooldowns,
@@ -512,6 +638,7 @@ function App() {
       addReputation,
       removeReputation,
       addModifier,
+      addClient,
       setEventCooldown,
       addNotification,
       resume,
@@ -563,6 +690,9 @@ function App() {
             })
           }
         }
+
+        // Remember this decision for future auto-apply
+        rememberDecision(activeDecisionEvent.id, choiceIndex)
       } finally {
         // Always clear state and resume, even if effects threw an error
         setActiveDecisionEvent(null)
@@ -570,7 +700,7 @@ function App() {
         resume('decision_event')
       }
     },
-    [activeDecisionEvent, decisionEventSession, therapists, updateSession, updateTherapist, resume]
+    [activeDecisionEvent, decisionEventSession, therapists, updateSession, updateTherapist, resume, rememberDecision]
   )
 
   // Handle new game start

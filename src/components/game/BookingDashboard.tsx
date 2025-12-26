@@ -211,11 +211,21 @@ export function BookingDashboard({
     (client: Client) => {
       setSelectedClient(client)
 
-      // Defaults for recurring series.
-      setRecurringEnabled(false)
+      // Calculate remaining sessions for this client
+      const remainingSessions = Math.max(0, client.sessionsRequired - client.sessionsCompleted)
+
+      // Auto-populate recurring settings based on client needs
       const preferredInterval = FREQUENCY_DAYS[client.preferredFrequency] ?? 7
       setRecurringIntervalDays(preferredInterval > 0 ? preferredInterval : 7)
-      setRecurringCount(4)
+
+      if (remainingSessions > 1) {
+        // Auto-enable recurring and set count to remaining (max 12)
+        setRecurringEnabled(true)
+        setRecurringCount(Math.min(remainingSessions, 12))
+      } else {
+        setRecurringEnabled(false)
+        setRecurringCount(1)
+      }
 
       // Auto-select assigned therapist for active clients
       if (client.status === 'in_treatment' && client.assignedTherapistId) {
@@ -746,6 +756,8 @@ export function BookingDashboard({
                 currentBuilding={currentBuilding}
                 telehealthUnlocked={telehealthUnlocked}
                 currentDay={currentDay}
+                currentHour={currentHour}
+                currentMinute={currentMinute}
                 onSelectSlot={handleSelectSlot}
                 className="flex-1 overflow-y-auto"
               />
@@ -886,6 +898,7 @@ export function BookingDashboard({
           <ScheduleView
             currentDay={currentDay}
             currentHour={currentHour}
+            currentMinute={currentMinute}
             schedule={schedule}
             sessions={sessions}
             therapists={therapists}

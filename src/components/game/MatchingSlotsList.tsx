@@ -21,6 +21,8 @@ export interface MatchingSlotsListProps {
   currentBuilding: Building
   telehealthUnlocked: boolean
   currentDay: number
+  currentHour: number
+  currentMinute: number
   daysToShow?: number
   onSelectSlot: (slot: MatchingSlotInfo, duration: SessionDuration, isVirtual: boolean) => void
   className?: string
@@ -47,6 +49,8 @@ export function MatchingSlotsList({
   currentBuilding,
   telehealthUnlocked,
   currentDay,
+  currentHour,
+  currentMinute,
   daysToShow = 7,
   onSelectSlot,
   className,
@@ -67,13 +71,20 @@ export function MatchingSlotsList({
       selectedDuration
     )
 
+    // Filter out slots in the past (including current hour if already started)
+    const currentTime = { day: currentDay, hour: currentHour, minute: currentMinute }
+    const notInPastSlots = baseSlots.filter((slot) => {
+      const timeCheck = ScheduleManager.validateNotInPast(currentTime, slot.day, slot.hour)
+      return timeCheck.valid
+    })
+
     // Filter based on selected session type constraints.
     if (isVirtual) {
       if (!telehealthUnlocked) return []
-      return baseSlots
+      return notInPastSlots
     }
 
-    return baseSlots.filter((slot) => {
+    return notInPastSlots.filter((slot) => {
       const check = canBookSessionType({
         building: currentBuilding,
         sessions,
@@ -90,6 +101,8 @@ export function MatchingSlotsList({
     therapist,
     client,
     currentDay,
+    currentHour,
+    currentMinute,
     daysToShow,
     selectedDuration,
     isVirtual,

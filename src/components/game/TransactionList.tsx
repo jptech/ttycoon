@@ -80,7 +80,7 @@ export function TransactionList({ transactions, currentDay }: TransactionListPro
         {/* Filters */}
         <div className="flex flex-wrap gap-2">
           <div className="flex items-center gap-1">
-            <Filter className="w-4 h-4 text-gray-400" />
+            <Filter className="w-4 h-4 text-text-muted" />
             <div className="flex gap-1">
               <Button
                 variant={filter === 'all' ? 'primary' : 'ghost'}
@@ -106,7 +106,7 @@ export function TransactionList({ transactions, currentDay }: TransactionListPro
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <Calendar className="w-4 h-4 text-gray-400" />
+            <Calendar className="w-4 h-4 text-text-muted" />
             <div className="flex gap-1">
               <Button
                 variant={timeRange === 7 ? 'primary' : 'ghost'}
@@ -141,24 +141,24 @@ export function TransactionList({ transactions, currentDay }: TransactionListPro
         </div>
 
         {/* Summary */}
-        <div className="grid grid-cols-3 gap-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+        <div className="grid grid-cols-3 gap-2 p-3 bg-surface rounded-lg">
           <div className="text-center">
-            <div className="text-xs text-gray-500 dark:text-gray-400">Income</div>
-            <div className="text-sm font-semibold text-green-600">
+            <div className="text-xs text-text-secondary">Income</div>
+            <div className="text-sm font-semibold text-success">
               {EconomyManager.formatCurrency(summary.income)}
             </div>
           </div>
           <div className="text-center">
-            <div className="text-xs text-gray-500 dark:text-gray-400">Expenses</div>
-            <div className="text-sm font-semibold text-red-600">
+            <div className="text-xs text-text-secondary">Expenses</div>
+            <div className="text-sm font-semibold text-error">
               {EconomyManager.formatCurrency(summary.expenses)}
             </div>
           </div>
           <div className="text-center">
-            <div className="text-xs text-gray-500 dark:text-gray-400">Net</div>
+            <div className="text-xs text-text-secondary">Net</div>
             <div
               className={`text-sm font-semibold ${
-                summary.net >= 0 ? 'text-green-600' : 'text-red-600'
+                summary.net >= 0 ? 'text-success' : 'text-error'
               }`}
             >
               {EconomyManager.formatCurrencyWithSign(summary.net)}
@@ -169,13 +169,13 @@ export function TransactionList({ transactions, currentDay }: TransactionListPro
         {/* Transaction List */}
         <div className="flex-1 overflow-y-auto space-y-4">
           {days.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-text-muted">
               No transactions found
             </div>
           ) : (
             days.map((day) => (
               <div key={day} className="space-y-2">
-                <div className="flex items-center gap-2 text-sm font-medium text-gray-500 dark:text-gray-400">
+                <div className="flex items-center gap-2 text-sm font-medium text-text-secondary">
                   <span>Day {day}</span>
                   {day === currentDay && (
                     <Badge variant="info" size="sm">
@@ -187,24 +187,24 @@ export function TransactionList({ transactions, currentDay }: TransactionListPro
                   {groupedByDay[day].map((t) => (
                     <div
                       key={t.id}
-                      className="flex items-center gap-3 p-2 bg-white dark:bg-gray-800 rounded border border-gray-100 dark:border-gray-700"
+                      className="flex items-center gap-3 p-2 bg-surface rounded border border-border"
                     >
                       {t.type === 'income' ? (
-                        <ArrowUpCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                        <ArrowUpCircle className="w-5 h-5 text-success flex-shrink-0" />
                       ) : (
-                        <ArrowDownCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                        <ArrowDownCircle className="w-5 h-5 text-error flex-shrink-0" />
                       )}
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                        <div className="text-sm font-medium text-text truncate">
                           {t.description}
                         </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                        <div className="text-xs text-text-secondary">
                           {t.category.replace(/_/g, ' ')}
                         </div>
                       </div>
                       <div
                         className={`text-sm font-semibold flex-shrink-0 ${
-                          t.type === 'income' ? 'text-green-600' : 'text-red-600'
+                          t.type === 'income' ? 'text-success' : 'text-error'
                         }`}
                       >
                         {t.type === 'income' ? '+' : '-'}

@@ -148,6 +148,10 @@ The ScheduleView includes a legend showing the session type colors and a breakdo
 - When rooms are full for a time slot, **in-office booking is blocked**.
 - If telehealth is unlocked, those same time slots can still be booked as **virtual** sessions.
 
+**Past Slots**
+- Slots in the past are dimmed and cannot be booked.
+- Because sessions start at the top of the hour, the **current hour becomes unbookable once `currentMinute > 0`** (i.e., an hour already in progress).
+
 ### Clicking a Slot
 
 ```typescript

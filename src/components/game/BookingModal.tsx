@@ -98,6 +98,16 @@ export function BookingModal({
     [therapists, selectedTherapistId]
   )
 
+  // Map client frequency to interval days
+  const getIntervalFromFrequency = (frequency: string): number => {
+    switch (frequency) {
+      case 'weekly': return 7
+      case 'biweekly': return 14
+      case 'monthly': return 30
+      default: return 7
+    }
+  }
+
   // Filter clients that are waiting and can be scheduled
   const availableClients = useMemo(
     () => clients.filter((c) => c.status === 'waiting' || c.status === 'in_treatment'),
@@ -312,12 +322,22 @@ export function BookingModal({
             <p className="text-sm text-muted-foreground">No clients available for booking</p>
           ) : (
             <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
-              {availableClients.map((client) => (
+              {availableClients.map((client) => {
+                const clientRemaining = Math.max(0, client.sessionsRequired - client.sessionsCompleted)
+                return (
                 <button
                   key={client.id}
                   onClick={() => {
                     setSelectedClientId(client.id)
                     setIsVirtual(client.prefersVirtual)
+                    // Auto-populate recurring settings based on client needs
+                    if (clientRemaining > 1) {
+                      setRecurringEnabled(true)
+                      setRecurringCount(Math.min(clientRemaining, 12))
+                      setRecurringIntervalDays(getIntervalFromFrequency(client.preferredFrequency))
+                    } else {
+                      setRecurringEnabled(false)
+                    }
                   }}
                   className={cn(
                     'p-3 rounded-lg border text-left transition-colors',
@@ -328,10 +348,12 @@ export function BookingModal({
                 >
                   <div className="font-medium text-sm">{client.displayName}</div>
                   <div className="text-xs text-muted-foreground">
-                    {client.conditionCategory} • {client.sessionsCompleted}/{client.sessionsRequired} sessions
+                    {client.conditionCategory} • {clientRemaining} remaining
+                    {clientRemaining > 1 && ` • ${client.preferredFrequency}`}
                   </div>
                 </button>
-              ))}
+              )})}
+
             </div>
           )}
         </div>

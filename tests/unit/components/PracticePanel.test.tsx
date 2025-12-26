@@ -85,7 +85,7 @@ describe('PracticePanel', () => {
       fireEvent.click(screen.getByRole('button', { name: /Finances/i }))
 
       // EconomyPanel content should be visible
-      expect(screen.getByText('Balance')).toBeInTheDocument()
+      expect(screen.getByText('Current Balance')).toBeInTheDocument()
     })
 
     it('switches to Insurance tab when clicked', () => {
@@ -102,7 +102,7 @@ describe('PracticePanel', () => {
 
       // Switch to Finances first
       fireEvent.click(screen.getByRole('button', { name: /Finances/i }))
-      expect(screen.getByText('Balance')).toBeInTheDocument()
+      expect(screen.getByText('Current Balance')).toBeInTheDocument()
 
       // Switch back to Sessions
       fireEvent.click(screen.getByRole('button', { name: /Sessions/i }))

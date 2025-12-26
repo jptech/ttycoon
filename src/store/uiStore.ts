@@ -67,6 +67,11 @@ interface UIStore {
   removeNotification: (id: string) => void
   clearNotifications: () => void
 
+  // Notification batching
+  pendingBatches: Map<string, PendingBatch>
+  queueNotification: (key: string, notification: Omit<Notification, 'id'>, singularMessage?: string) => void
+  flushBatch: (key: string) => void
+
   // Tutorial state
   tutorialState: {
     isActive: boolean
@@ -89,6 +94,12 @@ export interface Notification {
   duration?: number // ms, 0 for persistent
 }
 
+interface PendingBatch {
+  notification: Omit<Notification, 'id'>
+  count: number
+  timer: ReturnType<typeof setTimeout> | null
+}
+
 export const useUIStore = create<UIStore>((set, get) => ({
   // Initial state
   activeModal: null,
@@ -102,6 +113,7 @@ export const useUIStore = create<UIStore>((set, get) => ({
     therapistId: null,
   },
   notifications: [],
+  pendingBatches: new Map(),
   tutorialState: {
     isActive: false,
     currentStepIndex: 0,
@@ -218,6 +230,54 @@ export const useUIStore = create<UIStore>((set, get) => ({
 
   clearNotifications: () => {
     set({ notifications: [] })
+  },
+
+  // Notification batching
+  queueNotification: (key, notification, singularMessage) => {
+    const { pendingBatches, flushBatch } = get()
+    const existing = pendingBatches.get(key)
+
+    if (existing) {
+      // Clear existing timer and increment count
+      if (existing.timer) {
+        clearTimeout(existing.timer)
+      }
+      existing.count++
+      const newTimer = setTimeout(() => flushBatch(key), 300)
+      pendingBatches.set(key, { ...existing, timer: newTimer })
+    } else {
+      // Start new batch with 300ms window
+      const timer = setTimeout(() => flushBatch(key), 300)
+      pendingBatches.set(key, {
+        notification: { ...notification, message: singularMessage || notification.message },
+        count: 1,
+        timer,
+      })
+    }
+  },
+
+  flushBatch: (key) => {
+    const { pendingBatches, addNotification } = get()
+    const batch = pendingBatches.get(key)
+
+    if (!batch) return
+
+    if (batch.timer) {
+      clearTimeout(batch.timer)
+    }
+
+    if (batch.count === 1) {
+      // Single notification - show as-is
+      addNotification(batch.notification)
+    } else {
+      // Grouped notification - show count
+      addNotification({
+        ...batch.notification,
+        message: `${batch.count} ${batch.notification.message || 'items'}`,
+      })
+    }
+
+    pendingBatches.delete(key)
   },
 
   // Tutorial actions

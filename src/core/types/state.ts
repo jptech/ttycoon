@@ -71,6 +71,9 @@ export interface GameState {
   autoResolveSessions: boolean
   soundEnabled: boolean
   musicEnabled: boolean
+  showSessionSummaryModal: boolean
+  showDaySummaryModal: boolean
+  autoApplyDecisions: boolean
 }
 
 export type GameSpeed = 0 | 1 | 2 | 3

@@ -60,6 +60,53 @@
   color: var(--color-text-secondary, #a0a0a0);
 }
 
+.toggleButtons {
+  display: flex;
+  gap: 8px;
+}
+
+.toggleButton {
+  padding: 8px 16px;
+  background: var(--color-surface, #1a1a2e);
+  border: 1px solid var(--color-border, #3a3a5a);
+  border-radius: 6px;
+  color: var(--color-text, #e0e0e0);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 60px;
+}
+
+.toggleButton:hover {
+  background: var(--color-surface-hover, #2a2a4e);
+  border-color: var(--color-primary, #6366f1);
+}
+
+.toggleButton.active {
+  background: var(--color-primary, #6366f1);
+  border-color: var(--color-primary, #6366f1);
+  color: white;
+}
+
+.toggleButton.activeOff {
+  background: var(--color-surface-hover, #2a2a4e);
+  border-color: var(--color-border, #3a3a5a);
+  color: var(--color-text-secondary, #a0a0a0);
+}
+
+.toggleButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.disabledHint {
+  margin: 8px 0 0 0;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary, #a0a0a0);
+  font-style: italic;
+}
+
 .footer {
   display: flex;
   justify-content: flex-end;

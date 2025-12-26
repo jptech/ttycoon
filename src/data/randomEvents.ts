@@ -9,9 +9,9 @@ export const RANDOM_EVENTS: Record<string, RandomEvent> = {
 
   referral_call: {
     id: 'referral_call',
-    title: 'New Referral',
+    title: 'Colleague Referral',
     description:
-      'A colleague has called to refer a client to your practice. They heard great things about your work!',
+      "A fellow therapist has a client they think would be a great fit for your practice. They've vouched for you personally, so this client is already eager to start treatment.",
     type: 'positive',
     cooldownDays: 5,
     conditions: {
@@ -21,14 +21,14 @@ export const RANDOM_EVENTS: Record<string, RandomEvent> = {
       {
         text: 'Accept the referral',
         effects: {
-          reputation: 2,
+          reputation: 3,
           newClient: true,
         },
       },
       {
         text: 'Politely decline (too busy)',
         effects: {
-          reputation: -1,
+          reputation: -2,
         },
       },
     ],

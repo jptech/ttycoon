@@ -67,6 +67,10 @@ export interface ClientGenerationOptions {
   maxCredentialRequiredRate?: number
   /** Override RNG (useful for deterministic tests) */
   random?: () => number
+  /** Minimum engagement level (0-1). Referral clients start more engaged. */
+  minEngagement?: number
+  /** Maximum severity (1-10). Referral clients may have capped severity. */
+  maxSeverity?: number
 }
 
 function clamp01(value: number): number {
@@ -235,7 +239,8 @@ export const ClientManager = {
     // Determine condition
     const conditionCategory = pickRandom(Object.keys(CONDITION_TYPES) as ConditionCategory[], random)
     const conditionType = pickRandom(CONDITION_TYPES[conditionCategory], random)
-    const severity = randomInt(CLIENT_CONFIG.MIN_SEVERITY, CLIENT_CONFIG.MAX_SEVERITY, random)
+    const maxSeverity = options?.maxSeverity ?? CLIENT_CONFIG.MAX_SEVERITY
+    const severity = randomInt(CLIENT_CONFIG.MIN_SEVERITY, maxSeverity, random)
 
     // Sessions required based on severity
     const sessionsRequired = Math.max(
@@ -281,7 +286,7 @@ export const ClientManager = {
       treatmentProgress: 0,
       status: 'waiting',
       satisfaction: CLIENT_CONFIG.BASE_SATISFACTION,
-      engagement: CLIENT_CONFIG.BASE_ENGAGEMENT,
+      engagement: Math.max(CLIENT_CONFIG.BASE_ENGAGEMENT, (options?.minEngagement ?? 0) * 100),
       isPrivatePay,
       insuranceProvider,
       sessionRate,

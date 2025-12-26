@@ -588,7 +588,7 @@ describe('Random Events', () => {
   describe('getRandomEvent', () => {
     it('returns event by id', () => {
       const event = getRandomEvent('referral_call')
-      expect(event?.title).toBe('New Referral')
+      expect(event?.title).toBe('Colleague Referral')
     })
 
     it('returns undefined for invalid id', () => {

@@ -7,7 +7,7 @@ const SESSIONS_RETENTION_DAYS = 14
 const SCHEDULE_PAST_DAYS = 14
 const SCHEDULE_FUTURE_DAYS = 30
 
-const SAVE_VERSION = 1
+const SAVE_VERSION = 2
 const STORAGE_KEY = 'therapy_tycoon_save'
 
 interface SaveData {
@@ -178,8 +178,19 @@ export const SaveManager = {
       version = 1
     }
 
+    // Version 1 -> 2: Add QoL settings
+    if (version < 2) {
+      state = {
+        ...state,
+        showSessionSummaryModal: state.showSessionSummaryModal ?? true,
+        showDaySummaryModal: state.showDaySummaryModal ?? true,
+        autoApplyDecisions: state.autoApplyDecisions ?? false,
+      }
+      version = 2
+    }
+
     // Future migrations here...
-    // if (version < 2) { ... }
+    // if (version < 3) { ... }
 
     return state
   },

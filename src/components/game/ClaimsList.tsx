@@ -80,33 +80,33 @@ export function ClaimsList({ claims, currentDay }: ClaimsListProps) {
       <CardContent className="flex-1 flex flex-col space-y-4">
         {/* Summary Stats */}
         <div className="grid grid-cols-3 gap-2">
-          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-center">
-            <div className="text-xs text-blue-600 dark:text-blue-400">Pending</div>
-            <div className="text-lg font-semibold text-blue-700 dark:text-blue-300">
+          <div className="p-3 bg-info-bg rounded-lg text-center">
+            <div className="text-xs text-info">Pending</div>
+            <div className="text-lg font-semibold text-info">
               {EconomyManager.formatCurrency(pendingTotal)}
             </div>
-            <div className="text-xs text-blue-500">{pending.length} claims</div>
+            <div className="text-xs text-info/70">{pending.length} claims</div>
           </div>
-          <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
-            <div className="text-xs text-green-600 dark:text-green-400">Paid</div>
-            <div className="text-lg font-semibold text-green-700 dark:text-green-300">
+          <div className="p-3 bg-success-bg rounded-lg text-center">
+            <div className="text-xs text-success">Paid</div>
+            <div className="text-lg font-semibold text-success">
               {EconomyManager.formatCurrency(paidTotal)}
             </div>
-            <div className="text-xs text-green-500">{paid.length} claims</div>
+            <div className="text-xs text-success/70">{paid.length} claims</div>
           </div>
-          <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg text-center">
-            <div className="text-xs text-red-600 dark:text-red-400">Denied</div>
-            <div className="text-lg font-semibold text-red-700 dark:text-red-300">
+          <div className="p-3 bg-error-bg rounded-lg text-center">
+            <div className="text-xs text-error">Denied</div>
+            <div className="text-lg font-semibold text-error">
               {EconomyManager.formatCurrency(deniedTotal)}
             </div>
-            <div className="text-xs text-red-500">{denied.length} claims</div>
+            <div className="text-xs text-error/70">{denied.length} claims</div>
           </div>
         </div>
 
         {/* Pending Claims */}
         {sortedPending.length > 0 && (
           <div className="space-y-2">
-            <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <div className="text-sm font-medium text-text-secondary">
               Pending Claims
             </div>
             <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -117,21 +117,21 @@ export function ClaimsList({ claims, currentDay }: ClaimsListProps) {
                 return (
                   <div
                     key={claim.id}
-                    className="flex items-center gap-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700"
+                    className="flex items-center gap-3 p-3 bg-surface rounded-lg border border-border"
                   >
                     {getStatusIcon(claim)}
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      <div className="text-sm font-medium text-text">
                         {panel?.name ?? claim.insurerId}
                       </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                      <div className="text-xs text-text-secondary">
                         {daysUntilPayment > 0
                           ? `Expected in ${daysUntilPayment} days`
                           : 'Processing...'}
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                      <div className="text-sm font-semibold text-text">
                         {EconomyManager.formatCurrency(claim.amount)}
                       </div>
                       {getStatusBadge(claim)}
@@ -145,7 +145,7 @@ export function ClaimsList({ claims, currentDay }: ClaimsListProps) {
 
         {/* Empty State */}
         {claims.length === 0 && (
-          <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
+          <div className="flex-1 flex flex-col items-center justify-center text-text-muted">
             <FileText className="w-12 h-12 mb-2 opacity-50" />
             <div className="text-sm">No insurance claims yet</div>
             <div className="text-xs mt-1">
@@ -157,7 +157,7 @@ export function ClaimsList({ claims, currentDay }: ClaimsListProps) {
         {/* Recent History */}
         {(paid.length > 0 || denied.length > 0) && (
           <div className="space-y-2">
-            <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <div className="text-sm font-medium text-text-secondary">
               Recent Results
             </div>
             <div className="space-y-1 max-h-32 overflow-y-auto">
@@ -168,15 +168,15 @@ export function ClaimsList({ claims, currentDay }: ClaimsListProps) {
                   return (
                     <div
                       key={claim.id}
-                      className="flex items-center gap-2 py-1 border-b border-gray-100 dark:border-gray-700 last:border-0"
+                      className="flex items-center gap-2 py-1 border-b border-border last:border-0"
                     >
                       {getStatusIcon(claim)}
-                      <span className="flex-1 text-xs text-gray-600 dark:text-gray-400">
+                      <span className="flex-1 text-xs text-text-secondary">
                         {panel?.name ?? claim.insurerId}
                       </span>
                       <span
                         className={`text-xs font-medium ${
-                          claim.status === 'paid' ? 'text-green-600' : 'text-red-600'
+                          claim.status === 'paid' ? 'text-success' : 'text-error'
                         }`}
                       >
                         {claim.status === 'paid' ? '+' : ''}
@@ -191,7 +191,7 @@ export function ClaimsList({ claims, currentDay }: ClaimsListProps) {
 
         {/* Warning for overdue claims */}
         {sortedPending.some((c) => c.scheduledPaymentDay < currentDay) && (
-          <div className="flex items-center gap-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded text-yellow-700 dark:text-yellow-400 text-xs">
+          <div className="flex items-center gap-2 p-2 bg-warning-bg rounded text-warning text-xs">
             <AlertTriangle className="w-4 h-4" />
             <span>Some claims are past their expected payment date</span>
           </div>

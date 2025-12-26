@@ -12,10 +12,15 @@ export interface SettingsModalProps {
 }
 
 export function SettingsModal({ open, onClose, onNewGame }: SettingsModalProps) {
-  const { gameSpeed } = useGameStore()
+  const { gameSpeed, showSessionSummaryModal, showDaySummaryModal, autoApplyDecisions, rememberedDecisions } = useGameStore()
   const setGameSpeed = useGameStore((state) => state.setGameSpeed)
+  const setShowSessionSummaryModal = useGameStore((state) => state.setShowSessionSummaryModal)
+  const setShowDaySummaryModal = useGameStore((state) => state.setShowDaySummaryModal)
+  const setAutoApplyDecisions = useGameStore((state) => state.setAutoApplyDecisions)
   const openModal = useUIStore((s) => s.openModal)
   const [confirmNewGame, setConfirmNewGame] = useState(false)
+
+  const hasRememberedDecisions = Object.keys(rememberedDecisions).length > 0
 
   const handleSave = useCallback(() => {
     SaveManager.save()
@@ -66,6 +71,68 @@ export function SettingsModal({ open, onClose, onNewGame }: SettingsModalProps) 
               </button>
             ))}
           </div>
+        </div>
+
+        <div className={styles.section}>
+          <h3 className={styles.sectionTitle}>Session Summary</h3>
+          <p className={styles.hint}>Show detailed modal after each session completes</p>
+          <div className={styles.toggleButtons}>
+            <button
+              className={`${styles.toggleButton} ${showSessionSummaryModal ? styles.active : styles.activeOff}`}
+              onClick={() => setShowSessionSummaryModal(true)}
+            >
+              On
+            </button>
+            <button
+              className={`${styles.toggleButton} ${!showSessionSummaryModal ? styles.active : styles.activeOff}`}
+              onClick={() => setShowSessionSummaryModal(false)}
+            >
+              Off
+            </button>
+          </div>
+        </div>
+
+        <div className={styles.section}>
+          <h3 className={styles.sectionTitle}>Day Summary</h3>
+          <p className={styles.hint}>Show end-of-day summary at 5 PM</p>
+          <div className={styles.toggleButtons}>
+            <button
+              className={`${styles.toggleButton} ${showDaySummaryModal ? styles.active : styles.activeOff}`}
+              onClick={() => setShowDaySummaryModal(true)}
+            >
+              On
+            </button>
+            <button
+              className={`${styles.toggleButton} ${!showDaySummaryModal ? styles.active : styles.activeOff}`}
+              onClick={() => setShowDaySummaryModal(false)}
+            >
+              Off
+            </button>
+          </div>
+        </div>
+
+        <div className={styles.section}>
+          <h3 className={styles.sectionTitle}>Auto-Apply Decisions</h3>
+          <p className={styles.hint}>Automatically repeat previous choices in familiar situations</p>
+          <div className={styles.toggleButtons}>
+            <button
+              className={`${styles.toggleButton} ${autoApplyDecisions ? styles.active : styles.activeOff}`}
+              onClick={() => setAutoApplyDecisions(true)}
+              disabled={!hasRememberedDecisions}
+            >
+              On
+            </button>
+            <button
+              className={`${styles.toggleButton} ${!autoApplyDecisions ? styles.active : styles.activeOff}`}
+              onClick={() => setAutoApplyDecisions(false)}
+              disabled={!hasRememberedDecisions}
+            >
+              Off
+            </button>
+          </div>
+          {!hasRememberedDecisions && (
+            <p className={styles.disabledHint}>Make decisions during sessions to enable this feature</p>
+          )}
         </div>
 
         <div className={styles.section}>
