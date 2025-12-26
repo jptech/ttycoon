@@ -32,13 +32,13 @@ export function FeedbackOverlay({ therapistStates }: FeedbackOverlayProps) {
   useEffect(() => {
     const handleSessionCompleted = (payload: { sessionId: string, quality: number, payment: number }) => {
       const { sessionId, quality, payment } = payload
-      
+
       // Find session to get therapist
       const session = useGameStore.getState().sessions.find(s => s.id === sessionId)
-      
+
       let x = 200
       let y = 150
-      
+
       if (session) {
         const therapistState = therapistStatesRef.current.find(t => t.therapistId === session.therapistId)
         if (therapistState) {
@@ -57,9 +57,9 @@ export function FeedbackOverlay({ therapistStates }: FeedbackOverlayProps) {
         color: 0x22c55e,
         velocity: { x: 0, y: -0.5 }
       }
-      
+
       setItems(prev => [...prev, newItem])
-      
+
       // Also show quality if high
       if (quality > 0.8) {
         const qualityItem: FloatingTextItem = {
@@ -74,9 +74,10 @@ export function FeedbackOverlay({ therapistStates }: FeedbackOverlayProps) {
         setItems(prev => [...prev, qualityItem])
       }
     }
-    
-    EventBus.on(GameEvents.SESSION_COMPLETED, handleSessionCompleted)
-    return () => EventBus.off(GameEvents.SESSION_COMPLETED, handleSessionCompleted)
+
+    // CRIT-002 fix: Use returned cleanup function instead of manual EventBus.off()
+    const unsubscribe = EventBus.on(GameEvents.SESSION_COMPLETED, handleSessionCompleted)
+    return unsubscribe
   }, [])
 
   // Animation loop

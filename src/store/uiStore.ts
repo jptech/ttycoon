@@ -124,17 +124,19 @@ export const useUIStore = create<UIStore>((set, get) => ({
   closeModal: () => {
     const { modalStack, activeModal } = get()
 
-    if (activeModal) {
-      EventBus.emit(GameEvents.GAME_RESUMED, { reason: `modal_${activeModal.type}` })
-    }
-
     if (modalStack.length > 0) {
+      // HIGH-001 fix: Don't emit GAME_RESUMED when restoring from stack
+      // Another modal is becoming active, so game should stay paused
       const previous = modalStack[modalStack.length - 1]
       set({
         activeModal: previous,
         modalStack: modalStack.slice(0, -1),
       })
     } else {
+      // Only emit GAME_RESUMED when closing the last modal
+      if (activeModal) {
+        EventBus.emit(GameEvents.GAME_RESUMED, { reason: `modal_${activeModal.type}` })
+      }
       set({ activeModal: null })
     }
   },

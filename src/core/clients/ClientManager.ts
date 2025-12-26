@@ -375,12 +375,49 @@ export const ClientManager = {
   },
 
   /**
-   * Assign client to therapist
+   * CRIT-006 fix: Check if therapist can serve this client
+   * Returns validation result with reason if invalid
    */
-  assignClient(client: Client, therapistId: string): Client {
+  canTherapistServeClient(
+    client: Client,
+    therapist: Therapist
+  ): { valid: boolean; reason?: string } {
+    // Check minor certification
+    if (client.isMinor && !therapist.certifications.includes('children_certified')) {
+      return { valid: false, reason: 'Client is a minor and therapist lacks children certification' }
+    }
+
+    // Check couple certification
+    if (client.isCouple && !therapist.certifications.includes('couples_certified')) {
+      return { valid: false, reason: 'Client is a couple and therapist lacks couples certification' }
+    }
+
+    // Check required certification
+    if (client.requiredCertification && !therapist.certifications.includes(client.requiredCertification)) {
+      return {
+        valid: false,
+        reason: `Client requires ${client.requiredCertification} certification which therapist lacks`,
+      }
+    }
+
+    return { valid: true }
+  },
+
+  /**
+   * Assign client to therapist
+   * CRIT-006 fix: Now validates therapist qualifications
+   * @throws Error if therapist cannot serve this client
+   */
+  assignClient(client: Client, therapist: Therapist): Client {
+    // CRIT-006 fix: Validate therapist can serve this client
+    const validation = this.canTherapistServeClient(client, therapist)
+    if (!validation.valid) {
+      throw new Error(`Cannot assign client: ${validation.reason}`)
+    }
+
     return {
       ...client,
-      assignedTherapistId: therapistId,
+      assignedTherapistId: therapist.id,
       status: 'in_treatment',
       daysWaiting: client.daysWaiting,
     }

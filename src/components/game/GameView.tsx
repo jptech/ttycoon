@@ -17,6 +17,7 @@ import { InsuranceManager } from '@/core/insurance'
 import { INSURANCE_PANELS } from '@/data'
 import { OfficeManager, OFFICE_CONFIG } from '@/core/office'
 import { ScheduleManager } from '@/core/schedule'
+import { ClientManager } from '@/core/clients'
 import { canBookSessionType } from '@/core/schedule/BookingConstraints'
 import type { Session, RandomEvent, DecisionEvent } from '@/core/types'
 import { getMilestoneConfig, getPracticeLevelConfig } from '@/core/types'
@@ -274,6 +275,20 @@ export function GameView({
         return { success: false, error: timeCheck.reason || 'Session time is in the past' }
       }
 
+      // CRIT-006 fix: Validate therapist can serve this client
+      const validationResult = ClientManager.canTherapistServeClient(client, therapist)
+      if (!validationResult.valid) {
+        addNotification({
+          type: 'error',
+          title: 'Booking Failed',
+          message: validationResult.reason || 'Therapist cannot serve this client.',
+        })
+        return { success: false, error: validationResult.reason || 'Therapist qualification mismatch' }
+      }
+
+      // CRIT-005 fix: Apply duration multiplier for payment calculation
+      const payment = ScheduleManager.calculateSessionPayment(client.sessionRate, params.duration)
+
       const session: Session = {
         id: crypto.randomUUID(),
         therapistId: therapist.id,
@@ -288,7 +303,7 @@ export function GameView({
         progress: 0,
         quality: 0.5,
         qualityModifiers: [],
-        payment: client.sessionRate,
+        payment,
         energyCost: 15,
         xpGained: 0,
         decisionsMade: [],

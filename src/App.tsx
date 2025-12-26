@@ -81,6 +81,9 @@ function App() {
   // Track last day we checked for events
   const lastEventCheckDay = useRef(0)
 
+  // HIGH-006 fix: Track day summary timeout for cleanup
+  const daySummaryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // Handle session completion
   const handleSessionComplete = useCallback(
     (session: Session) => {
@@ -365,8 +368,9 @@ function App() {
         state.activeTrainings.length
       )
 
+      // HIGH-006 fix: Track timeout for cleanup
       // Use setTimeout to avoid state update during event callback
-      setTimeout(() => {
+      daySummaryTimeoutRef.current = setTimeout(() => {
         setActiveDaySummary(summary)
         pause('day_summary')
 
@@ -385,7 +389,13 @@ function App() {
       }, 0)
     })
 
-    return unsubscribe
+    return () => {
+      unsubscribe()
+      // HIGH-006 fix: Cleanup timeout on unmount
+      if (daySummaryTimeoutRef.current) {
+        clearTimeout(daySummaryTimeoutRef.current)
+      }
+    }
   }, [hasStartedGame, pause, checkAndAwardMilestones, addNotification])
 
   // Handle day summary continue
@@ -566,6 +576,8 @@ function App() {
   // Handle new game start
   const handleStartGame = useCallback(
     (practiceName: string, playerTherapist: Therapist) => {
+      // HIGH-002 fix: Clear old event listeners before starting new game
+      EventBus.clear()
       newGame(practiceName, playerTherapist)
       setShowNewGame(false)
       setHasStartedGame(true)

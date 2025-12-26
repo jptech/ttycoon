@@ -258,6 +258,9 @@ export const ScheduleManager = {
       isVirtual = client.prefersVirtual,
     } = params
 
+    // CRIT-005 fix: Apply duration multiplier at session creation time
+    const payment = this.calculateSessionPayment(client.sessionRate, duration)
+
     return {
       id: crypto.randomUUID(),
       therapistId,
@@ -272,7 +275,7 @@ export const ScheduleManager = {
       progress: 0,
       quality: 0.5, // Base quality, will be modified during session
       qualityModifiers: [],
-      payment: client.sessionRate,
+      payment,
       energyCost: this.calculateEnergyCost(duration, therapist.level),
       xpGained: 0,
       decisionsMade: [],
@@ -282,7 +285,25 @@ export const ScheduleManager = {
   },
 
   /**
+   * Calculate session payment with duration multiplier
+   * CRIT-005 fix: Consistent with EconomyManager.calculateSessionPayment()
+   */
+  calculateSessionPayment(baseRate: number, duration: SessionDuration): number {
+    const EXTENDED_SESSION_MULTIPLIER = 1.5  // 80-minute sessions
+    const INTENSIVE_SESSION_MULTIPLIER = 3   // 180-minute sessions
+
+    let payment = baseRate
+    if (duration === 80) {
+      payment *= EXTENDED_SESSION_MULTIPLIER
+    } else if (duration === 180) {
+      payment *= INTENSIVE_SESSION_MULTIPLIER
+    }
+    return Math.round(payment)
+  },
+
+  /**
    * Calculate energy cost for a session
+   * HIGH-007 fix: Cap level at 50 (MAX_LEVEL) to prevent edge cases
    */
   calculateEnergyCost(duration: SessionDuration, therapistLevel: number): number {
     const baseCost = {
@@ -291,8 +312,11 @@ export const ScheduleManager = {
       180: 50,
     }[duration]
 
+    // HIGH-007 fix: Cap level at MAX_LEVEL (50) to prevent edge cases
+    const cappedLevel = Math.min(therapistLevel, 50)
+
     // Higher level therapists are more efficient
-    const levelModifier = Math.max(0.5, 1 - therapistLevel * 0.01)
+    const levelModifier = Math.max(0.5, 1 - cappedLevel * 0.01)
     return Math.round(baseCost * levelModifier)
   },
 

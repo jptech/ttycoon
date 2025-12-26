@@ -521,6 +521,26 @@ describe('ScheduleManager', () => {
     })
   })
 
+  // CRIT-005 fix: Tests for session payment with duration multiplier
+  describe('calculateSessionPayment', () => {
+    it('returns base rate for standard 50-min session', () => {
+      expect(ScheduleManager.calculateSessionPayment(150, 50)).toBe(150)
+    })
+
+    it('applies 1.5x multiplier for extended 80-min session', () => {
+      expect(ScheduleManager.calculateSessionPayment(150, 80)).toBe(225)
+    })
+
+    it('applies 3x multiplier for intensive 180-min session', () => {
+      expect(ScheduleManager.calculateSessionPayment(150, 180)).toBe(450)
+    })
+
+    it('rounds to nearest integer', () => {
+      expect(ScheduleManager.calculateSessionPayment(100, 80)).toBe(150)
+      expect(ScheduleManager.calculateSessionPayment(133, 80)).toBe(200) // 133 * 1.5 = 199.5 -> 200
+    })
+  })
+
   describe('getConflicts', () => {
     it('returns empty array for available slot', () => {
       const schedule: Schedule = {}

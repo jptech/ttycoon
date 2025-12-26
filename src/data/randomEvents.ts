@@ -239,7 +239,7 @@ export const RANDOM_EVENTS: Record<string, RandomEvent> = {
         effects: {
           reputation: 3,
           modifier: {
-            id: 'economic_downturn',
+            id: 'reduced_rates',
             name: 'Reduced Rates',
             effect: 'session_fee',
             startDay: 0,
@@ -478,9 +478,10 @@ export const COMMON_MODIFIERS: Record<string, Omit<GameModifier, 'startDay'>> = 
     duration: 5,
     multiplier: 1.5,
   },
-  economic_downturn: {
-    id: 'economic_downturn',
-    name: 'Economic Downturn',
+  // CRIT-003 fix: Renamed from 'economic_downturn' to avoid ID collision with the event
+  reduced_rates: {
+    id: 'reduced_rates',
+    name: 'Reduced Rates',
     effect: 'session_fee',
     duration: 14,
     multiplier: 0.8,

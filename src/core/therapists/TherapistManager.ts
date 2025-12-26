@@ -657,9 +657,15 @@ export const TherapistManager = {
   /**
    * Calculate modality match bonus for a therapist treating a specific condition
    * Returns a quality bonus (0.0 to ~0.15) based on modality-condition match
+   * HIGH-020 fix: Added null checks to prevent potential undefined access
    */
   getModalityMatchBonus(therapist: Therapist, conditionCategory: ConditionCategory): number {
     const primaryConfig = MODALITY_CONFIG[therapist.primaryModality]
+
+    // HIGH-020 fix: Guard against missing modality config
+    if (!primaryConfig) {
+      return 0
+    }
 
     // Check primary modality match
     if (primaryConfig.strongMatch.includes(conditionCategory)) {
@@ -669,7 +675,8 @@ export const TherapistManager = {
     // Check secondary modalities (reduced bonus)
     for (const modality of therapist.secondaryModalities) {
       const config = MODALITY_CONFIG[modality]
-      if (config.strongMatch.includes(conditionCategory)) {
+      // HIGH-020 fix: Guard against missing secondary modality config
+      if (config?.strongMatch.includes(conditionCategory)) {
         return config.matchBonus * 0.5 // Half bonus for secondary
       }
     }

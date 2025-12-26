@@ -78,7 +78,13 @@ export function ClientCard({
         onClick={() => onViewDetails?.(client.id)}
         role="button"
         tabIndex={0}
-        onKeyDown={(e) => e.key === 'Enter' && onViewDetails?.(client.id)}
+        onKeyDown={(e) => {
+          // HIGH-014 fix: Support both Enter and Space for keyboard accessibility
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault() // Prevent page scroll on Space
+            onViewDetails?.(client.id)
+          }
+        }}
       >
         <span className={styles.clientName}>{client.displayName}</span>
 

@@ -438,6 +438,8 @@ export const useGameStore = create<GameStore>()(
       addSession: (session) => {
         set((state) => {
           state.sessions.push(session)
+          // CRIT-001 fix: Rebuild schedule after adding session
+          state.schedule = ScheduleManager.buildScheduleFromSessions(state.sessions)
         })
         EventBus.emit(GameEvents.SESSION_SCHEDULED, {
           sessionId: session.id,
@@ -453,6 +455,16 @@ export const useGameStore = create<GameStore>()(
           const index = state.sessions.findIndex((s) => s.id === sessionId)
           if (index !== -1) {
             state.sessions[index] = { ...state.sessions[index], ...updates }
+            // CRIT-001 fix: Rebuild schedule if scheduling-related fields changed
+            if (
+              'scheduledDay' in updates ||
+              'scheduledHour' in updates ||
+              'durationMinutes' in updates ||
+              'therapistId' in updates ||
+              'status' in updates
+            ) {
+              state.schedule = ScheduleManager.buildScheduleFromSessions(state.sessions)
+            }
           }
         })
       },
@@ -460,7 +472,11 @@ export const useGameStore = create<GameStore>()(
       removeSession: (sessionId) => {
         set((state) => {
           state.sessions = state.sessions.filter((s) => s.id !== sessionId)
+          // CRIT-001 fix: Rebuild schedule after removing session
+          state.schedule = ScheduleManager.buildScheduleFromSessions(state.sessions)
         })
+        // CRIT-004 fix: Emit event when session is removed
+        EventBus.emit(GameEvents.SESSION_CANCELLED, { sessionId, reason: 'Session removed' })
       },
 
       updateSchedule: (schedule) => {

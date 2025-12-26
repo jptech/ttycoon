@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { Button, Modal, Badge } from '@/components/ui'
 import { useUIStore } from '@/store'
 import type { Therapist, CredentialType, TherapeuticModality } from '@/core/types'
@@ -28,6 +28,18 @@ export function NewGameModal({ isOpen, onStartGame }: NewGameModalProps) {
 
   const startTutorial = useUIStore((state) => state.startTutorial)
   const tutorialHasBeenSeen = useUIStore((state) => state.tutorialState.hasSeenTutorial)
+
+  // HIGH-004 fix: Track tutorial timeout for cleanup
+  const tutorialTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (tutorialTimeoutRef.current) {
+        clearTimeout(tutorialTimeoutRef.current)
+      }
+    }
+  }, [])
 
   // Trait selections (1-10 scale, default 5)
   const [warmth, setWarmth] = useState(5)
@@ -72,8 +84,9 @@ export function NewGameModal({ isOpen, onStartGame }: NewGameModalProps) {
 
       // Start tutorial if user chose to show it
       if (showTutorial) {
+        // HIGH-004 fix: Store timeout ref for cleanup
         // Small delay to let the game initialize
-        setTimeout(() => {
+        tutorialTimeoutRef.current = setTimeout(() => {
           startTutorial()
         }, 500)
       }

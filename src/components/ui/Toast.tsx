@@ -1,4 +1,4 @@
-import { forwardRef, type HTMLAttributes, useEffect, useState } from 'react'
+import { forwardRef, type HTMLAttributes, useEffect, useState, useRef, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import { X, CheckCircle, AlertCircle, AlertTriangle, Info, Award } from 'lucide-react'
 
@@ -52,22 +52,35 @@ export const Toast = forwardRef<HTMLDivElement, ToastProps>(
     const [isExiting, setIsExiting] = useState(false)
     const Icon = icons[type]
 
+    // HIGH-005 fix: Track all timeouts for proper cleanup
+    const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const exitAnimationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    // Cleanup all timeouts on unmount
+    useEffect(() => {
+      return () => {
+        if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current)
+        if (exitAnimationTimerRef.current) clearTimeout(exitAnimationTimerRef.current)
+      }
+    }, [])
+
+    const handleDismiss = useCallback(() => {
+      if (!onDismiss) return
+      setIsExiting(true)
+      exitAnimationTimerRef.current = setTimeout(onDismiss, 150)
+    }, [onDismiss])
+
     useEffect(() => {
       if (duration === 0 || !onDismiss) return
 
-      const timer = setTimeout(() => {
-        setIsExiting(true)
-        setTimeout(onDismiss, 150) // Wait for exit animation
+      dismissTimerRef.current = setTimeout(() => {
+        handleDismiss()
       }, duration)
 
-      return () => clearTimeout(timer)
-    }, [duration, onDismiss])
-
-    const handleDismiss = () => {
-      if (!onDismiss) return
-      setIsExiting(true)
-      setTimeout(onDismiss, 150)
-    }
+      return () => {
+        if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current)
+      }
+    }, [duration, onDismiss, handleDismiss])
 
     return (
       <div

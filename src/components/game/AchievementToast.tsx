@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import { Trophy, Star, Sparkles, X } from 'lucide-react'
 import type { MilestoneConfig } from '@/core/types/state'
@@ -23,6 +23,21 @@ export function AchievementToast({
   const [isVisible, setIsVisible] = useState(false)
   const [isExiting, setIsExiting] = useState(false)
 
+  // HIGH-005 fix: Track all timeouts for proper cleanup
+  const exitAnimationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Cleanup all timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (exitAnimationTimerRef.current) clearTimeout(exitAnimationTimerRef.current)
+    }
+  }, [])
+
+  const handleDismiss = useCallback(() => {
+    setIsExiting(true)
+    exitAnimationTimerRef.current = setTimeout(onDismiss, 400)
+  }, [onDismiss])
+
   // Entrance animation
   useEffect(() => {
     // Small delay for mount animation
@@ -39,12 +54,7 @@ export function AchievementToast({
     }, duration)
 
     return () => clearTimeout(timer)
-  }, [duration])
-
-  const handleDismiss = () => {
-    setIsExiting(true)
-    setTimeout(onDismiss, 400)
-  }
+  }, [duration, handleDismiss])
 
   return (
     <div

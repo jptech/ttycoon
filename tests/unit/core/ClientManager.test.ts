@@ -526,7 +526,8 @@ describe('ClientManager', () => {
   describe('assignClient', () => {
     it('assigns client to therapist', () => {
       const client = createTestClient()
-      const result = ClientManager.assignClient(client, 'therapist-1')
+      const therapist = createTestTherapist({ id: 'therapist-1' })
+      const result = ClientManager.assignClient(client, therapist)
 
       expect(result.assignedTherapistId).toBe('therapist-1')
       expect(result.status).toBe('in_treatment')
@@ -534,9 +535,66 @@ describe('ClientManager', () => {
 
     it('preserves days waiting', () => {
       const client = createTestClient({ daysWaiting: 5 })
-      const result = ClientManager.assignClient(client, 'therapist-1')
+      const therapist = createTestTherapist({ id: 'therapist-1' })
+      const result = ClientManager.assignClient(client, therapist)
 
       expect(result.daysWaiting).toBe(5)
+    })
+
+    it('throws when therapist lacks required certification', () => {
+      const client = createTestClient({ requiredCertification: 'trauma_certified' })
+      const therapist = createTestTherapist({ certifications: [] })
+
+      expect(() => ClientManager.assignClient(client, therapist)).toThrow('Cannot assign client')
+    })
+
+    it('throws when therapist lacks children certification for minor', () => {
+      const client = createTestClient({ isMinor: true })
+      const therapist = createTestTherapist({ certifications: [] })
+
+      expect(() => ClientManager.assignClient(client, therapist)).toThrow('children certification')
+    })
+
+    it('throws when therapist lacks couples certification for couple', () => {
+      const client = createTestClient({ isCouple: true })
+      const therapist = createTestTherapist({ certifications: [] })
+
+      expect(() => ClientManager.assignClient(client, therapist)).toThrow('couples certification')
+    })
+
+    it('succeeds when therapist has required certifications', () => {
+      const client = createTestClient({ isMinor: true, requiredCertification: 'children_certified' })
+      const therapist = createTestTherapist({ certifications: ['children_certified'] })
+
+      const result = ClientManager.assignClient(client, therapist)
+      expect(result.status).toBe('in_treatment')
+    })
+  })
+
+  describe('canTherapistServeClient', () => {
+    it('returns valid for client with no requirements', () => {
+      const client = createTestClient()
+      const therapist = createTestTherapist()
+
+      const result = ClientManager.canTherapistServeClient(client, therapist)
+      expect(result.valid).toBe(true)
+    })
+
+    it('returns invalid when therapist lacks required certification', () => {
+      const client = createTestClient({ requiredCertification: 'trauma_certified' })
+      const therapist = createTestTherapist({ certifications: [] })
+
+      const result = ClientManager.canTherapistServeClient(client, therapist)
+      expect(result.valid).toBe(false)
+      expect(result.reason).toContain('trauma_certified')
+    })
+
+    it('returns valid when therapist has required certification', () => {
+      const client = createTestClient({ requiredCertification: 'trauma_certified' })
+      const therapist = createTestTherapist({ certifications: ['trauma_certified'] })
+
+      const result = ClientManager.canTherapistServeClient(client, therapist)
+      expect(result.valid).toBe(true)
     })
   })
 

@@ -171,7 +171,9 @@ export const EconomyManager = {
       if (claim.scheduledPaymentDay > currentDay) continue
 
       // Check for denial
-      const denialRate = denialRates[claim.insurerId] ?? 0.05
+      // HIGH-019 fix: Clamp denial rate to valid probability range [0, 1]
+      const rawDenialRate = denialRates[claim.insurerId] ?? 0.05
+      const denialRate = Math.max(0, Math.min(1, rawDenialRate))
       const isDenied = Math.random() < denialRate
 
       if (isDenied) {

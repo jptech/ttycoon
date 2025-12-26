@@ -650,7 +650,8 @@ describe('Random Events', () => {
     it('has common modifier templates', () => {
       expect(COMMON_MODIFIERS.busy_week).toBeDefined()
       expect(COMMON_MODIFIERS.reputation_boost).toBeDefined()
-      expect(COMMON_MODIFIERS.economic_downturn).toBeDefined()
+      // CRIT-003 fix: renamed from economic_downturn to reduced_rates to avoid ID collision
+      expect(COMMON_MODIFIERS.reduced_rates).toBeDefined()
     })
 
     it('modifiers have valid properties', () => {
