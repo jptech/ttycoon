@@ -107,8 +107,8 @@ export function ScheduleView(props: ScheduleViewProps) {
       workHours: number[]
     }>()
 
-    let globalMinStart = SCHEDULE_CONFIG.BUSINESS_END
-    let globalMaxEnd = SCHEDULE_CONFIG.BUSINESS_START
+    let globalMinStart: number = SCHEDULE_CONFIG.BUSINESS_END
+    let globalMaxEnd: number = SCHEDULE_CONFIG.BUSINESS_START
 
     for (const t of therapists) {
       const schedule = TherapistManager.getWorkSchedule(t)

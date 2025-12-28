@@ -129,11 +129,13 @@ export function OfficeUpgradesPanel() {
     if (result.success) {
       addNotification({
         type: 'success',
-        message: 'Upgrade purchased',
+        title: 'Upgrade Purchased',
+        message: 'Upgrade purchased successfully',
       })
     } else {
       addNotification({
         type: 'error',
+        title: 'Purchase Failed',
         message: result.reason || 'Failed to purchase upgrade',
       })
     }

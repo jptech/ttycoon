@@ -35,7 +35,7 @@ export function TherapistPanel({
   onStartTraining,
   onTakeBreak,
   onViewDetails,
-  onUpdateSchedule,
+  onUpdateSchedule: _onUpdateSchedule,
   practiceLevel = 1,
   maxTherapists,
 }: TherapistPanelProps) {
@@ -43,10 +43,6 @@ export function TherapistPanel({
   const [hiringCandidates, setHiringCandidates] = useState<ReturnType<typeof TherapistManager.generateTherapist>[]>([])
   const [showCompact, setShowCompact] = useState(false)
   const [editingScheduleTherapistId, setEditingScheduleTherapistId] = useState<string | null>(null)
-
-  const editingTherapist = editingScheduleTherapistId
-    ? therapists.find((t) => t.id === editingScheduleTherapistId)
-    : null
 
   const stats = TherapistManager.getTherapistStats(therapists)
   const monthlyCost = TherapistManager.getMonthlySalaryCost(therapists)

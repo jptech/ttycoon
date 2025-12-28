@@ -9,7 +9,7 @@ import type {
 } from '@/core/types'
 import { ClientManager, type FollowUpInfo, FREQUENCY_DAYS } from '@/core/clients'
 import { TherapistManager } from '@/core/therapists'
-import { ScheduleManager, SCHEDULE_CONFIG } from './ScheduleManager'
+import { ScheduleManager } from './ScheduleManager'
 
 /**
  * Urgency level for booking suggestions
@@ -212,7 +212,7 @@ export function generateBookingSuggestions(
 /**
  * Determine urgency level for a client
  */
-function determineUrgency(followUp: FollowUpInfo, currentDay: number): SuggestionUrgency {
+function determineUrgency(followUp: FollowUpInfo, _currentDay: number): SuggestionUrgency {
   if (followUp.isOverdue) {
     return 'overdue'
   }
@@ -254,11 +254,6 @@ function findBestSlotForClient(params: FindBestSlotParams): BookingSuggestion | 
     urgency,
   } = params
 
-  // Prefer assigned therapist if they exist
-  const assignedTherapist = client.assignedTherapistId
-    ? therapists.find((t) => t.id === client.assignedTherapistId)
-    : null
-
   // Get therapists who can treat this client (have required certifications)
   const eligibleTherapists = therapists.filter((t) => {
     // Check required certifications
@@ -283,14 +278,11 @@ function findBestSlotForClient(params: FindBestSlotParams): BookingSuggestion | 
     // Then by match score
     const scoreA = ClientManager.calculateMatchScore(client, a)
     const scoreB = ClientManager.calculateMatchScore(client, b)
-    return scoreB - scoreA
+    return scoreB.score - scoreA.score
   })
 
   // Determine if virtual
   const isVirtual = client.prefersVirtual && telehealthUnlocked
-
-  // Check room capacity for in-person
-  const canDoInPerson = !isVirtual || !client.prefersVirtual
 
   // Duration preference (default 50)
   const duration: SessionDuration = 50

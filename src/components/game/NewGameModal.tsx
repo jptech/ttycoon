@@ -78,6 +78,11 @@ export function NewGameModal({ isOpen, onStartGame }: NewGameModalProps) {
           analytical,
           creativity,
         },
+        workSchedule: {
+          workStartHour: 8,
+          workEndHour: 18,
+          breakHours: [12],
+        },
       }
 
       onStartGame(practiceName, playerTherapist)

@@ -907,7 +907,7 @@ export const TherapistManager = {
   forecastEnergy(
     therapist: Therapist,
     sessions: Session[],
-    schedule: Schedule,
+    _schedule: Schedule,
     day: number
   ): EnergyForecast {
     // Get sessions scheduled for this therapist on this day

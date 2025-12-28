@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { X, CheckCircle, AlertCircle, AlertTriangle, Info, Award, Check, Bell } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useUIStore, type InboxNotification, type NotificationPriority } from '@/store/uiStore'
+import { useUIStore, type InboxNotification } from '@/store/uiStore'
 
 const icons = {
   success: CheckCircle,

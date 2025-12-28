@@ -2,10 +2,10 @@ import type { BookingSuggestion, MatchQuality } from '@/core/schedule'
 import type { Client, Therapist } from '@/core/types'
 import { ScheduleManager } from '@/core/schedule'
 import { Button, Badge } from '@/components/ui'
-import { Calendar, Clock, User, Video, Building, Star, AlertTriangle, X, Repeat, Sparkles, ThumbsUp, Check } from 'lucide-react'
+import { Calendar, Clock, User, Video, Building, Star, AlertTriangle, X, Repeat, Sparkles, ThumbsUp, Check, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-const MATCH_QUALITY_STYLES: Record<MatchQuality, { icon: React.ElementType; label: string; className: string }> = {
+const MATCH_QUALITY_STYLES: Record<MatchQuality, { icon: LucideIcon; label: string; className: string }> = {
   excellent: {
     icon: Sparkles,
     label: 'Excellent Match',
@@ -100,7 +100,7 @@ export function BookingSuggestionCard({
         )}
 
         {/* Match quality indicator */}
-        <MatchIcon className={cn('w-3.5 h-3.5 shrink-0', matchStyle.className)} title={matchStyle.label} />
+        <MatchIcon className={cn('w-3.5 h-3.5 shrink-0', matchStyle.className)} aria-label={matchStyle.label} />
 
         {/* Client name */}
         <span className="font-medium text-sm truncate flex-1">{client.displayName}</span>

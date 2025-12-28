@@ -106,7 +106,8 @@ export function TherapistScheduleModal({
 
     addNotification({
       type: 'success',
-      message: 'Work schedule updated',
+      title: 'Schedule Updated',
+      message: 'Work schedule updated successfully',
     })
     onClose()
   }, [
