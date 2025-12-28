@@ -323,6 +323,275 @@ Recurring bookings:
 - Planning is done via the pure helper `planRecurringBookings(...)` in `src/core/schedule/RecurringBookingPlanner.ts`.
 - Once a complete plan is available, the UI books sessions by calling the normal single-session booking handler repeatedly.
 
+**Auto-Population (QoL)**:
+When selecting a client, the booking UI automatically configures recurring settings:
+- If client has >1 remaining sessions: recurring is auto-enabled
+- Recurring count is set to `min(remainingSessions, 12)`
+- Interval is based on client's `preferredFrequency` (weekly=7, biweekly=14, monthly=30)
+- Client cards display "X remaining" and preferred frequency for quick reference
+
+## Booking Suggestions
+
+The system proactively generates booking suggestions for clients who need follow-up appointments. This reduces manual booking overhead in late-game scenarios with many clients.
+
+### Suggestion Generation
+
+```typescript
+interface BookingSuggestion {
+  id: string
+  clientId: string
+  therapistId: string
+  suggestedDay: number
+  suggestedHour: number
+  duration: SessionDuration
+  isVirtual: boolean
+  urgency: 'overdue' | 'due_soon' | 'normal'
+  reason: 'overdue_followup' | 'due_soon' | 'good_slot_available' | 'therapist_continuity'
+  score: number
+  followUpInfo: FollowUpInfo
+  isPreferredSlot: boolean
+}
+
+// Generate suggestions using the pure function
+const result = generateBookingSuggestions({
+  clients,
+  therapists,
+  sessions,
+  schedule,
+  building,
+  telehealthUnlocked,
+  currentTime: { day, hour, minute },
+  maxSuggestions: 10,  // Optional, default 10
+  daysAhead: 14,       // Optional, default 14
+})
+
+// Result includes suggestions and any clients that couldn't be scheduled
+interface GenerateSuggestionsResult {
+  suggestions: BookingSuggestion[]
+  unschedulableClients: Array<{ clientId: string; reason: string }>
+}
+```
+
+### Algorithm
+
+1. **Find clients needing booking**:
+   - Active (`in_treatment`) clients with remaining sessions and no upcoming session
+   - Waiting clients needing their first session
+
+2. **Prioritize by urgency**:
+   - `overdue`: Past their follow-up interval with no session scheduled
+   - `due_soon`: Within 3 days of expected follow-up date
+   - `normal`: Other clients needing sessions
+
+3. **For each client, find best slot**:
+   - Prefer assigned therapist (therapist continuity)
+   - Only include therapists with required certifications
+   - Use `findMatchingSlots()` to get available time slots
+   - Apply all standard constraints (not-in-past, client conflicts, room capacity, etc.)
+
+4. **Holistic Match Scoring**:
+   The suggestion system uses a comprehensive scoring algorithm that considers multiple factors:
+
+   | Factor | Points | Description |
+   |--------|--------|-------------|
+   | Urgency | +1000/500/100 | Overdue/due_soon/normal |
+   | Match Quality | +150/100/50 | Excellent/good/fair overall rating |
+   | Modality Match | up to +50 | Based on modality bonus (0-15% → 0-50 pts) |
+   | Same Therapist | +40 | Continuing care with assigned therapist |
+   | Preferred Slot | +30 | Matches client's time preference |
+   | Match Score | up to +50 | Therapist-client match (0-100 → 0-50 pts) |
+   | Good Energy | +20 | Therapist has capacity (won't burn out) |
+   | Timing | -3/day | Prefer sooner slots |
+
+### Match Quality Rating
+
+Each suggestion includes a `matchBreakdown` with a holistic quality rating:
+
+```typescript
+interface MatchBreakdown {
+  quality: 'excellent' | 'good' | 'fair'
+  matchScore: number           // 0-100 therapist-client match
+  hasModalityMatch: boolean    // Therapist's modality fits condition
+  modalityBonus: number        // 0-0.15 quality bonus
+  isContinuingTherapist: boolean  // Same therapist as before
+  hasSpecialization: boolean   // Therapist specializes in condition
+  hasGoodEnergy: boolean       // Therapist has capacity
+  matchReasons: string[]       // Human-readable reasons
+}
+```
+
+**Quality ratings**:
+- `excellent`: High match score (≥75) + at least 2 strong factors
+- `good`: Decent match score (≥50) or at least 1 strong factor
+- `fair`: Basic match available
+
+**Match reasons** are displayed in the UI to explain why a therapist is recommended:
+- "Continuing care" - Same therapist as previous sessions
+- "CBT specialty" - Modality matches condition
+- "Specializes in condition" - Has relevant specialization
+- "Strong personality fit" - High trait match
+- "Available capacity" - Won't burn out today
+
+### React Hook
+
+```typescript
+const {
+  suggestions,           // Filtered suggestions (excludes dismissed)
+  unschedulableClients, // Clients with no available slots
+  count,                // Number of visible suggestions
+  overdueCount,         // Number of overdue suggestions
+  dismissedIds,         // Set of dismissed suggestion IDs
+  dismissSuggestion,    // Temporarily hide a suggestion
+  clearDismissals,      // Reset all dismissals
+  getSuggestion,        // Get suggestion by ID
+} = useBookingSuggestions({
+  maxSuggestions: 5,
+  daysAhead: 14,
+  enabled: true,
+})
+```
+
+### UI Integration
+
+The BookingDashboard displays suggestions in a collapsible card at the top:
+
+- Badge shows count (with overdue count highlighted)
+- Compact cards show urgency indicator, client name, time, and "Book" button
+- "Book" pre-populates the booking form with the suggestion's details
+- "Dismiss" hides the suggestion until the next game day
+
+Urgency styling:
+- `overdue`: Red background/border, warning icon
+- `due_soon`: Yellow/warning background/border
+- `normal`: Default surface styling
+
+## Therapist Work Schedules
+
+Each therapist can have custom work hours, allowing for flexible scheduling. This enables late-start schedules, early-end schedules, and optional lunch breaks.
+
+### Work Schedule Data Model
+
+```typescript
+interface TherapistWorkSchedule {
+  workStartHour: number      // Default: 8 (8 AM)
+  workEndHour: number        // Default: 17 (5 PM)
+  lunchBreakHour: number | null  // null = no break, e.g., 12 for noon break
+}
+
+// Added to Therapist entity
+interface Therapist {
+  // ... other fields
+  workSchedule: TherapistWorkSchedule
+}
+```
+
+### Default Schedule
+
+New therapists (including the player) start with the default schedule:
+- Work hours: 8 AM - 5 PM
+- No lunch break
+
+### Work Schedule Utilities
+
+```typescript
+import { TherapistManager, DEFAULT_WORK_SCHEDULE } from '@/core/therapists'
+
+// Get therapist's work schedule (with fallback to defaults)
+const schedule = TherapistManager.getWorkSchedule(therapist)
+
+// Check if an hour is within work hours
+const canWork = TherapistManager.isWithinWorkHours(therapist, 12) // false if on lunch
+
+// Get all available work hours (excluding lunch)
+const hours = TherapistManager.getWorkHours(therapist) // [8, 9, 10, 11, 13, 14, 15, 16]
+
+// Get total working hours per day
+const hoursPerDay = TherapistManager.getWorkingHoursPerDay(therapist) // 8 (9 - 1 lunch)
+
+// Validate a proposed schedule
+const validation = TherapistManager.validateWorkSchedule({
+  workStartHour: 6,   // OK: between 6 AM and 10 PM
+  workEndHour: 14,    // OK: at least 4 hours after start
+  lunchBreakHour: 10, // OK: within work hours
+})
+// { valid: true } or { valid: false, reason: '...' }
+```
+
+### Schedule Constraints Integration
+
+The `ScheduleManager` respects therapist work hours when finding available slots:
+
+```typescript
+// When therapist is provided, their work hours are used instead of global business hours
+ScheduleManager.isSlotAvailable(schedule, therapistId, day, hour, duration, therapist)
+
+// findMatchingSlots automatically uses therapist work hours
+ScheduleManager.findMatchingSlots(schedule, therapist, client, startDay, daysToCheck, duration)
+
+// getAvailableSlotsForDay respects work hours
+ScheduleManager.getAvailableSlotsForDay(schedule, therapistId, day, duration, therapist)
+```
+
+### Energy Forecasting
+
+The system can predict a therapist's end-of-day energy and warn about burnout risk:
+
+```typescript
+interface EnergyForecast {
+  predictedEndEnergy: number      // Predicted energy at end of day
+  scheduledSessionCount: number   // Number of sessions scheduled
+  totalEnergyCost: number         // Sum of all session energy costs
+  willBurnOut: boolean            // True if energy will drop below threshold
+  burnoutHour: number | null      // Hour when burnout occurs (if applicable)
+}
+
+// Get forecast for a specific day
+const forecast = TherapistManager.forecastEnergy(therapist, sessions, schedule, currentDay)
+
+// Format for display
+const display = TherapistManager.formatEnergyForecast(forecast)
+// "3 sessions • ~55 energy EOD" or "6 sessions • BURNOUT RISK"
+```
+
+### UI Components
+
+**TherapistScheduleModal** (`src/components/game/TherapistScheduleModal.tsx`):
+- Edit work start/end hours via dropdowns
+- Toggle lunch break (select hour or "No Break")
+- Shows energy forecast for current day
+- Validates schedule before saving
+
+**TherapistCard** (updated):
+- Shows energy forecast when sessions are scheduled
+- Displays warning indicator if burnout is predicted
+- "Schedule" button opens the schedule modal
+
+### Store Integration
+
+```typescript
+// Update therapist work schedule with validation
+const result = gameStore.updateTherapistWorkSchedule(therapistId, {
+  workStartHour: 10,
+  lunchBreakHour: 13,
+})
+
+if (!result.success) {
+  console.error(result.reason) // e.g., "End hour must be after start hour"
+}
+```
+
+### Save Migration
+
+Existing saves are migrated to include default work schedules:
+
+```typescript
+// SaveManager v2 → v3 migration
+therapists: state.therapists.map((t) => ({
+  ...t,
+  workSchedule: t.workSchedule ?? { ...DEFAULT_WORK_SCHEDULE },
+}))
+```
+
 ## Events Emitted
 
 ```typescript

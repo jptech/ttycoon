@@ -26,6 +26,18 @@ export type TherapeuticModality =
   | 'FamilySystems' // Systemic/family therapy
   | 'Integrative'   // Eclectic/mixed approach
 
+/**
+ * Custom work schedule for a therapist
+ */
+export interface TherapistWorkSchedule {
+  /** Hour to start work (default: 8) */
+  workStartHour: number
+  /** Hour to end work (default: 17) */
+  workEndHour: number
+  /** Array of break hours (max 3), empty array means no breaks */
+  breakHours: number[]
+}
+
 export interface Therapist {
   id: string
   displayName: string
@@ -57,6 +69,9 @@ export interface Therapist {
 
   // Personality (for client matching)
   traits: TherapistTraits
+
+  // Work Schedule (custom hours per therapist)
+  workSchedule: TherapistWorkSchedule
 }
 
 export interface TherapistTraits {

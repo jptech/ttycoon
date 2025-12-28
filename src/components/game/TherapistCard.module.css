@@ -257,6 +257,63 @@
   font-weight: 500;
 }
 
+/* Energy Forecast Section */
+.forecastSection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  background: var(--color-surface, #1a1a2e);
+  border: 1px solid var(--color-border, #3a3a5a);
+  border-radius: 6px;
+}
+
+.forecastWarning {
+  border-color: var(--color-warning, #f59e0b);
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.forecastHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.forecastLabel {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary, #a0a0a0);
+  font-weight: 500;
+}
+
+.warningIcon {
+  width: 14px;
+  height: 14px;
+  color: var(--color-warning, #f59e0b);
+}
+
+.forecastContent {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: var(--color-text, #e0e0e0);
+}
+
+.forecastEnergy {
+  font-weight: 600;
+}
+
+.forecastBurnout {
+  font-size: 0.8rem;
+  color: var(--color-warning, #f59e0b);
+  font-weight: 500;
+}
+
+.buttonIcon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
 .burnoutProgress {
   display: flex;
   flex-direction: column;
@@ -445,6 +502,10 @@
 
 .actionButton {
   flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   padding: 8px 12px;
   background: var(--color-surface-hover, #2a2a4e);
   color: var(--color-text, #e0e0e0);

@@ -1,18 +1,23 @@
 import { useState } from 'react'
-import type { Therapist, ActiveTraining } from '@/core/types'
+import type { Therapist, ActiveTraining, Session, Schedule } from '@/core/types'
 import { TherapistManager } from '@/core/therapists'
 import { TRAINING_PROGRAMS } from '@/data/trainingPrograms'
 import { TherapistCard } from './TherapistCard'
+import { TherapistScheduleModal } from './TherapistScheduleModal'
 import styles from './TherapistPanel.module.css'
 
 export interface TherapistPanelProps {
   therapists: Therapist[]
   activeTrainings: ActiveTraining[]
+  sessions: Session[]
+  schedule: Schedule
+  currentDay: number
   currentBalance: number
   onHire?: (therapist: Therapist, cost: number) => void
   onStartTraining?: (therapistId: string) => void
   onTakeBreak?: (therapistId: string) => void
   onViewDetails?: (therapistId: string) => void
+  onUpdateSchedule?: (therapistId: string, updates: Partial<import('@/core/types').TherapistWorkSchedule>) => { success: boolean; reason?: string }
   practiceLevel?: number
   maxTherapists?: number
 }
@@ -22,17 +27,26 @@ type ViewMode = 'roster' | 'hiring'
 export function TherapistPanel({
   therapists,
   activeTrainings,
+  sessions,
+  schedule,
+  currentDay,
   currentBalance,
   onHire,
   onStartTraining,
   onTakeBreak,
   onViewDetails,
+  onUpdateSchedule,
   practiceLevel = 1,
   maxTherapists,
 }: TherapistPanelProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('roster')
   const [hiringCandidates, setHiringCandidates] = useState<ReturnType<typeof TherapistManager.generateTherapist>[]>([])
   const [showCompact, setShowCompact] = useState(false)
+  const [editingScheduleTherapistId, setEditingScheduleTherapistId] = useState<string | null>(null)
+
+  const editingTherapist = editingScheduleTherapistId
+    ? therapists.find((t) => t.id === editingScheduleTherapistId)
+    : null
 
   const stats = TherapistManager.getTherapistStats(therapists)
   const monthlyCost = TherapistManager.getMonthlySalaryCost(therapists)
@@ -126,9 +140,13 @@ export function TherapistPanel({
                   therapist={therapist}
                   activeTraining={activeTraining}
                   trainingProgram={trainingProgram}
+                  sessions={sessions}
+                  schedule={schedule}
+                  currentDay={currentDay}
                   onStartTraining={onStartTraining}
                   onTakeBreak={onTakeBreak}
                   onViewDetails={onViewDetails}
+                  onEditSchedule={() => setEditingScheduleTherapistId(therapist.id)}
                   compact={showCompact}
                 />
               )
@@ -211,6 +229,15 @@ export function TherapistPanel({
             ))}
           </div>
         </div>
+      )}
+
+      {/* Therapist Schedule Modal */}
+      {editingScheduleTherapistId && (
+        <TherapistScheduleModal
+          open={true}
+          therapistId={editingScheduleTherapistId}
+          onClose={() => setEditingScheduleTherapistId(null)}
+        />
       )}
     </div>
   )

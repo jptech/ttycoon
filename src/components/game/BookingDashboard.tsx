@@ -1,12 +1,14 @@
 import { useState, useMemo, useCallback } from 'react'
 import type { Building, Client, Therapist, Session, Schedule, SessionDuration } from '@/core/types'
 import { ClientManager, type FollowUpInfo, FREQUENCY_DAYS } from '@/core/clients'
-import { planRecurringBookings, ScheduleManager } from '@/core/schedule'
+import { planRecurringBookings, ScheduleManager, type BookingSuggestion } from '@/core/schedule'
+import { useBookingSuggestions } from '@/hooks'
 import { ClientCard } from './ClientCard'
 import { ClientPreferenceSummary } from './ClientPreferenceSummary'
 import { TherapistMatchList } from './TherapistMatchList'
 import { MatchingSlotsList, type MatchingSlotInfo } from './MatchingSlotsList'
 import { ScheduleView } from './ScheduleView'
+import { BookingSuggestionCard } from './BookingSuggestionCard'
 import { Card, Badge, Button } from '@/components/ui'
 import {
   Users,
@@ -20,6 +22,9 @@ import {
   Calendar,
   AlertTriangle,
   CalendarClock,
+  Lightbulb,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -130,6 +135,17 @@ export function BookingDashboard({
   const [filterTimePreference, setFilterTimePreference] = useState<FilterTimePreference>('all')
   const [sortBy, setSortBy] = useState<SortOption>('priority')
 
+  // Suggestions section state
+  const [suggestionsExpanded, setSuggestionsExpanded] = useState(true)
+
+  // Booking suggestions hook
+  const {
+    suggestions,
+    count: suggestionCount,
+    overdueCount,
+    dismissSuggestion,
+  } = useBookingSuggestions({ maxSuggestions: 5 })
+
   // Get waiting clients count
   const waitingCount = useMemo(
     () => clients.filter((c) => c.status === 'waiting').length,
@@ -219,9 +235,9 @@ export function BookingDashboard({
       setRecurringIntervalDays(preferredInterval > 0 ? preferredInterval : 7)
 
       if (remainingSessions > 1) {
-        // Auto-enable recurring and set count to remaining (max 12)
+        // Auto-enable recurring and set count to remaining (max 20)
         setRecurringEnabled(true)
-        setRecurringCount(Math.min(remainingSessions, 12))
+        setRecurringCount(Math.min(remainingSessions, 20))
       } else {
         setRecurringEnabled(false)
         setRecurringCount(1)
@@ -251,6 +267,43 @@ export function BookingDashboard({
       setPendingBooking({ slot, duration, isVirtual })
     },
     []
+  )
+
+  // Handle booking from suggestion - pre-populate everything including recurring
+  const handleSuggestionBookNow = useCallback(
+    (suggestion: BookingSuggestion) => {
+      const client = clients.find((c) => c.id === suggestion.clientId)
+      const therapist = therapists.find((t) => t.id === suggestion.therapistId)
+
+      if (!client || !therapist) return
+
+      // Set client and therapist directly (avoid triggering auto-population twice)
+      setSelectedClient(client)
+      setSelectedTherapist(therapist)
+
+      // Pre-select the suggested slot
+      setPendingBooking({
+        slot: {
+          day: suggestion.suggestedDay,
+          hour: suggestion.suggestedHour,
+          therapistId: suggestion.therapistId,
+          isPreferred: suggestion.isPreferredSlot,
+        },
+        duration: suggestion.duration,
+        isVirtual: suggestion.isVirtual,
+      })
+
+      // Pre-populate recurring from suggestion's recommendation
+      if (suggestion.suggestedRecurringCount > 1) {
+        setRecurringEnabled(true)
+        setRecurringCount(suggestion.suggestedRecurringCount)
+        setRecurringIntervalDays(suggestion.suggestedIntervalDays)
+      } else {
+        setRecurringEnabled(false)
+        setRecurringCount(1)
+      }
+    },
+    [clients, therapists]
   )
 
   const recurringPlan = useMemo(() => {
@@ -620,6 +673,64 @@ export function BookingDashboard({
           </div>
         )}
 
+        {/* Suggestions section */}
+        {suggestionCount > 0 && !selectedClient && (
+          <Card className="mb-4">
+            {/* Header */}
+            <button
+              onClick={() => setSuggestionsExpanded(!suggestionsExpanded)}
+              className="w-full flex items-center justify-between p-3 hover:bg-surface-hover/50 rounded-t-lg transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Lightbulb className="w-4 h-4 text-warning" />
+                <span className="font-medium">Suggested Bookings</span>
+                <Badge variant={overdueCount > 0 ? 'error' : 'warning'} size="sm">
+                  {suggestionCount}
+                </Badge>
+                {overdueCount > 0 && (
+                  <span className="text-xs text-error">
+                    ({overdueCount} overdue)
+                  </span>
+                )}
+              </div>
+              {suggestionsExpanded ? (
+                <ChevronUp className="w-4 h-4 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              )}
+            </button>
+
+            {/* Suggestions list */}
+            {suggestionsExpanded && (
+              <div className="p-3 pt-0 space-y-2">
+                {suggestions.slice(0, 3).map((suggestion) => {
+                  const client = clients.find((c) => c.id === suggestion.clientId)
+                  const therapist = therapists.find((t) => t.id === suggestion.therapistId)
+                  if (!client || !therapist) return null
+
+                  return (
+                    <BookingSuggestionCard
+                      key={suggestion.id}
+                      suggestion={suggestion}
+                      client={client}
+                      therapist={therapist}
+                      currentDay={currentDay}
+                      onBookNow={handleSuggestionBookNow}
+                      onDismiss={dismissSuggestion}
+                      compact
+                    />
+                  )
+                })}
+                {suggestions.length > 3 && (
+                  <p className="text-xs text-muted-foreground text-center pt-1">
+                    +{suggestions.length - 3} more suggestions
+                  </p>
+                )}
+              </div>
+            )}
+          </Card>
+        )}
+
         {selectedClient ? (
           <>
             {/* Client summary */}
@@ -859,11 +970,11 @@ export function BookingDashboard({
                         className="w-16 rounded-md border border-border bg-background px-2 py-1 text-sm"
                         type="number"
                         min={1}
-                        max={12}
+                        max={20}
                         value={recurringCount}
                         onChange={(e) => {
                           const next = Number(e.target.value)
-                          setRecurringCount(Number.isFinite(next) ? Math.max(1, Math.min(12, next)) : 1)
+                          setRecurringCount(Number.isFinite(next) ? Math.max(1, Math.min(20, next)) : 1)
                         }}
                       />
                     </div>

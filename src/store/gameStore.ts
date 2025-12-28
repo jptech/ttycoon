@@ -6,6 +6,7 @@ import type {
   GameSpeed,
   Session,
   Therapist,
+  TherapistWorkSchedule,
   Client,
   Schedule,
   InsurerId,
@@ -13,10 +14,15 @@ import type {
   GameModifier,
   ActiveTraining,
   MilestoneId,
+  OfficeUpgradeId,
+  AggregatedUpgradeEffects,
 } from '@/core/types'
+import { DEFAULT_BUILDING_UPGRADE_STATE } from '@/core/types/office'
+import { OfficeUpgradeManager, getUpgradeConfig } from '@/core/office'
 import { getPracticeLevelFromReputation, getMilestoneConfig, MILESTONES } from '@/core/types'
 import { EventBus, GameEvents } from '@/core/events'
 import { ClientManager } from '@/core/clients'
+import { TherapistManager } from '@/core/therapists'
 import { SessionManager } from '@/core/session/SessionManager'
 import { ScheduleManager } from '@/core/schedule'
 import { canBookSessionType } from '@/core/schedule/BookingConstraints'
@@ -80,6 +86,10 @@ interface GameActions {
   // Entities
   addTherapist: (therapist: Therapist) => void
   updateTherapist: (therapistId: string, updates: Partial<Therapist>) => void
+  updateTherapistWorkSchedule: (
+    therapistId: string,
+    schedule: Partial<TherapistWorkSchedule>
+  ) => { success: boolean; reason?: string }
   removeTherapist: (therapistId: string) => void
   addClient: (client: Client) => void
   updateClient: (clientId: string, updates: Partial<Client>) => void
@@ -89,6 +99,9 @@ interface GameActions {
   // Office
   setBuilding: (buildingId: string) => void
   unlockTelehealth: () => void
+  purchaseUpgrade: (upgradeId: OfficeUpgradeId) => { success: boolean; reason?: string }
+  resetBuildingUpgrades: () => void
+  getUpgradeEffects: () => AggregatedUpgradeEffects
 
   // Insurance
   addInsurancePanel: (panelId: InsurerId) => void
@@ -169,6 +182,7 @@ const createInitialState = (practiceName: string): GameState => ({
   // Office
   currentBuildingId: 'starter_suite',
   telehealthUnlocked: false,
+  buildingUpgrades: { ...DEFAULT_BUILDING_UPGRADE_STATE },
 
   // Insurance
   activePanels: [],
@@ -653,17 +667,21 @@ export const useGameStore = create<GameStore>()(
         const sessionsWithoutThis = snapshot.sessions.filter((s) => s.id !== sessionId)
         const scheduleWithoutThis = ScheduleManager.buildScheduleFromSessions(sessionsWithoutThis)
 
+        // Get therapist to check work hours and lunch breaks
+        const therapist = snapshot.therapists.find((t) => t.id === therapistId)
+
         // Must satisfy the same constraints as standard booking.
         const therapistSlotAvailable = ScheduleManager.isSlotAvailable(
           scheduleWithoutThis,
           therapistId,
           day,
           hour,
-          duration
+          duration,
+          therapist
         )
 
         if (!therapistSlotAvailable) {
-          return { success: false, error: 'This time slot is already booked. Please select another.' }
+          return { success: false, error: 'This time slot is not available. The therapist may be on break or outside work hours.' }
         }
 
         const clientConflict = ScheduleManager.clientHasConflictingSession(
@@ -745,6 +763,37 @@ export const useGameStore = create<GameStore>()(
         })
       },
 
+      updateTherapistWorkSchedule: (therapistId, scheduleUpdates) => {
+        const state = get()
+        const therapist = state.therapists.find((t) => t.id === therapistId)
+        if (!therapist) {
+          return { success: false, reason: 'Therapist not found' }
+        }
+
+        // Build the new schedule
+        const currentSchedule = TherapistManager.getWorkSchedule(therapist)
+        const newSchedule = { ...currentSchedule, ...scheduleUpdates }
+
+        // Validate
+        const validation = TherapistManager.validateWorkSchedule(newSchedule)
+        if (!validation.valid) {
+          return { success: false, reason: validation.reason }
+        }
+
+        // Apply the update
+        set((state) => {
+          const index = state.therapists.findIndex((t) => t.id === therapistId)
+          if (index !== -1) {
+            state.therapists[index] = {
+              ...state.therapists[index],
+              workSchedule: newSchedule,
+            }
+          }
+        })
+
+        return { success: true }
+      },
+
       removeTherapist: (therapistId) => {
         set((state) => {
           state.therapists = state.therapists.filter((t) => t.id !== therapistId)
@@ -788,6 +837,8 @@ export const useGameStore = create<GameStore>()(
       setBuilding: (buildingId) => {
         set((state) => {
           state.currentBuildingId = buildingId
+          // Reset building upgrades when upgrading to a new building
+          state.buildingUpgrades = { ...DEFAULT_BUILDING_UPGRADE_STATE }
         })
         EventBus.emit(GameEvents.BUILDING_UPGRADED, { buildingId })
       },
@@ -796,6 +847,53 @@ export const useGameStore = create<GameStore>()(
         set((state) => {
           state.telehealthUnlocked = true
         })
+      },
+
+      purchaseUpgrade: (upgradeId) => {
+        const snapshot = get()
+        const canPurchase = OfficeUpgradeManager.canPurchase(
+          upgradeId,
+          snapshot.buildingUpgrades,
+          snapshot.balance
+        )
+
+        if (!canPurchase.success) {
+          return canPurchase
+        }
+
+        const upgrade = getUpgradeConfig(upgradeId)
+
+        set((state) => {
+          state.buildingUpgrades.purchasedUpgrades.push(upgradeId)
+          state.balance -= upgrade.cost
+          state.transactionHistory.push({
+            id: crypto.randomUUID(),
+            day: state.currentDay,
+            type: 'expense',
+            category: 'Office Upgrade',
+            amount: upgrade.cost,
+            description: `Purchased ${upgrade.name}`,
+          })
+        })
+
+        EventBus.emit(GameEvents.MONEY_CHANGED, {
+          oldBalance: snapshot.balance,
+          newBalance: snapshot.balance - upgrade.cost,
+          reason: `Office Upgrade: ${upgrade.name}`,
+        })
+
+        return { success: true }
+      },
+
+      resetBuildingUpgrades: () => {
+        set((state) => {
+          state.buildingUpgrades = { ...DEFAULT_BUILDING_UPGRADE_STATE }
+        })
+      },
+
+      getUpgradeEffects: () => {
+        const snapshot = get()
+        return OfficeUpgradeManager.getAggregatedEffects(snapshot.buildingUpgrades)
       },
 
       // ==================== Insurance ====================
@@ -1104,6 +1202,7 @@ export const useGameStore = create<GameStore>()(
           // Office
           currentBuildingId,
           telehealthUnlocked,
+          buildingUpgrades,
           // Insurance
           activePanels,
           // Clinic bonuses
@@ -1146,6 +1245,7 @@ export const useGameStore = create<GameStore>()(
           activeTrainings,
           currentBuildingId,
           telehealthUnlocked,
+          buildingUpgrades,
           activePanels,
           hiringCapacityBonus,
           eventCooldowns,

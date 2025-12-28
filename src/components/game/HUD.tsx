@@ -1,4 +1,4 @@
-import { Settings, HelpCircle, Star, Activity, Pause } from 'lucide-react'
+import { Settings, HelpCircle, Star, Activity, Pause, Bell } from 'lucide-react'
 import { formatMoney, formatTime } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui'
@@ -53,6 +53,10 @@ export interface HUDProps {
   onHelpClick?: () => void
   /** Reputation details callback */
   onReputationClick?: () => void
+  /** Inbox click callback */
+  onInboxClick?: () => void
+  /** Number of unread notifications */
+  unreadCount?: number
 }
 
 export function HUD({
@@ -70,6 +74,8 @@ export function HUD({
   onSettingsClick,
   onHelpClick,
   onReputationClick,
+  onInboxClick,
+  unreadCount = 0,
 }: HUDProps) {
   const sessionsInProgress = activeSessions?.filter((s) => s.progress < 1) ?? []
   const hasActiveSessions = sessionsInProgress.length > 0
@@ -128,6 +134,20 @@ export function HUD({
 
           {/* Utility buttons */}
           <div className="flex items-center gap-1 ml-2">
+            {onInboxClick && (
+              <button
+                onClick={onInboxClick}
+                className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-hover transition-colors focus-ring relative"
+                aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+              >
+                <Bell className="w-4.5 h-4.5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[16px] h-4 px-1 text-[10px] font-bold rounded-full bg-primary text-primary-foreground">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </button>
+            )}
             {onSettingsClick && (
               <button
                 onClick={onSettingsClick}

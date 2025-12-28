@@ -430,11 +430,19 @@ export const ClientManager = {
 
   /**
    * Process waiting list - update satisfaction and handle dropouts
+   * @param decayReduction Reduction in satisfaction decay per day (from office upgrades)
    */
-  processWaitingList(clients: Client[], currentDay: number): WaitingListResult {
+  processWaitingList(
+    clients: Client[],
+    currentDay: number,
+    decayReduction: number = 0
+  ): WaitingListResult {
     const remainingClients: Client[] = []
     const droppedClients: Client[] = []
     const satisfactionChanges: Array<{ clientId: string; oldSatisfaction: number; newSatisfaction: number }> = []
+
+    // Calculate effective decay (minimum 0.5 to ensure some decay always happens)
+    const effectiveDecay = Math.max(0.5, CLIENT_CONFIG.WAIT_SATISFACTION_LOSS - decayReduction)
 
     for (const client of clients) {
       if (client.status !== 'waiting') {
@@ -444,7 +452,7 @@ export const ClientManager = {
 
       const daysWaiting = currentDay - client.arrivalDay
       const oldSatisfaction = client.satisfaction
-      const newSatisfaction = Math.max(0, oldSatisfaction - CLIENT_CONFIG.WAIT_SATISFACTION_LOSS)
+      const newSatisfaction = Math.max(0, oldSatisfaction - effectiveDecay)
 
       if (daysWaiting >= client.maxWaitDays || newSatisfaction <= CLIENT_CONFIG.DROPOUT_THRESHOLD) {
         // Client drops out

@@ -27,7 +27,7 @@ A cozy management game where players build and operate a therapy private practic
 └─────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────┐
-│                   BUSINESS HOURS (8 AM - 5 PM)              │
+│                   BUSINESS HOURS (8 AM - 6 PM)              │
 │  • Player manages schedule (books clients into slots)       │
 │  • Sessions run in real-time with progress bars             │
 │  • Decision events trigger during sessions                  │
@@ -60,7 +60,7 @@ A cozy management game where players build and operate a therapy private practic
 
 ### Time Units
 
-- **Business Day**: 10 hours (8 AM - 5 PM)
+- **Business Day**: 10 hours (8 AM - 6 PM)
 - **Session Duration**: 50 minutes (standard), 80 minutes (extended), 180 minutes (intensive)
 - **Game Progression**: Day-based (no real-world time limits)
 
@@ -626,7 +626,7 @@ Manages insurance panel membership and claims.
 ### 6.2 Schedule View
 
 **Grid Layout**:
-- Y-axis: Time slots (8 AM - 5 PM)
+- Y-axis: Time slots (8 AM - 6 PM)
 - X-axis: Therapist columns
 - Cells: Sessions (color-coded by status) or empty slots
 

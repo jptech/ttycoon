@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react'
 import { useGameStore, useUIStore } from '@/store'
 import { EventBus, GameEvents } from '@/core/events'
 import { ClientManager } from '@/core/clients'
+import { OfficeUpgradeManager } from '@/core/office'
 import { REPUTATION_CONFIG } from '@/core/reputation'
 import { getClientSpawnChance, getClientSpawnAttempts, getSessionRate } from '@/data/clientGeneration'
 
@@ -90,7 +91,7 @@ export function useClientSpawning(options: UseClientSpawningOptions = {}) {
    */
   const processWaitingList = useCallback(() => {
     const state = useGameStore.getState()
-    const { currentDay, clients, waitingList } = state
+    const { currentDay, clients, waitingList, buildingUpgrades } = state
 
     // Get waiting clients
     const waitingClients = clients.filter(
@@ -99,7 +100,10 @@ export function useClientSpawning(options: UseClientSpawningOptions = {}) {
 
     if (waitingClients.length === 0) return
 
-    const result = ClientManager.processWaitingList(waitingClients, currentDay)
+    // Get decay reduction from office upgrades
+    const decayReduction = OfficeUpgradeManager.getWaitingDecayReduction(buildingUpgrades)
+
+    const result = ClientManager.processWaitingList(waitingClients, currentDay, decayReduction)
 
     // Update remaining clients
     for (const client of result.remainingClients) {

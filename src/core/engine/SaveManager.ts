@@ -2,12 +2,14 @@ import { useGameStore } from '@/store/gameStore'
 import type { GameState } from '@/core/types'
 import { EventBus, GameEvents } from '@/core/events'
 import { ScheduleManager } from '@/core/schedule'
+import { DEFAULT_WORK_SCHEDULE } from '@/core/therapists'
+import { DEFAULT_BUILDING_UPGRADE_STATE } from '@/core/types/office'
 
 const SESSIONS_RETENTION_DAYS = 14
 const SCHEDULE_PAST_DAYS = 14
 const SCHEDULE_FUTURE_DAYS = 30
 
-const SAVE_VERSION = 2
+const SAVE_VERSION = 5
 const STORAGE_KEY = 'therapy_tycoon_save'
 
 interface SaveData {
@@ -189,8 +191,65 @@ export const SaveManager = {
       version = 2
     }
 
+    // Version 2 -> 3: Add work schedule to therapists
+    if (version < 3) {
+      state = {
+        ...state,
+        therapists: state.therapists.map((t) => ({
+          ...t,
+          workSchedule: t.workSchedule ?? { ...DEFAULT_WORK_SCHEDULE },
+        })),
+      }
+      version = 3
+    }
+
+    // Version 3 -> 4: Convert lunchBreakHour to breakHours array
+    if (version < 4) {
+      state = {
+        ...state,
+        therapists: state.therapists.map((t) => {
+          const oldSchedule = t.workSchedule as {
+            workStartHour?: number
+            workEndHour?: number
+            lunchBreakHour?: number | null
+            breakHours?: number[]
+          } | undefined
+
+          // If already has breakHours, use it
+          if (oldSchedule?.breakHours !== undefined) {
+            return t
+          }
+
+          // Convert old lunchBreakHour to new breakHours array
+          const breakHours: number[] =
+            oldSchedule?.lunchBreakHour !== null && oldSchedule?.lunchBreakHour !== undefined
+              ? [oldSchedule.lunchBreakHour]
+              : []
+
+          return {
+            ...t,
+            workSchedule: {
+              workStartHour: oldSchedule?.workStartHour ?? 8,
+              workEndHour: oldSchedule?.workEndHour ?? 17,
+              breakHours,
+            },
+          }
+        }),
+      }
+      version = 4
+    }
+
+    // Version 4 -> 5: Add buildingUpgrades
+    if (version < 5) {
+      state = {
+        ...state,
+        buildingUpgrades: (state as any).buildingUpgrades ?? { ...DEFAULT_BUILDING_UPGRADE_STATE },
+      }
+      version = 5
+    }
+
     // Future migrations here...
-    // if (version < 3) { ... }
+    // if (version < 6) { ... }
 
     return state
   },

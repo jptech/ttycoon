@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Users, UserCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { Client, Therapist, ActiveTraining } from '@/core/types'
+import type { Client, Therapist, ActiveTraining, Session, Schedule, TherapistWorkSchedule } from '@/core/types'
 import { WaitingListPanel } from './WaitingListPanel'
 import { TherapistPanel } from './TherapistPanel'
 
@@ -9,11 +9,15 @@ export interface PeoplePanelProps {
   clients: Client[]
   therapists: Therapist[]
   activeTrainings: ActiveTraining[]
+  sessions: Session[]
+  schedule: Schedule
+  currentDay: number
   currentBalance: number
   practiceLevel: number
   maxTherapists?: number
   onHire?: (therapist: Therapist, cost: number) => void
   onStartTraining?: (therapistId: string) => void
+  onUpdateSchedule?: (therapistId: string, updates: Partial<TherapistWorkSchedule>) => { success: boolean; reason?: string }
 }
 
 type SubTab = 'clients' | 'team'
@@ -22,11 +26,15 @@ export function PeoplePanel({
   clients,
   therapists,
   activeTrainings,
+  sessions,
+  schedule,
+  currentDay,
   currentBalance,
   practiceLevel,
   maxTherapists,
   onHire,
   onStartTraining,
+  onUpdateSchedule,
 }: PeoplePanelProps) {
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('clients')
 
@@ -79,11 +87,15 @@ export function PeoplePanel({
           <TherapistPanel
             therapists={therapists}
             activeTrainings={activeTrainings}
+            sessions={sessions}
+            schedule={schedule}
+            currentDay={currentDay}
             currentBalance={currentBalance}
             practiceLevel={practiceLevel}
             maxTherapists={maxTherapists}
             onHire={onHire}
             onStartTraining={onStartTraining}
+            onUpdateSchedule={onUpdateSchedule}
           />
         )}
       </div>

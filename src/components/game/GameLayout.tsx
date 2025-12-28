@@ -7,6 +7,7 @@ import { HelpModal } from './HelpModal'
 import { CheatModal } from './CheatModal'
 import { ToastContainer, Toast } from '@/components/ui'
 import { ReputationModal } from './ReputationModal'
+import { NotificationInbox } from './NotificationInbox'
 
 export interface GameLayoutProps {
   /** Main game content */
@@ -27,6 +28,8 @@ export function GameLayout({ children, sidePanel, onSpeedChange, onSkip, onNewGa
   const { openModal, closeModal, activeModal } = useUIStore()
   const notifications = useUIStore((state) => state.notifications)
   const removeNotification = useUIStore((state) => state.removeNotification)
+  const unreadCount = useUIStore((state) => state.unreadCount)
+  const toggleInbox = useUIStore((state) => state.toggleInbox)
 
   const activeSessions: ActiveSessionInfo[] = useMemo(() => {
     const playerTherapist = therapists.find((t) => t.isPlayer)
@@ -72,6 +75,8 @@ export function GameLayout({ children, sidePanel, onSpeedChange, onSkip, onNewGa
         onSettingsClick={() => openModal('settings')}
         onHelpClick={() => openModal('help')}
         onReputationClick={() => openModal('reputation')}
+        onInboxClick={toggleInbox}
+        unreadCount={unreadCount}
       />
 
       {/* Main Content */}
@@ -85,7 +90,7 @@ export function GameLayout({ children, sidePanel, onSpeedChange, onSkip, onNewGa
         )}
       </main>
 
-      {/* Toast Notifications */}
+      {/* Toast Notifications (critical only) */}
       <ToastContainer position="bottom-right">
         {notifications.map((notification) => (
           <Toast
@@ -97,6 +102,9 @@ export function GameLayout({ children, sidePanel, onSpeedChange, onSkip, onNewGa
           />
         ))}
       </ToastContainer>
+
+      {/* Notification Inbox Drawer */}
+      <NotificationInbox />
 
       {/* Settings Modal */}
       <SettingsModal

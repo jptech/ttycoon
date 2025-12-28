@@ -1,15 +1,20 @@
-import type { Therapist, ActiveTraining, TrainingProgram } from '@/core/types'
-import { TherapistManager, CREDENTIAL_CONFIG, MODALITY_CONFIG } from '@/core/therapists'
+import type { Therapist, ActiveTraining, TrainingProgram, Session, Schedule } from '@/core/types'
+import { TherapistManager, CREDENTIAL_CONFIG, MODALITY_CONFIG, type EnergyForecast } from '@/core/therapists'
 import { TrainingProcessor } from '@/core/training'
+import { Clock, AlertTriangle } from 'lucide-react'
 import styles from './TherapistCard.module.css'
 
 export interface TherapistCardProps {
   therapist: Therapist
   activeTraining?: ActiveTraining
   trainingProgram?: TrainingProgram
+  sessions?: Session[]
+  schedule?: Schedule
+  currentDay?: number
   onStartTraining?: (therapistId: string) => void
   onTakeBreak?: (therapistId: string) => void
   onViewDetails?: (therapistId: string) => void
+  onEditSchedule?: (therapistId: string) => void
   compact?: boolean
 }
 
@@ -17,13 +22,23 @@ export function TherapistCard({
   therapist,
   activeTraining,
   trainingProgram,
+  sessions,
+  schedule,
+  currentDay,
   onStartTraining,
   onTakeBreak,
   onViewDetails,
+  onEditSchedule,
   compact = false,
 }: TherapistCardProps) {
   const energyDisplay = TherapistManager.getEnergyDisplay(therapist)
   const burnoutRisk = TherapistManager.isBurnoutRisk(therapist)
+
+  // Calculate energy forecast if we have the required data
+  const energyForecast: EnergyForecast | null =
+    sessions && schedule && currentDay !== undefined
+      ? TherapistManager.forecastEnergy(therapist, sessions, schedule, currentDay)
+      : null
 
   const getStatusClass = () => {
     switch (therapist.status) {
@@ -171,6 +186,29 @@ export function TherapistCard({
         )}
       </div>
 
+      {/* Energy Forecast */}
+      {energyForecast && energyForecast.scheduledSessionCount > 0 && (
+        <div className={`${styles.forecastSection} ${energyForecast.willBurnOut ? styles.forecastWarning : ''}`}>
+          <div className={styles.forecastHeader}>
+            <span className={styles.forecastLabel}>Today's Forecast</span>
+            {energyForecast.willBurnOut && (
+              <AlertTriangle className={styles.warningIcon} />
+            )}
+          </div>
+          <div className={styles.forecastContent}>
+            <span>{energyForecast.scheduledSessionCount} session{energyForecast.scheduledSessionCount !== 1 ? 's' : ''}</span>
+            <span className={styles.forecastEnergy}>
+              ~{energyForecast.predictedEndEnergy} energy EOD
+            </span>
+          </div>
+          {energyForecast.willBurnOut && (
+            <span className={styles.forecastBurnout}>
+              Burnout risk at {energyForecast.burnoutHour}:00
+            </span>
+          )}
+        </div>
+      )}
+
       {therapist.status === 'burned_out' && (
         <div className={styles.burnoutProgress}>
           <span>Recovery Progress</span>
@@ -266,6 +304,16 @@ export function TherapistCard({
             onClick={() => onStartTraining(therapist.id)}
           >
             Start Training
+          </button>
+        )}
+        {onEditSchedule && (
+          <button
+            className={styles.actionButton}
+            onClick={() => onEditSchedule(therapist.id)}
+            title="Edit work hours"
+          >
+            <Clock className={styles.buttonIcon} />
+            Schedule
           </button>
         )}
         {onViewDetails && (

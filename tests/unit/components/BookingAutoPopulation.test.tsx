@@ -124,7 +124,7 @@ describe('BookingModal Auto-Population', () => {
     expect(screen.getByText('Disabled')).toBeInTheDocument()
   })
 
-  it('sets recurring count to remaining sessions (capped at 12)', () => {
+  it('sets recurring count to remaining sessions (capped at 20)', () => {
     const client = createClient({
       id: 'many-sessions-client',
       sessionsRequired: 20,
@@ -138,9 +138,9 @@ describe('BookingModal Auto-Population', () => {
     const clientButton = screen.getByText('Client One')
     fireEvent.click(clientButton)
 
-    // Count should be capped at 12
+    // Count should be capped at 20 (matching max sessionsRequired)
     const countInput = screen.getByLabelText('Recurring session count') as HTMLInputElement
-    expect(countInput.value).toBe('12')
+    expect(countInput.value).toBe('20')
   })
 
   it('sets interval based on client preferred frequency - weekly', () => {

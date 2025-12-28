@@ -9,6 +9,7 @@ import type {
   GameTime,
 } from '@/core/types'
 import { TIME_CONFIG } from '@/core/engine'
+import { TherapistManager } from '@/core/therapists'
 
 /**
  * Configuration for schedule management
@@ -106,27 +107,33 @@ export const ScheduleManager = {
 
   /**
    * Check if a time slot is available for a therapist
+   * @param therapist Optional therapist object to check against custom work hours
    */
   isSlotAvailable(
     schedule: Schedule,
     therapistId: string,
     day: number,
     hour: number,
-    duration: SessionDuration = SCHEDULE_CONFIG.DEFAULT_DURATION
+    duration: SessionDuration = SCHEDULE_CONFIG.DEFAULT_DURATION,
+    therapist?: Therapist
   ): boolean {
-    // Check if within business hours
-    if (hour < SCHEDULE_CONFIG.BUSINESS_START || hour >= SCHEDULE_CONFIG.BUSINESS_END) {
-      return false
-    }
-
     // Calculate how many hour slots this session needs
     const slotsNeeded = Math.ceil(duration / 60)
 
     // Check each slot
     for (let i = 0; i < slotsNeeded; i++) {
       const checkHour = hour + i
-      if (checkHour >= SCHEDULE_CONFIG.BUSINESS_END) {
-        return false // Session would extend past business hours
+
+      // If therapist is provided, use their custom work hours
+      if (therapist) {
+        if (!TherapistManager.isWithinWorkHours(therapist, checkHour)) {
+          return false // Outside therapist's work hours or on lunch break
+        }
+      } else {
+        // Fall back to global business hours if no therapist provided
+        if (checkHour < SCHEDULE_CONFIG.BUSINESS_START || checkHour >= SCHEDULE_CONFIG.BUSINESS_END) {
+          return false
+        }
       }
 
       const daySchedule = schedule[day]
@@ -143,17 +150,27 @@ export const ScheduleManager = {
 
   /**
    * Get all available slots for a therapist on a given day
+   * @param therapist Optional therapist object to check against custom work hours
    */
   getAvailableSlotsForDay(
     schedule: Schedule,
     therapistId: string,
     day: number,
-    duration: SessionDuration = SCHEDULE_CONFIG.DEFAULT_DURATION
+    duration: SessionDuration = SCHEDULE_CONFIG.DEFAULT_DURATION,
+    therapist?: Therapist
   ): number[] {
     const availableHours: number[] = []
 
-    for (let hour = SCHEDULE_CONFIG.BUSINESS_START; hour < SCHEDULE_CONFIG.BUSINESS_END; hour++) {
-      if (this.isSlotAvailable(schedule, therapistId, day, hour, duration)) {
+    // Use therapist's work hours if provided, otherwise use global business hours
+    const startHour = therapist
+      ? TherapistManager.getWorkSchedule(therapist).workStartHour
+      : SCHEDULE_CONFIG.BUSINESS_START
+    const endHour = therapist
+      ? TherapistManager.getWorkSchedule(therapist).workEndHour
+      : SCHEDULE_CONFIG.BUSINESS_END
+
+    for (let hour = startHour; hour < endHour; hour++) {
+      if (this.isSlotAvailable(schedule, therapistId, day, hour, duration, therapist)) {
         availableHours.push(hour)
       }
     }
@@ -163,6 +180,7 @@ export const ScheduleManager = {
 
   /**
    * Find available slots that match client preferences
+   * Respects therapist's custom work hours
    */
   findMatchingSlots(
     schedule: Schedule,
@@ -174,13 +192,18 @@ export const ScheduleManager = {
   ): AvailableSlot[] {
     const slots: AvailableSlot[] = []
 
+    // Get therapist's work hours
+    const workSchedule = TherapistManager.getWorkSchedule(therapist)
+    const startHour = workSchedule.workStartHour
+    const endHour = workSchedule.workEndHour
+
     for (let dayOffset = 0; dayOffset < daysToCheck; dayOffset++) {
       const day = startDay + dayOffset
       const dayOfWeek = this.getDayOfWeek(day)
       const clientAvailability = this.getClientAvailabilityForDay(client.availability, dayOfWeek)
 
-      for (let hour = SCHEDULE_CONFIG.BUSINESS_START; hour < SCHEDULE_CONFIG.BUSINESS_END; hour++) {
-        if (this.isSlotAvailable(schedule, therapist.id, day, hour, duration)) {
+      for (let hour = startHour; hour < endHour; hour++) {
+        if (this.isSlotAvailable(schedule, therapist.id, day, hour, duration, therapist)) {
           const isPreferred =
             clientAvailability.includes(hour) &&
             this.matchesTimePreference(hour, client.preferredTime)

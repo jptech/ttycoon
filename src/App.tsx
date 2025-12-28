@@ -9,6 +9,7 @@ import { formatTime } from '@/lib/utils'
 import { GameLayout, GameView, NewGameModal, DaySummaryModal, TutorialOverlay, SessionSummary, AchievementToast, AchievementContainer, ClientSuccessStory, LevelUpToast, LevelUpContainer } from '@/components'
 import { getAllRandomEvents, getEligibleDecisionEvents, getSessionRate } from '@/data'
 import { ClientManager } from '@/core/clients'
+import { OfficeUpgradeManager } from '@/core/office'
 import type { RandomEvent, DecisionEvent, Session, Therapist, Client, QualityModifier, MilestoneConfig } from '@/core/types'
 import { getMilestoneConfig } from '@/core/types'
 
@@ -186,6 +187,16 @@ function App() {
           source: 'early_game_buffer',
           value: earlyGameBonus,
           description: currentDay <= 7 ? 'New practice enthusiasm' : 'Building momentum',
+        } as QualityModifier)
+      }
+
+      // Add office upgrade quality bonus
+      const upgradeQualityBonus = OfficeUpgradeManager.getSessionQualityBonus(state.buildingUpgrades)
+      if (upgradeQualityBonus > 0) {
+        qualityModifiers.push({
+          source: 'office_upgrades',
+          value: upgradeQualityBonus,
+          description: 'Office environment improvements',
         } as QualityModifier)
       }
 

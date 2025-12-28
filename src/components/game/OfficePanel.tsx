@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import type { Building, Session } from '@/core/types'
 import { OfficeManager, OFFICE_CONFIG } from '@/core/office'
+import { OfficeUpgradesPanel } from './OfficeUpgradesPanel'
 import styles from './OfficePanel.module.css'
 
 // Lazy load OfficeCanvas for better initial load time
@@ -102,6 +103,12 @@ export function OfficePanel({
             <span>Virtual: {roomStats.totalVirtualSessions}</span>
           </div>
         </div>
+      </div>
+
+      {/* Office Upgrades */}
+      <div className={styles.section}>
+        <h3 className={styles.sectionTitle}>Upgrades</h3>
+        <OfficeUpgradesPanel />
       </div>
 
       {/* Telehealth */}

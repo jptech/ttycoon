@@ -14,11 +14,13 @@ export interface IdleRecoveryResult {
  * - Uses a floating per-minute rate derived from ENERGY_RECOVERY_PER_HOUR.
  * - Carries fractional recovery forward via `remainder`.
  * - Never "banks" recovery while capped at max energy (remainder is cleared when capped).
+ * - Optional multiplier from office upgrades (1.0 = no change)
  */
 export function applyIdleEnergyRecovery(
   therapist: Therapist,
   idleMinutes: number,
-  remainderUnits: number = 0
+  remainderUnits: number = 0,
+  multiplier: number = 1.0
 ): IdleRecoveryResult {
   if (idleMinutes <= 0) {
     return { updatedTherapist: therapist, energyRecovered: 0, remainderUnits }
@@ -28,7 +30,7 @@ export function applyIdleEnergyRecovery(
     return { updatedTherapist: therapist, energyRecovered: 0, remainderUnits: 0 }
   }
 
-  const energyPerHour = THERAPIST_CONFIG.ENERGY_RECOVERY_PER_HOUR
+  const energyPerHour = THERAPIST_CONFIG.ENERGY_RECOVERY_PER_HOUR * multiplier
   const totalUnits = idleMinutes * energyPerHour + remainderUnits
   const recoveredInteger = Math.floor(totalUnits / 60)
   const nextRemainderUnits = totalUnits % 60

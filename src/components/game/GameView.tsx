@@ -96,6 +96,7 @@ export function GameView({
     activePanels,
     insuranceMultiplier,
     hiringCapacityBonus,
+    updateTherapistWorkSchedule,
   } = useGameStore()
 
   // Store actions
@@ -197,13 +198,14 @@ export function GameView({
         return { success: false, error: 'Therapist not found' }
       }
 
-      // Check if therapist slot is available (covers multi-hour sessions)
+      // Check if therapist slot is available (covers multi-hour sessions + work hours + lunch breaks)
       const therapistSlotAvailable = ScheduleManager.isSlotAvailable(
         freshSchedule,
         params.therapistId,
         params.day,
         params.hour,
-        params.duration
+        params.duration,
+        therapist
       )
 
       if (!therapistSlotAvailable) {
@@ -211,9 +213,9 @@ export function GameView({
         addNotification({
           type: 'error',
           title: 'Booking Failed',
-          message: 'This time slot is already booked. Please select another.',
+          message: 'This time slot is not available. The therapist may be on break or outside work hours.',
         })
-        return { success: false, error: 'Slot already booked' }
+        return { success: false, error: 'Slot not available' }
       }
 
       // Check if client already has an overlapping session
@@ -541,11 +543,15 @@ export function GameView({
             clients={clients}
             therapists={therapists}
             activeTrainings={activeTrainings}
+            sessions={sessions}
+            schedule={schedule}
+            currentDay={currentDay}
             currentBalance={balance}
             practiceLevel={practiceLevel}
             maxTherapists={maxTherapists}
             onHire={handleHire}
             onStartTraining={(therapistId) => setTrainingTherapistId(therapistId)}
+            onUpdateSchedule={updateTherapistWorkSchedule}
           />
         )
       }

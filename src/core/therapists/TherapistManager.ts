@@ -2,6 +2,7 @@ import type {
   Therapist,
   TherapistStatus,
   TherapistTraits,
+  TherapistWorkSchedule,
   Certification,
   Specialization,
   ActiveTraining,
@@ -9,6 +10,8 @@ import type {
   CredentialType,
   TherapeuticModality,
   ConditionCategory,
+  Session,
+  Schedule,
 } from '@/core/types'
 
 /**
@@ -65,6 +68,36 @@ export const THERAPIST_CONFIG = {
   /** Stddev of random hourly salary noise (USD/hr) */
   SALARY_NOISE_STDDEV: 2.25,
 } as const
+
+/**
+ * Default work schedule for new therapists
+ */
+export const DEFAULT_WORK_SCHEDULE: TherapistWorkSchedule = {
+  workStartHour: 8,
+  workEndHour: 17,
+  breakHours: [], // No breaks by default
+}
+
+/**
+ * Maximum number of breaks allowed per day
+ */
+export const MAX_BREAKS_PER_DAY = 3
+
+/**
+ * Energy forecast for a therapist's day
+ */
+export interface EnergyForecast {
+  /** Predicted energy at end of day */
+  predictedEndEnergy: number
+  /** Number of scheduled sessions */
+  scheduledSessionCount: number
+  /** Total energy cost of scheduled sessions */
+  totalEnergyCost: number
+  /** Whether therapist will burn out during the day */
+  willBurnOut: boolean
+  /** Hour at which burnout would occur (if willBurnOut is true) */
+  burnoutHour: number | null
+}
 
 /**
  * Credential configuration - salary multipliers and characteristics
@@ -258,6 +291,7 @@ export const TherapistManager = {
         analytical: 5,
         creativity: 5,
       },
+      workSchedule: { ...DEFAULT_WORK_SCHEDULE },
     }
   },
 
@@ -347,6 +381,7 @@ export const TherapistManager = {
       status: 'available',
       burnoutRecoveryProgress: 0,
       traits,
+      workSchedule: { ...DEFAULT_WORK_SCHEDULE },
     }
 
     // Hiring cost - credential affects hiring cost too
@@ -730,6 +765,201 @@ export const TherapistManager = {
     }
 
     return { percentage, status, label: `${therapist.energy}/${therapist.maxEnergy}` }
+  },
+
+  // ==================== WORK SCHEDULE UTILITIES ====================
+
+  /**
+   * Get therapist's work schedule with defaults applied
+   */
+  getWorkSchedule(therapist: Therapist): TherapistWorkSchedule {
+    return therapist.workSchedule ?? { ...DEFAULT_WORK_SCHEDULE }
+  },
+
+  /**
+   * Check if an hour is within a therapist's work hours
+   */
+  isWithinWorkHours(therapist: Therapist, hour: number): boolean {
+    const schedule = this.getWorkSchedule(therapist)
+
+    // Check if within work hours
+    if (hour < schedule.workStartHour || hour >= schedule.workEndHour) {
+      return false
+    }
+
+    // Check if on any break
+    if (schedule.breakHours.includes(hour)) {
+      return false
+    }
+
+    return true
+  },
+
+  /**
+   * Get available work hours for a therapist (excluding breaks)
+   */
+  getWorkHours(therapist: Therapist): number[] {
+    const schedule = this.getWorkSchedule(therapist)
+    const hours: number[] = []
+
+    for (let hour = schedule.workStartHour; hour < schedule.workEndHour; hour++) {
+      if (!schedule.breakHours.includes(hour)) {
+        hours.push(hour)
+      }
+    }
+
+    return hours
+  },
+
+  /**
+   * Get total working hours per day for a therapist
+   */
+  getWorkingHoursPerDay(therapist: Therapist): number {
+    const schedule = this.getWorkSchedule(therapist)
+    const totalHours = schedule.workEndHour - schedule.workStartHour
+    const breakCount = schedule.breakHours.length
+    return totalHours - breakCount
+  },
+
+  /**
+   * Update a therapist's work schedule
+   */
+  updateWorkSchedule(therapist: Therapist, updates: Partial<TherapistWorkSchedule>): Therapist {
+    return {
+      ...therapist,
+      workSchedule: {
+        ...this.getWorkSchedule(therapist),
+        ...updates,
+      },
+    }
+  },
+
+  /**
+   * Validate work schedule changes
+   */
+  validateWorkSchedule(schedule: TherapistWorkSchedule): { valid: boolean; reason?: string } {
+    // Work hours must be within business day (6am - 10pm as reasonable bounds)
+    if (schedule.workStartHour < 6 || schedule.workStartHour > 22) {
+      return { valid: false, reason: 'Start hour must be between 6am and 10pm' }
+    }
+    if (schedule.workEndHour < 6 || schedule.workEndHour > 22) {
+      return { valid: false, reason: 'End hour must be between 6am and 10pm' }
+    }
+
+    // End must be after start
+    if (schedule.workEndHour <= schedule.workStartHour) {
+      return { valid: false, reason: 'End hour must be after start hour' }
+    }
+
+    // Minimum 4 hours of work
+    const totalHours = schedule.workEndHour - schedule.workStartHour
+    if (totalHours < 4) {
+      return { valid: false, reason: 'Work day must be at least 4 hours' }
+    }
+
+    // Validate breaks
+    if (schedule.breakHours.length > MAX_BREAKS_PER_DAY) {
+      return { valid: false, reason: `Maximum ${MAX_BREAKS_PER_DAY} breaks allowed` }
+    }
+
+    // All breaks must be within work hours
+    for (const breakHour of schedule.breakHours) {
+      if (breakHour < schedule.workStartHour || breakHour >= schedule.workEndHour) {
+        return { valid: false, reason: 'All breaks must be within work hours' }
+      }
+    }
+
+    // Check for duplicate breaks
+    const uniqueBreaks = new Set(schedule.breakHours)
+    if (uniqueBreaks.size !== schedule.breakHours.length) {
+      return { valid: false, reason: 'Duplicate break hours are not allowed' }
+    }
+
+    // Ensure at least some working hours remain
+    const workingHours = totalHours - schedule.breakHours.length
+    if (workingHours < 3) {
+      return { valid: false, reason: 'Must have at least 3 working hours after breaks' }
+    }
+
+    return { valid: true }
+  },
+
+  // ==================== ENERGY FORECASTING ====================
+
+  /**
+   * Calculate energy cost for a session duration
+   */
+  getSessionEnergyCost(duration: 50 | 80 | 180): number {
+    switch (duration) {
+      case 80:
+        return THERAPIST_CONFIG.EXTENDED_SESSION_ENERGY_COST
+      case 180:
+        return THERAPIST_CONFIG.INTENSIVE_SESSION_ENERGY_COST
+      default:
+        return THERAPIST_CONFIG.SESSION_ENERGY_COST
+    }
+  },
+
+  /**
+   * Forecast energy for a therapist on a specific day
+   * Returns predicted end-of-day energy and burnout risk
+   */
+  forecastEnergy(
+    therapist: Therapist,
+    sessions: Session[],
+    schedule: Schedule,
+    day: number
+  ): EnergyForecast {
+    // Get sessions scheduled for this therapist on this day
+    const daySessions = sessions.filter(
+      (s) =>
+        s.therapistId === therapist.id &&
+        s.scheduledDay === day &&
+        (s.status === 'scheduled' || s.status === 'in_progress')
+    ).sort((a, b) => a.scheduledHour - b.scheduledHour)
+
+    let currentEnergy = therapist.energy
+    let totalEnergyCost = 0
+    let burnoutHour: number | null = null
+
+    for (const session of daySessions) {
+      const cost = this.getSessionEnergyCost(session.durationMinutes)
+      totalEnergyCost += cost
+      currentEnergy -= cost
+
+      if (currentEnergy <= THERAPIST_CONFIG.FORCED_BREAK_THRESHOLD && burnoutHour === null) {
+        burnoutHour = session.scheduledHour
+      }
+    }
+
+    const predictedEndEnergy = Math.max(0, currentEnergy)
+    const willBurnOut = currentEnergy <= THERAPIST_CONFIG.FORCED_BREAK_THRESHOLD
+
+    return {
+      predictedEndEnergy,
+      scheduledSessionCount: daySessions.length,
+      totalEnergyCost,
+      willBurnOut,
+      burnoutHour,
+    }
+  },
+
+  /**
+   * Get a formatted energy forecast summary for display
+   */
+  formatEnergyForecast(forecast: EnergyForecast): string {
+    if (forecast.scheduledSessionCount === 0) {
+      return 'No sessions scheduled'
+    }
+
+    const sessionWord = forecast.scheduledSessionCount === 1 ? 'session' : 'sessions'
+    const energyDisplay = `~${forecast.predictedEndEnergy} energy EOD`
+
+    if (forecast.willBurnOut) {
+      return `${forecast.scheduledSessionCount} ${sessionWord} • BURNOUT RISK`
+    }
+
+    return `${forecast.scheduledSessionCount} ${sessionWord} • ${energyDisplay}`
   },
 }
 

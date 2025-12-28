@@ -433,6 +433,109 @@ function getOfficeMetrics(building: Building): OfficeMetrics {
 }
 ```
 
+## Office Upgrades
+
+Incremental office improvements that provide small mechanical bonuses. Upgrades are **per-building** (lost when upgrading to a new building tier) and feature **tiered progression** (3 levels per upgrade line).
+
+### Categories
+
+| Category | Effect Type | Upgrade Lines |
+|----------|------------|---------------|
+| Energy & Breaks | Faster energy recovery | Coffee Machine, Kitchenette |
+| Session Quality | Subtle boosts to session outcomes | Artwork, Sound System |
+| Client Comfort | Reduced waiting room dissatisfaction | Waiting Comfort, Refreshments |
+
+### Upgrade Catalog
+
+#### Energy & Breaks
+
+| Line | Tier | Name | Cost | Effect |
+|------|------|------|------|--------|
+| coffee_machine | 1 | Coffee Maker | $500 | +10% idle energy recovery |
+| coffee_machine | 2 | Espresso Machine | $1,500 | +20% idle energy recovery |
+| coffee_machine | 3 | Barista Station | $4,000 | +30% idle energy recovery |
+| kitchenette | 1 | Mini Fridge | $400 | +15% break energy recovery |
+| kitchenette | 2 | Kitchenette | $1,200 | +30% break energy recovery |
+| kitchenette | 3 | Full Kitchen | $3,500 | +50% break energy recovery |
+
+#### Session Quality
+
+| Line | Tier | Name | Cost | Effect |
+|------|------|------|------|--------|
+| artwork | 1 | Calming Prints | $300 | +2% session quality |
+| artwork | 2 | Original Artwork | $1,000 | +4% session quality |
+| artwork | 3 | Curated Gallery | $3,000 | +7% session quality |
+| sound_system | 1 | White Noise Machine | $200 | +1% session quality |
+| sound_system | 2 | Ambient Sound System | $800 | +3% session quality |
+| sound_system | 3 | Acoustic Treatment | $2,500 | +5% session quality |
+
+#### Client Comfort
+
+| Line | Tier | Name | Cost | Effect |
+|------|------|------|------|--------|
+| waiting_comfort | 1 | Comfortable Seating | $400 | -0.3 satisfaction decay/hr |
+| waiting_comfort | 2 | Lounge Furniture | $1,200 | -0.6 satisfaction decay/hr |
+| waiting_comfort | 3 | Premium Waiting Area | $3,000 | -1.0 satisfaction decay/hr |
+| refreshments | 1 | Water Cooler | $150 | -0.2 satisfaction decay/hr |
+| refreshments | 2 | Tea & Coffee Station | $500 | -0.4 satisfaction decay/hr |
+| refreshments | 3 | Refreshment Bar | $1,500 | -0.7 satisfaction decay/hr |
+
+### Effect Stacking Rules
+
+- **Same line**: Only highest tier applies (coffee_machine_3 replaces coffee_machine_2 effect)
+- **Different lines**: Effects combine additively
+- **Quality bonuses**: Add to existing QualityModifier system
+- **Energy multipliers**: Multiply base recovery rate
+- **Decay reduction**: Subtract from WAIT_SATISFACTION_LOSS (minimum 0.5 decay/day)
+
+### Integration Points
+
+```typescript
+// Energy Recovery (src/core/therapists/energyRecovery.ts)
+// Idle energy recovery is multiplied by upgrade effect
+const idleMultiplier = OfficeUpgradeManager.getIdleEnergyMultiplier(buildingUpgrades)
+applyIdleEnergyRecovery(therapist, idleMinutes, remainder, idleMultiplier)
+
+// Break energy recovery uses separate multiplier
+const breakMultiplier = OfficeUpgradeManager.getBreakEnergyMultiplier(buildingUpgrades)
+
+// Session Quality (src/App.tsx)
+// Quality bonus added to session modifiers at session start
+const upgradeQualityBonus = OfficeUpgradeManager.getSessionQualityBonus(buildingUpgrades)
+qualityModifiers.push({
+  source: 'office_upgrades',
+  value: upgradeQualityBonus,
+  description: 'Office environment improvements',
+})
+
+// Waiting Decay (src/core/clients/ClientManager.ts)
+// Decay reduction applied during waiting list processing
+const decayReduction = OfficeUpgradeManager.getWaitingDecayReduction(buildingUpgrades)
+const effectiveLoss = Math.max(0.5, WAIT_SATISFACTION_LOSS - decayReduction)
+```
+
+### Building Upgrade Reset
+
+When the player upgrades to a new building, all office upgrades are reset:
+
+```typescript
+// In gameStore.setBuilding()
+if (result.success) {
+  set({ buildingUpgrades: { purchasedUpgrades: [] } })
+}
+```
+
+This represents physically moving to a new location and losing installed improvements.
+
+### Key Files
+
+- `src/core/types/office.ts` - Type definitions
+- `src/core/office/upgradeConfigs.ts` - Upgrade catalog (18 upgrades)
+- `src/core/office/OfficeUpgradeManager.ts` - Purchase logic, effect aggregation
+- `src/components/game/OfficeUpgradesPanel.tsx` - UI component
+
+---
+
 ## Office Bonuses
 
 Buildings can provide benefits beyond rooms:

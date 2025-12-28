@@ -600,6 +600,103 @@ showToast({
 });
 ```
 
+### Notification Inbox
+
+For late-game players with many therapists and sessions, a notification inbox provides a persistent log of all notifications without cluttering the screen with toasts:
+
+```
+┌────────────────────────────────────────┐
+│ 🔔 Notifications                (12) ✕ │
+├────────────────────────────────────────┤
+│ [Mark all read]          [Clear all]   │
+├────────────────────────────────────────┤
+│                                        │
+│ Today                                  │
+│ ┌────────────────────────────────────┐ │
+│ │ ● ✓ Session Booked                 │ │
+│ │     Day 42 at 10 AM • 2m ago       │ │
+│ └────────────────────────────────────┘ │
+│ ┌────────────────────────────────────┐ │
+│ │   ✓ Training Complete              │ │
+│ │     Dr. Smith completed CBT Adv    │ │
+│ └────────────────────────────────────┘ │
+│                                        │
+│ Yesterday                              │
+│ ┌────────────────────────────────────┐ │
+│ │   ⚠ Low Energy               IMPT  │ │
+│ │     Dr. Parker is running low      │ │
+│ └────────────────────────────────────┘ │
+└────────────────────────────────────────┘
+```
+
+### Priority-Based Routing
+
+Notifications are classified into three priority levels that determine their behavior:
+
+| Priority | Toast Display | Inbox | Badge Count |
+|----------|---------------|-------|-------------|
+| **Critical** | Shows toast | Added to inbox | +1 |
+| **Normal** | No toast | Added to inbox | +1 |
+| **Low** | No toast | Added to inbox | +0 |
+
+### Priority Classification Rules
+
+```typescript
+// Errors are always critical
+type === 'error' → critical
+
+// Warnings with specific keywords are critical
+type === 'warning' && contains('burnout'|'dropped'|'denied'|'failed'|'left'|'at risk') → critical
+
+// Other warnings are normal
+type === 'warning' → normal
+
+// Informational messages about routine events are low priority
+type === 'info' && title.includes('session started'|'new client'|'arrived') → low
+
+// Everything else (success, achievements, other info) is normal
+→ normal
+```
+
+### Inbox Interface
+
+```typescript
+interface InboxNotification extends Notification {
+  timestamp: number;
+  isRead: boolean;
+  priority: 'critical' | 'normal' | 'low';
+}
+
+// uiStore state
+inboxNotifications: InboxNotification[];
+unreadCount: number;
+isInboxOpen: boolean;
+
+// uiStore actions
+addToInbox(notification: Notification, priority?: NotificationPriority): void;
+markAsRead(id: string): void;
+markAllAsRead(): void;
+clearInbox(): void;
+toggleInbox(): void;
+setInboxOpen(open: boolean): void;
+```
+
+### Features
+
+- **Badge in HUD**: Bell icon shows unread count (up to 99+)
+- **Grouped by Day**: Notifications organized by date
+- **Read/Unread State**: Unread items highlighted with dot indicator
+- **Max Limit**: Keeps last 100 notifications (FIFO)
+- **Click to Mark Read**: Clicking unread item marks it as read
+- **Keyboard Support**: Escape to close
+- **Non-Blocking**: Drawer doesn't pause the game
+
+**Components**:
+- `src/components/game/NotificationInbox.tsx` - Inbox drawer component
+- `src/store/uiStore.ts` - Inbox state and actions
+
+**Tests**: `tests/unit/store/notificationInbox.test.ts`
+
 ## Session Panel
 
 Displays during active sessions:

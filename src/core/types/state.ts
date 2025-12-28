@@ -9,6 +9,7 @@ import type {
   InsurerId,
   Schedule,
 } from './entities'
+import type { BuildingUpgradeState } from './office'
 
 /**
  * Complete game state that can be saved/loaded
@@ -52,6 +53,7 @@ export interface GameState {
   // Office
   currentBuildingId: string
   telehealthUnlocked: boolean
+  buildingUpgrades: BuildingUpgradeState
 
   // Insurance
   activePanels: InsurerId[]

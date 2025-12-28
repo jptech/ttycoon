@@ -333,7 +333,7 @@ export function BookingModal({
                     // Auto-populate recurring settings based on client needs
                     if (clientRemaining > 1) {
                       setRecurringEnabled(true)
-                      setRecurringCount(Math.min(clientRemaining, 12))
+                      setRecurringCount(Math.min(clientRemaining, 20))
                       setRecurringIntervalDays(getIntervalFromFrequency(client.preferredFrequency))
                     } else {
                       setRecurringEnabled(false)
@@ -536,11 +536,11 @@ export function BookingModal({
                     className="w-16 rounded-md border border-border bg-background px-2 py-1 text-sm"
                     type="number"
                     min={1}
-                    max={12}
+                    max={20}
                     value={recurringCount}
                     onChange={(e) => {
                       const next = Number(e.target.value)
-                      setRecurringCount(Number.isFinite(next) ? Math.max(1, Math.min(12, next)) : 1)
+                      setRecurringCount(Number.isFinite(next) ? Math.max(1, Math.min(20, next)) : 1)
                     }}
                   />
                 </div>

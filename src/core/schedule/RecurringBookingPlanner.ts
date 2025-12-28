@@ -194,8 +194,9 @@ export function planRecurringBookings(params: PlanRecurringBookingsParams): Plan
         continue
       }
 
-      if (!ScheduleManager.isSlotAvailable(workingSchedule, therapist.id, targetDay, hour, durationMinutes)) {
-        lastReason = 'Therapist slot is not available'
+      // Pass therapist to check work hours and lunch breaks
+      if (!ScheduleManager.isSlotAvailable(workingSchedule, therapist.id, targetDay, hour, durationMinutes, therapist)) {
+        lastReason = 'Therapist slot is not available (may be on break or outside work hours)'
         continue
       }
 

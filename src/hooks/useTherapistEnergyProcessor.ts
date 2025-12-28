@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import { useGameStore } from '@/store'
 import { EventBus, GameEvents } from '@/core/events'
 import { TherapistManager, applyIdleEnergyRecovery } from '@/core/therapists'
+import { OfficeUpgradeManager } from '@/core/office'
 import { TIME_CONFIG, type TimeAdvanceResult } from '@/core/engine'
 import type { GameTime } from '@/core/types'
 
@@ -63,8 +64,11 @@ export function useTherapistEnergyProcessor(options: UseTherapistEnergyProcessor
     }
 
     const state = useGameStore.getState()
-    const { therapists } = state
+    const { therapists, buildingUpgrades } = state
     const { updateTherapist } = state
+
+    // Get upgrade effects for energy recovery multipliers
+    const upgradeEffects = OfficeUpgradeManager.getAggregatedEffects(buildingUpgrades)
 
     for (const therapist of therapists) {
       if (therapist.status === 'in_session') continue
@@ -74,8 +78,13 @@ export function useTherapistEnergyProcessor(options: UseTherapistEnergyProcessor
       const idleMinutes = Math.max(0, deltaMinutes - sessionMinutes)
       if (idleMinutes <= 0) continue
 
+      // Use break multiplier if on break, otherwise use idle multiplier
+      const multiplier = therapist.status === 'on_break'
+        ? upgradeEffects.breakEnergyRecoveryMultiplier
+        : upgradeEffects.idleEnergyRecoveryMultiplier
+
       const remainderUnits = remainderUnitsByTherapistRef.current.get(therapist.id) ?? 0
-      const recovery = applyIdleEnergyRecovery(therapist, idleMinutes, remainderUnits)
+      const recovery = applyIdleEnergyRecovery(therapist, idleMinutes, remainderUnits, multiplier)
       remainderUnitsByTherapistRef.current.set(therapist.id, recovery.remainderUnits)
 
       if (recovery.updatedTherapist.energy !== therapist.energy) {

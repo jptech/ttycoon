@@ -43,6 +43,7 @@ interface Therapist {
   // Status
   is_available: boolean;
   breaks: TherapistBreak[];
+  workSchedule: TherapistWorkSchedule;  // Custom work hours
 }
 ```
 
@@ -268,6 +269,65 @@ Relevant code:
 - Low energy (<30) reduces session quality by up to 30%
 - At 0 energy, therapist is burned out (unavailable)
 - Burnout requires recovery to ≥50% before next session
+
+## Work Schedules
+
+Each therapist has a customizable work schedule that determines when they're available for sessions.
+
+```typescript
+interface TherapistWorkSchedule {
+  workStartHour: number      // Default: 8 (8 AM)
+  workEndHour: number        // Default: 17 (5 PM)
+  lunchBreakHour: number | null  // null = no lunch break
+}
+```
+
+### Schedule Constraints
+
+- **Work hours**: Must be between 6 AM and 10 PM
+- **Minimum work day**: At least 4 hours (workEndHour - workStartHour ≥ 4)
+- **Lunch break**: Optional; if set, must be within work hours
+
+### Scheduling Integration
+
+When booking sessions, the scheduler respects therapist work hours:
+
+```typescript
+// Check if hour is within work schedule
+TherapistManager.isWithinWorkHours(therapist, hour)
+
+// Get all available work hours (excludes lunch)
+TherapistManager.getWorkHours(therapist) // [8, 9, 10, 11, 13, 14, 15, 16]
+
+// ScheduleManager uses work hours when finding slots
+ScheduleManager.isSlotAvailable(schedule, therapistId, day, hour, duration, therapist)
+```
+
+### Energy Forecasting
+
+The system predicts end-of-day energy based on scheduled sessions:
+
+```typescript
+interface EnergyForecast {
+  predictedEndEnergy: number      // Predicted energy at day's end
+  scheduledSessionCount: number   // Sessions scheduled today
+  totalEnergyCost: number         // Sum of session energy costs
+  willBurnOut: boolean            // True if energy drops below burnout threshold
+  burnoutHour: number | null      // Hour when burnout occurs (if applicable)
+}
+
+// Get forecast for current day
+const forecast = TherapistManager.forecastEnergy(therapist, sessions, schedule, currentDay)
+```
+
+The TherapistCard displays this forecast when sessions are scheduled, showing a warning if burnout is predicted.
+
+### UI
+
+- **TherapistScheduleModal**: Edit work hours and lunch break
+- **TherapistCard**: Shows energy forecast with burnout warning
+
+See [SCHEDULING.md](./SCHEDULING.md#therapist-work-schedules) for complete details.
 
 ## Leveling & Experience
 

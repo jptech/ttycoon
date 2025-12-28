@@ -73,6 +73,13 @@ interface Therapist {
 
   // Schedule
   breaks: Break[];                     // Scheduled breaks
+  workSchedule: TherapistWorkSchedule; // Custom work hours
+}
+
+interface TherapistWorkSchedule {
+  workStartHour: number;               // 6-22, default 8 (8 AM)
+  workEndHour: number;                 // 6-22, default 17 (5 PM)
+  lunchBreakHour: number | null;       // null = no break
 }
 
 interface Break {
@@ -381,6 +388,55 @@ interface Office {
   // Room tracking
   total_rooms: number;                 // Depends on building
   rooms_occupied: number;              // Count of in-person sessions today
+}
+
+// Office upgrades - per-building improvements
+interface BuildingUpgradeState {
+  purchasedUpgrades: OfficeUpgradeId[];  // Array of purchased upgrade IDs
+}
+
+type OfficeUpgradeId =
+  // Energy/Breaks
+  | 'coffee_machine_1' | 'coffee_machine_2' | 'coffee_machine_3'
+  | 'kitchenette_1' | 'kitchenette_2' | 'kitchenette_3'
+  // Session Quality
+  | 'artwork_1' | 'artwork_2' | 'artwork_3'
+  | 'sound_system_1' | 'sound_system_2' | 'sound_system_3'
+  // Client Comfort
+  | 'waiting_comfort_1' | 'waiting_comfort_2' | 'waiting_comfort_3'
+  | 'refreshments_1' | 'refreshments_2' | 'refreshments_3'
+
+type OfficeUpgradeCategory = 'energy' | 'quality' | 'comfort'
+
+interface OfficeUpgradeConfig {
+  id: OfficeUpgradeId;
+  name: string;                        // "Coffee Maker", "Espresso Machine"
+  description: string;                 // UI tooltip text
+  category: OfficeUpgradeCategory;
+  tier: 1 | 2 | 3;
+  line: string;                        // e.g., 'coffee_machine', 'kitchenette'
+  cost: number;                        // $150 - $4,000
+  prerequisite?: OfficeUpgradeId;      // Previous tier required
+  effects: OfficeUpgradeEffects;
+}
+
+interface OfficeUpgradeEffects {
+  // Energy effects (multipliers, 1.0 = no change)
+  idleEnergyRecoveryMultiplier?: number;     // During work hours (1.1-1.3)
+  breakEnergyRecoveryMultiplier?: number;    // During breaks (1.15-1.5)
+
+  // Session quality (additive bonus, 0-1 scale)
+  sessionQualityBonus?: number;              // 0.01-0.07
+
+  // Client comfort (reduction in waiting decay per day)
+  waitingSatisfactionDecayReduction?: number;  // 0.2-1.0
+}
+
+interface AggregatedUpgradeEffects {
+  idleEnergyRecoveryMultiplier: number;       // Combined from coffee_machine line
+  breakEnergyRecoveryMultiplier: number;      // Combined from kitchenette line
+  sessionQualityBonus: number;                // Sum from artwork + sound_system
+  waitingSatisfactionDecayReduction: number;  // Sum from waiting_comfort + refreshments
 }
 
 interface Building {

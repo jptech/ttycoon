@@ -3,6 +3,8 @@ export {
   THERAPIST_CONFIG,
   CREDENTIAL_CONFIG,
   MODALITY_CONFIG,
+  DEFAULT_WORK_SCHEDULE,
+  MAX_BREAKS_PER_DAY,
 } from './TherapistManager'
 export { applyIdleEnergyRecovery } from './energyRecovery'
 export type {
@@ -10,4 +12,5 @@ export type {
   RestResult,
   TrainingResult,
   HiringCandidate,
+  EnergyForecast,
 } from './TherapistManager'

@@ -90,7 +90,12 @@ describe('QoL Settings', () => {
 
 describe('Notification Batching', () => {
   beforeEach(() => {
-    useUIStore.setState({ notifications: [], pendingBatches: new Map() })
+    useUIStore.setState({
+      notifications: [],
+      pendingBatches: new Map(),
+      inboxNotifications: [],
+      unreadCount: 0,
+    })
   })
 
   it('queueNotification creates a pending batch', () => {
@@ -135,9 +140,10 @@ describe('Notification Batching', () => {
 
     flushBatch('test_key')
 
-    const { notifications, pendingBatches } = useUIStore.getState()
-    expect(notifications.length).toBe(1)
-    expect(notifications[0].message).toBe('Single item message')
+    // Success notifications are normal priority → inbox only (no toast)
+    const { inboxNotifications, pendingBatches } = useUIStore.getState()
+    expect(inboxNotifications.length).toBe(1)
+    expect(inboxNotifications[0].message).toBe('Single item message')
     expect(pendingBatches.has('test_key')).toBe(false)
   })
 
@@ -164,9 +170,10 @@ describe('Notification Batching', () => {
 
     store.flushBatch('test_key')
 
-    const { notifications, pendingBatches } = useUIStore.getState()
-    expect(notifications.length).toBe(1)
-    expect(notifications[0].message).toBe('3 items completed')
+    // Success notifications are normal priority → inbox only (no toast)
+    const { inboxNotifications, pendingBatches } = useUIStore.getState()
+    expect(inboxNotifications.length).toBe(1)
+    expect(inboxNotifications[0].message).toBe('3 items completed')
     expect(pendingBatches.has('test_key')).toBe(false)
   })
 })

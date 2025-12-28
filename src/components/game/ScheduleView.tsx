@@ -2,11 +2,12 @@ import { useState, useMemo, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import type { Building, Session, Therapist, Schedule } from '@/core/types'
 import { ScheduleManager, SCHEDULE_CONFIG } from '@/core/schedule'
+import { TherapistManager } from '@/core/therapists'
 import { OfficeManager } from '@/core/office'
 import { TimeSlot } from './TimeSlot'
 import { SessionCard } from './SessionCard'
 import { Card, Button, Badge } from '@/components/ui'
-import { ChevronLeft, ChevronRight, Calendar, User, Video, Building as BuildingIcon, CalendarCheck } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Calendar, User, Video, Building as BuildingIcon, CalendarCheck, Coffee } from 'lucide-react'
 
 export interface ScheduleViewProps {
   /** Current game day */
@@ -96,14 +97,56 @@ export function ScheduleView(props: ScheduleViewProps) {
     return ScheduleManager.getSessionsForDay(schedule, sessions, viewDay)
   }, [schedule, sessions, viewDay])
 
-  // Generate time slots for the day
-  const timeSlots = useMemo(() => {
+  // Compute dynamic time range based on therapist work schedules
+  const { timeSlots, therapistWorkHours } = useMemo(() => {
+    // Build a map of work hours for each therapist for quick lookup
+    const workHoursMap = new Map<string, {
+      startHour: number
+      endHour: number
+      breakHours: number[]
+      workHours: number[]
+    }>()
+
+    let globalMinStart = SCHEDULE_CONFIG.BUSINESS_END
+    let globalMaxEnd = SCHEDULE_CONFIG.BUSINESS_START
+
+    for (const t of therapists) {
+      const schedule = TherapistManager.getWorkSchedule(t)
+      const workHours = TherapistManager.getWorkHours(t)
+      workHoursMap.set(t.id, {
+        startHour: schedule.workStartHour,
+        endHour: schedule.workEndHour,
+        breakHours: schedule.breakHours,
+        workHours,
+      })
+      globalMinStart = Math.min(globalMinStart, schedule.workStartHour)
+      globalMaxEnd = Math.max(globalMaxEnd, schedule.workEndHour)
+    }
+
+    // In grid mode: show all hours from earliest start to latest end
+    // In therapist mode: show only that therapist's hours
+    let startHour: number
+    let endHour: number
+
+    if (viewMode === 'grid') {
+      startHour = globalMinStart
+      endHour = globalMaxEnd
+    } else if (activeTherapist) {
+      const therapistSchedule = TherapistManager.getWorkSchedule(activeTherapist)
+      startHour = therapistSchedule.workStartHour
+      endHour = therapistSchedule.workEndHour
+    } else {
+      startHour = SCHEDULE_CONFIG.BUSINESS_START
+      endHour = SCHEDULE_CONFIG.BUSINESS_END
+    }
+
     const slots: number[] = []
-    for (let hour = SCHEDULE_CONFIG.BUSINESS_START; hour < SCHEDULE_CONFIG.BUSINESS_END; hour++) {
+    for (let hour = startHour; hour < endHour; hour++) {
       slots.push(hour)
     }
-    return slots
-  }, [])
+
+    return { timeSlots: slots, therapistWorkHours: workHoursMap }
+  }, [therapists, viewMode, activeTherapist])
 
   // Count virtual vs in-person sessions
   const sessionTypeCounts = useMemo(() => {
@@ -125,7 +168,8 @@ export function ScheduleView(props: ScheduleViewProps) {
           const sessionId = schedule[viewDay]?.[hour]?.[t.id]
           if (sessionId) return false
 
-          const therapistFree = ScheduleManager.isSlotAvailable(schedule, t.id, viewDay, hour)
+          // Pass therapist to check work hours and lunch breaks
+          const therapistFree = ScheduleManager.isSlotAvailable(schedule, t.id, viewDay, hour, 50, t)
           if (!therapistFree) return false
 
           const roomOk =
@@ -303,6 +347,10 @@ export function ScheduleView(props: ScheduleViewProps) {
             <span className="w-2 h-2 rounded-sm bg-warning" />
             In-Office
           </span>
+          <span className="flex items-center gap-1.5">
+            <Coffee className="w-3 h-3 text-warning/70" />
+            Break
+          </span>
         </div>
       </div>
 
@@ -363,8 +411,12 @@ export function ScheduleView(props: ScheduleViewProps) {
                     {therapists.map((t) => {
                       const sessionId = schedule[viewDay]?.[hour]?.[t.id]
                       const session = sessionId ? sessionById.get(sessionId) : undefined
+                      const tWorkInfo = therapistWorkHours.get(t.id)
+                      const isOutsideWorkHours = tWorkInfo && (hour < tWorkInfo.startHour || hour >= tWorkInfo.endHour)
+                      const isOnBreak = tWorkInfo?.breakHours.includes(hour)
 
-                      const therapistFree = !session && ScheduleManager.isSlotAvailable(schedule, t.id, viewDay, hour)
+                      // Pass therapist to check work hours and lunch breaks
+                      const therapistFree = !session && ScheduleManager.isSlotAvailable(schedule, t.id, viewDay, hour, 50, t)
                       const canClick = therapistFree && roomOk && !isPastSlot && !!onSlotClick
 
                       return (
@@ -373,7 +425,8 @@ export function ScheduleView(props: ScheduleViewProps) {
                           className={cn(
                             'px-3 py-2 border-b border-border',
                             isCurrentHour && 'bg-primary/5',
-                            isPastSlot && !session && 'opacity-50'
+                            isPastSlot && !session && 'opacity-50',
+                            isOutsideWorkHours && 'bg-muted/20'
                           )}
                         >
                           {session ? (
@@ -382,6 +435,15 @@ export function ScheduleView(props: ScheduleViewProps) {
                               compact
                               onClick={onSessionClick ? () => onSessionClick(session) : undefined}
                             />
+                          ) : isOnBreak && !isPastSlot ? (
+                            <div className="w-full min-h-[56px] rounded-lg bg-warning/10 border border-warning/30 flex items-center justify-center gap-2 text-sm text-warning">
+                              <Coffee className="w-4 h-4" />
+                              Break
+                            </div>
+                          ) : isOutsideWorkHours && !isPastSlot ? (
+                            <div className="w-full min-h-[56px] rounded-lg bg-muted/30 flex items-center justify-center text-sm text-muted-foreground/50">
+                              Off
+                            </div>
                           ) : therapistFree && !isPastSlot ? (
                             <button
                               onClick={canClick ? () => onSlotClick(viewDay, hour, t.id) : undefined}
@@ -414,8 +476,11 @@ export function ScheduleView(props: ScheduleViewProps) {
             {timeSlots.map((hour) => {
               const sessionId = schedule[viewDay]?.[hour]?.[activeTherapist.id]
               const session = sessionId ? sessionById.get(sessionId) : undefined
+              const therapistInfo = therapistWorkHours.get(activeTherapist.id)
+              const isOnBreak = therapistInfo?.breakHours.includes(hour)
 
-              const therapistFree = ScheduleManager.isSlotAvailable(schedule, activeTherapist.id, viewDay, hour)
+              // Pass therapist to check work hours and lunch breaks
+              const therapistFree = ScheduleManager.isSlotAvailable(schedule, activeTherapist.id, viewDay, hour, 50, activeTherapist)
               const roomOk =
                 telehealthUnlocked ||
                 !currentBuilding ||
@@ -427,6 +492,28 @@ export function ScheduleView(props: ScheduleViewProps) {
               ).valid
               const isAvailable = !session && therapistFree && roomOk && !isPastSlot
               const isCurrent = viewDay === currentDay && hour === currentHour
+
+              // Show a special break slot if the therapist is on break
+              if (isOnBreak && !session) {
+                return (
+                  <div
+                    key={hour}
+                    className={cn(
+                      'flex items-center gap-4 px-4 py-3',
+                      isCurrent && 'bg-primary/5',
+                      isPastSlot && 'opacity-50'
+                    )}
+                  >
+                    <div className="w-16 text-sm text-muted-foreground shrink-0">
+                      {ScheduleManager.formatHour(hour)}
+                    </div>
+                    <div className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg bg-warning/10 border border-warning/30 text-warning text-sm">
+                      <Coffee className="w-4 h-4" />
+                      Break
+                    </div>
+                  </div>
+                )
+              }
 
               return (
                 <TimeSlot

@@ -84,6 +84,17 @@ interface UIStore {
   skipTutorial: () => void
   completeTutorial: () => void
   setHasSeenTutorial: (seen: boolean) => void
+
+  // Notification inbox
+  inboxNotifications: InboxNotification[]
+  unreadCount: number
+  isInboxOpen: boolean
+  addToInbox: (notification: Omit<Notification, 'id'>, priority?: NotificationPriority) => void
+  markAsRead: (id: string) => void
+  markAllAsRead: () => void
+  clearInbox: () => void
+  toggleInbox: () => void
+  setInboxOpen: (open: boolean) => void
 }
 
 export interface Notification {
@@ -93,6 +104,26 @@ export interface Notification {
   message?: string
   duration?: number // ms, 0 for persistent
 }
+
+/**
+ * Priority levels for inbox notifications
+ * - critical: Shows as toast AND goes to inbox (errors, important warnings)
+ * - normal: Goes to inbox only, increments unread count
+ * - low: Goes to inbox only, does NOT increment unread count
+ */
+export type NotificationPriority = 'critical' | 'normal' | 'low'
+
+export interface InboxNotification extends Notification {
+  timestamp: number
+  isRead: boolean
+  priority: NotificationPriority
+}
+
+/** Max notifications to keep in inbox (FIFO) */
+const MAX_INBOX_NOTIFICATIONS = 100
+
+/** Keywords that indicate a critical warning */
+const CRITICAL_WARNING_KEYWORDS = ['burnout', 'dropped', 'denied', 'failed', 'left', 'at risk']
 
 interface PendingBatch {
   notification: Omit<Notification, 'id'>
@@ -119,6 +150,9 @@ export const useUIStore = create<UIStore>((set, get) => ({
     currentStepIndex: 0,
     hasSeenTutorial: false,
   },
+  inboxNotifications: [],
+  unreadCount: 0,
+  isInboxOpen: false,
 
   // Modal actions
   openModal: (type, props) => {
@@ -208,17 +242,26 @@ export const useUIStore = create<UIStore>((set, get) => ({
     const id = crypto.randomUUID()
     const duration = notification.duration ?? 5000
 
-    set((state) => ({
-      notifications: [...state.notifications, { ...notification, id }],
-    }))
+    // Classify priority for routing
+    const priority = classifyNotificationPriority(notification)
 
-    // Auto-remove after duration (if not persistent)
-    if (duration > 0) {
-      setTimeout(() => {
-        set((state) => ({
-          notifications: state.notifications.filter((n) => n.id !== id),
-        }))
-      }, duration)
+    // Always add to inbox
+    get().addToInbox(notification, priority)
+
+    // Only show as toast if critical
+    if (priority === 'critical') {
+      set((state) => ({
+        notifications: [...state.notifications, { ...notification, id }],
+      }))
+
+      // Auto-remove after duration (if not persistent)
+      if (duration > 0) {
+        setTimeout(() => {
+          set((state) => ({
+            notifications: state.notifications.filter((n) => n.id !== id),
+          }))
+        }, duration)
+      }
     }
   },
 
@@ -351,10 +394,116 @@ export const useUIStore = create<UIStore>((set, get) => ({
       },
     }))
   },
+
+  // Notification inbox actions
+  addToInbox: (notification, priority) => {
+    const id = crypto.randomUUID()
+    const timestamp = Date.now()
+
+    // Auto-classify priority if not provided
+    const classifiedPriority = priority ?? classifyNotificationPriority(notification)
+
+    const inboxNotification: InboxNotification = {
+      ...notification,
+      id,
+      timestamp,
+      isRead: false,
+      priority: classifiedPriority,
+    }
+
+    set((state) => {
+      // FIFO: remove oldest if at max
+      const notifications = [...state.inboxNotifications, inboxNotification]
+      if (notifications.length > MAX_INBOX_NOTIFICATIONS) {
+        notifications.shift()
+      }
+
+      // Only increment unread for non-low priority
+      const unreadIncrement = classifiedPriority !== 'low' ? 1 : 0
+
+      return {
+        inboxNotifications: notifications,
+        unreadCount: state.unreadCount + unreadIncrement,
+      }
+    })
+  },
+
+  markAsRead: (id) => {
+    set((state) => {
+      const notification = state.inboxNotifications.find((n) => n.id === id)
+      if (!notification || notification.isRead) return state
+
+      return {
+        inboxNotifications: state.inboxNotifications.map((n) =>
+          n.id === id ? { ...n, isRead: true } : n
+        ),
+        unreadCount: Math.max(0, state.unreadCount - (notification.priority !== 'low' ? 1 : 0)),
+      }
+    })
+  },
+
+  markAllAsRead: () => {
+    set((state) => ({
+      inboxNotifications: state.inboxNotifications.map((n) => ({ ...n, isRead: true })),
+      unreadCount: 0,
+    }))
+  },
+
+  clearInbox: () => {
+    set({ inboxNotifications: [], unreadCount: 0 })
+  },
+
+  toggleInbox: () => {
+    set((state) => ({ isInboxOpen: !state.isInboxOpen }))
+  },
+
+  setInboxOpen: (open) => {
+    set({ isInboxOpen: open })
+  },
 }))
+
+/**
+ * Classify notification priority based on type and content
+ */
+function classifyNotificationPriority(notification: Omit<Notification, 'id'>): NotificationPriority {
+  // Errors are always critical
+  if (notification.type === 'error') {
+    return 'critical'
+  }
+
+  // Warnings with critical keywords are critical
+  if (notification.type === 'warning') {
+    const text = `${notification.title} ${notification.message ?? ''}`.toLowerCase()
+    if (CRITICAL_WARNING_KEYWORDS.some((keyword) => text.includes(keyword))) {
+      return 'critical'
+    }
+    return 'normal'
+  }
+
+  // Info about session start, client arrival = low priority
+  if (notification.type === 'info') {
+    const title = notification.title.toLowerCase()
+    if (
+      title.includes('session started') ||
+      title.includes('new client') ||
+      title.includes('arrived')
+    ) {
+      return 'low'
+    }
+  }
+
+  // Achievements are normal (go to inbox, not toast)
+  // Success and other info are normal
+  return 'normal'
+}
 
 // Selectors
 export const selectActiveModal = (state: UIStore) => state.activeModal
 export const selectNotifications = (state: UIStore) => state.notifications
 export const selectSchedulingMode = (state: UIStore) => state.schedulingMode
 export const selectTutorialState = (state: UIStore) => state.tutorialState
+export const selectInboxState = (state: UIStore) => ({
+  notifications: state.inboxNotifications,
+  unreadCount: state.unreadCount,
+  isOpen: state.isInboxOpen,
+})

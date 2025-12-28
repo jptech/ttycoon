@@ -474,6 +474,37 @@ When selecting a client for booking, the system automatically populates recurrin
 **Tests**:
 - `tests/unit/components/BookingAutoPopulation.test.tsx` - 10 tests for auto-population behavior
 
+### Office Upgrades
+Incremental office improvements that provide small mechanical bonuses:
+
+**Categories**:
+| Category | Effect | Upgrade Lines |
+|----------|--------|---------------|
+| Energy & Breaks | Faster energy recovery | Coffee Machine, Kitchenette |
+| Session Quality | Boost session outcomes | Artwork, Sound System |
+| Client Comfort | Reduce waiting decay | Waiting Comfort, Refreshments |
+
+**Key Mechanics**:
+- **Per-building**: Upgrades are lost when moving to a new building tier
+- **Tiered progression**: 3 tiers per line (T1 → T2 → T3), prerequisites required
+- **Effect stacking**: Highest tier per line only; different lines combine additively
+- **18 total upgrades** across 6 lines in 3 categories
+
+**Integration Points**:
+- Energy recovery multipliers in `useTherapistEnergyProcessor.ts`
+- Session quality bonus added at session start in `App.tsx`
+- Waiting decay reduction in `ClientManager.processWaitingList()`
+
+**Files**:
+- `src/core/types/office.ts` - Type definitions (OfficeUpgradeId, BuildingUpgradeState, etc.)
+- `src/core/office/upgradeConfigs.ts` - Catalog of 18 upgrades with costs/effects
+- `src/core/office/OfficeUpgradeManager.ts` - Purchase logic, effect aggregation
+- `src/components/game/OfficeUpgradesPanel.tsx` - UI component in Office tab
+- `src/core/engine/SaveManager.ts` - v5 migration for buildingUpgrades state
+
+**Tests**:
+- `tests/unit/core/OfficeUpgradeManager.test.ts` - 31 tests for purchase/effect logic
+
 ## Commands
 
 ```bash
@@ -625,5 +656,5 @@ Always ensure tests for any few code or bugfixes. Keep tests up to date and alwa
 
 ---
 
-**Last Updated**: December 24, 2025
+**Last Updated**: December 27, 2025
 **For questions about this guide**: See README.md or ARCHITECTURE.md
